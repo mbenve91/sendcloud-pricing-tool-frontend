@@ -58,6 +58,7 @@ interface TariffComparisonResultProps {
     suggestedPrice: number
     explanation: string
   }
+  averageWeight: number
 }
 
 export function TariffComparisonResult({
@@ -78,6 +79,7 @@ export function TariffComparisonResult({
   maxDiscount,
   carriersData,
   recommendation,
+  averageWeight,
 }: TariffComparisonResultProps) {
   const [selectedCourier, setSelectedCourier] = useState(recommendation.carrierName)
   const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
@@ -96,7 +98,7 @@ export function TariffComparisonResult({
     if (carrier) {
       // Trova il servizio appropriato per il peso corrente
       const appropriateService = carrier.services.find(s => 
-        averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
+        s.weightRange && averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
       )
       
       if (appropriateService) {
@@ -230,7 +232,8 @@ export function TariffComparisonResult({
                       </TableHeader>
                       <TableBody>
                         {carriersData.find(c => c.name === selectedCourier)?.services.map((service, index) => {
-                          // Calcola lo stesso livello di sconto per tutte le fasce
+                          if (!service.weightRange) return null;
+                          
                           const discountPercentage = (retailPrice - currentPrice) / (retailPrice - purchasePrice)
                           const discountedPrice = service.retailPrice - (discountPercentage * (service.retailPrice - service.purchasePrice))
                           

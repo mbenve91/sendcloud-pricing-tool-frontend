@@ -291,6 +291,7 @@ export default function SendcloudTariffComparison() {
                     currentCourier: formData.currentCourier,
                     ecommerceUrl: formData.ecommerceUrl || undefined
                   }}
+                  averageWeight={formData.averageWeight}
                 />
               )}
             </>
