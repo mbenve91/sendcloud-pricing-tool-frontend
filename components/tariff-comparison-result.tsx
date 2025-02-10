@@ -48,10 +48,19 @@ export function TariffComparisonResult({
   fuelSurcharge,
   isVolumetric,
   onGenerateProposal,
-  availableCarriers,
+  availableCarriers = [],
   monthlyShipments,
   maxDiscount,
-}: TariffComparisonResultProps) {
+  clientData,
+}: TariffComparisonResultProps & {
+  clientData: {
+    verticalMarket: string
+    monthlyShipments: number
+    averageWeight: number
+    currentCourier: string
+    ecommerceUrl?: string
+  }
+}) {
   const [selectedCourier, setSelectedCourier] = useState(suggestedCourier)
   const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
   const [currentMonthlyProfit, setCurrentMonthlyProfit] = useState(monthlyProfit)
@@ -97,131 +106,111 @@ export function TariffComparisonResult({
   }, [isExpanded])
 
   return (
-    <Card className="w-full max-w-lg">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold">Analysis</CardTitle>
-          <div className="flex gap-2">
-            <Badge variant="secondary">{weightRange}</Badge>
-            {isVolumetric && <Badge variant="outline">Volumetrico</Badge>}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-medium">Customer Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Vertical Market:</span>
+                <span className="font-medium">{clientData.verticalMarket}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monthly Volume:</span>
+                <span className="font-medium">{clientData.monthlyShipments} shipments</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Average Weight:</span>
+                <span className="font-medium">{clientData.averageWeight} kg</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current Courier:</span>
+                <span className="font-medium">{clientData.currentCourier}</span>
+              </div>
+            </div>
+            {clientData.ecommerceUrl && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">E-commerce URL:</span>
+                <a href={clientData.ecommerceUrl} target="_blank" rel="noopener noreferrer" 
+                   className="ml-2 text-blue-600 hover:underline">
+                  {clientData.ecommerceUrl}
+                </a>
+              </div>
+            )}
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Selected Courier</label>
-          <Select value={selectedCourier} onValueChange={handleCourierChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a courier" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableCarriers.map(carrier => (
-                <SelectItem key={carrier.id} value={carrier.name}>
-                  {carrier.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Tariffa Suggerita</label>
-          <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold">€{currentPrice.toFixed(2)}</span>
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant="outline" className="text-sm">
-                Prezzo Base: €{retailPrice.toFixed(2)}
-              </Badge>
-              {fuelSurcharge > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  +{fuelSurcharge}% carburante
-                </span>
-              )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-medium">Rate Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Selected Courier</label>
+            <Select value={selectedCourier} onValueChange={handleCourierChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a courier" />
+              </SelectTrigger>
+              <SelectContent>
+                {(availableCarriers || []).map(carrier => (
+                  <SelectItem key={carrier.id} value={carrier.name}>
+                    {carrier.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-6 mt-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Suggested Price</label>
+              <Slider
+                min={minPrice}
+                max={retailPrice}
+                step={0.01}
+                value={[currentPrice]}
+                onValueChange={handlePriceChange}
+                defaultValue={[suggestedPrice]}
+              />
+              <div className="flex justify-between text-sm">
+                <span>Min: €{minPrice.toFixed(2)}</span>
+                <span>Max: €{retailPrice.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium">Monthly Savings</h4>
+                <p className="text-2xl font-bold text-green-600">
+                  €{currentMonthlySavings.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Monthly Profit</h4>
+                <p className="text-2xl font-bold text-blue-600">
+                  €{currentMonthlyProfit.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-muted p-4 rounded-lg">
+              <h4 className="font-medium mb-2">AI Recommendation</h4>
+              <p className="text-sm text-muted-foreground">{explanation}</p>
             </div>
           </div>
-          <Slider
-            min={minPrice}
-            max={retailPrice}
-            step={0.01}
-            value={[currentPrice]}
-            onValueChange={handlePriceChange}
-            defaultValue={[suggestedPrice]}
-          />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Min: €{minPrice.toFixed(2)}</span>
-            <span>Max: €{retailPrice.toFixed(2)}</span>
-          </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Risparmio Mensile</span>
-            <div className="flex items-center">
-              <TrendingDown className="w-4 h-4 mr-2 text-green-500" />
-              <span className="text-2xl font-bold">€{currentMonthlySavings.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Profitto Mensile</span>
-            <div className="flex items-center">
-              <TrendingUp className="w-4 h-4 mr-2 text-blue-500" />
-              <span className="text-2xl font-bold">€{currentMonthlyProfit.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <Button variant="outline" onClick={toggleExpand} className="w-full flex items-center justify-between">
-            <span>View All Weight Ranges</span>
-            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-          </Button>
-          <motion.div
-            style={{ height: contentHeight }}
-            animate={{ height: contentHeight }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="overflow-hidden"
-          >
-            <div ref={contentRef}>
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pt-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Weight Range</TableHead>
-                          <TableHead>Retail Price</TableHead>
-                          <TableHead>Purchase Price</TableHead>
-                          <TableHead>Margin</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {allTariffs.map((tariff, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{tariff.range}</TableCell>
-                            <TableCell>€{tariff.retailPrice.toFixed(2)}</TableCell>
-                            <TableCell>€{tariff.purchasePrice.toFixed(2)}</TableCell>
-                            <TableCell>€{tariff.margin.toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="bg-muted p-3 rounded-lg text-sm">
-          <p>{explanation}</p>
-        </div>
-
-        <Button className="w-full" onClick={onGenerateProposal}>
-          Genera Proposta
-          <ArrowRight className="ml-2 h-5 w-5" />
-        </Button>
-      </CardContent>
-    </Card>
+      <Button onClick={onGenerateProposal} className="w-full">
+        Generate Proposal
+      </Button>
+    </div>
   )
 }
 

@@ -34,6 +34,8 @@ interface TariffAnalysisResult {
   fuelSurcharge: number
   isVolumetric: boolean
   explanation: string
+  availableCarriers: { id: string; name: string }[]
+  maxDiscount: number
 }
 
 const allTariffs = [
@@ -116,15 +118,15 @@ export default function SendcloudTariffComparison() {
       })
 
       if (!response.ok) {
-        throw new Error('Errore nella richiesta')
+        throw new Error('Request failed')
       }
 
       const result = await response.json()
       setAnalysisResult(result)
       setShowResults(true)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Errore sconosciuto')
-      console.error('Errore:', error)
+      setError(error instanceof Error ? error.message : 'Unknown error')
+      console.error('Error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -255,7 +257,7 @@ export default function SendcloudTariffComparison() {
               {isLoading && (
                 <div className="text-center py-4">
                   <span className="loading loading-spinner loading-lg"></span>
-                  <p>Analisi in corso...</p>
+                  <p>Analyzing data...</p>
                 </div>
               )}
 
@@ -278,7 +280,17 @@ export default function SendcloudTariffComparison() {
                   explanation={analysisResult.explanation}
                   fuelSurcharge={analysisResult.fuelSurcharge}
                   isVolumetric={analysisResult.isVolumetric}
+                  availableCarriers={analysisResult.availableCarriers}
+                  monthlyShipments={parseInt(formData.monthlyShipments)}
+                  maxDiscount={analysisResult.maxDiscount}
                   onGenerateProposal={handleGenerateProposal}
+                  clientData={{
+                    verticalMarket: formData.verticalMarket,
+                    monthlyShipments: parseInt(formData.monthlyShipments),
+                    averageWeight: parseFloat(formData.averageWeight),
+                    currentCourier: formData.currentCourier,
+                    ecommerceUrl: formData.ecommerceUrl || undefined
+                  }}
                 />
               )}
             </>
