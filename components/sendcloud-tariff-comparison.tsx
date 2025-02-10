@@ -18,6 +18,24 @@ interface FormSection {
   children: React.ReactNode
 }
 
+interface TariffAnalysisResult {
+  carrierName: string
+  serviceName: string
+  basePrice: number
+  suggestedPrice: number
+  purchasePrice: number
+  margin: number
+  monthlyProfit: number
+  monthlySavings: number
+  weightRange: {
+    min: number
+    max: number
+  }
+  fuelSurcharge: number
+  isVolumetric: boolean
+  explanation: string
+}
+
 const allTariffs = [
   { range: "0-2kg", retailPrice: 5.5, purchasePrice: 4.49, margin: 1.01 },
   { range: "2-5kg", retailPrice: 5.8, purchasePrice: 4.79, margin: 1.01 },
@@ -62,8 +80,12 @@ export default function SendcloudTariffComparison() {
     averageWeight: "",
     currentCourier: "",
     email: "",
+    weightType: "weight"
   })
   const [showResults, setShowResults] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<TariffAnalysisResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [showChat, setShowChat] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,10 +93,39 @@ export default function SendcloudTariffComparison() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Form submitted:", formData)
-    setShowResults(true)
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/carriers/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          monthlyShipments: parseInt(formData.monthlyShipments),
+          averageWeight: parseFloat(formData.averageWeight),
+          isVolumetric: formData.weightType === "volume",
+          verticalMarket: formData.verticalMarket,
+          currentCourier: formData.currentCourier
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Errore nella richiesta')
+      }
+
+      const result = await response.json()
+      setAnalysisResult(result)
+      setShowResults(true)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Errore sconosciuto')
+      console.error('Errore:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleGenerateProposal = () => {
@@ -190,7 +241,7 @@ export default function SendcloudTariffComparison() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                  <Button type="submit" size="lg" className="w-full">
+                  <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
                     Submit
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
@@ -198,17 +249,37 @@ export default function SendcloudTariffComparison() {
               </CardContent>
             </Card>
           ) : (
-            <TariffComparisonResult
-              suggestedCourier="sendcloud"
-              weightRange="0-2kg"
-              retailPrice={5.5}
-              purchasePrice={4.49}
-              margin={1.01}
-              monthlySavings={100}
-              monthlyMargin={50}
-              allTariffs={allTariffs}
-              onGenerateProposal={handleGenerateProposal}
-            />
+            <>
+              {isLoading && (
+                <div className="text-center py-4">
+                  <span className="loading loading-spinner loading-lg"></span>
+                  <p>Analisi in corso...</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="alert alert-error my-4">
+                  {error}
+                </div>
+              )}
+
+              {analysisResult && (
+                <TariffComparisonResult
+                  suggestedCourier={analysisResult.carrierName}
+                  weightRange={`${analysisResult.weightRange.min}-${analysisResult.weightRange.max}kg`}
+                  retailPrice={analysisResult.basePrice}
+                  suggestedPrice={analysisResult.suggestedPrice}
+                  purchasePrice={analysisResult.purchasePrice}
+                  margin={analysisResult.margin}
+                  monthlyProfit={analysisResult.monthlyProfit}
+                  monthlySavings={analysisResult.monthlySavings}
+                  explanation={analysisResult.explanation}
+                  fuelSurcharge={analysisResult.fuelSurcharge}
+                  isVolumetric={analysisResult.isVolumetric}
+                  onGenerateProposal={handleGenerateProposal}
+                />
+              )}
+            </>
           )}
         </motion.div>
         <AnimatePresence>

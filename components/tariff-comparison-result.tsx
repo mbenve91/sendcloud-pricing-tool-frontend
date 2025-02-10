@@ -21,11 +21,14 @@ interface TariffComparisonResultProps {
   suggestedCourier: string
   weightRange: string
   retailPrice: number
+  suggestedPrice: number
   purchasePrice: number
   margin: number
+  monthlyProfit: number
   monthlySavings: number
-  monthlyMargin: number
-  allTariffs: TariffRange[]
+  explanation: string
+  fuelSurcharge: number
+  isVolumetric: boolean
   onGenerateProposal: () => void
 }
 
@@ -33,15 +36,21 @@ export function TariffComparisonResult({
   suggestedCourier,
   weightRange,
   retailPrice,
+  suggestedPrice,
   purchasePrice,
   margin,
+  monthlyProfit,
   monthlySavings,
-  monthlyMargin,
-  allTariffs,
+  explanation,
+  fuelSurcharge,
+  isVolumetric,
   onGenerateProposal,
 }: TariffComparisonResultProps) {
   const [selectedCourier, setSelectedCourier] = useState(suggestedCourier)
-  const [currentPrice, setCurrentPrice] = useState(retailPrice)
+  const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
+  const [currentMonthlyProfit, setCurrentMonthlyProfit] = useState(monthlyProfit)
+  const [currentMonthlySavings, setCurrentMonthlySavings] = useState(monthlySavings)
+  const [currentMargin, setCurrentMargin] = useState(margin)
   const [isExpanded, setIsExpanded] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
@@ -54,7 +63,25 @@ export function TariffComparisonResult({
   }
 
   const handlePriceChange = (value: number[]) => {
-    setCurrentPrice(value[0])
+    const newPrice = value[0]
+    setCurrentPrice(newPrice)
+    
+    // Calcola il nuovo margine
+    const newMargin = newPrice - purchasePrice
+    setCurrentMargin(newMargin)
+    
+    // Ricalcola il profitto mensile basato sul nuovo prezzo
+    // Assumiamo che monthlyProfit sia basato su suggestedPrice
+    const shipments = monthlyProfit / (suggestedPrice - purchasePrice)
+    const newMonthlyProfit = newMargin * shipments
+    setCurrentMonthlyProfit(newMonthlyProfit)
+    
+    // Ricalcola i risparmi mensili
+    // Assumiamo che monthlySavings sia basato su retailPrice
+    const originalSavingsPerUnit = retailPrice - suggestedPrice
+    const newSavingsPerUnit = retailPrice - newPrice
+    const newMonthlySavings = (newSavingsPerUnit / originalSavingsPerUnit) * monthlySavings
+    setCurrentMonthlySavings(newMonthlySavings)
   }
 
   const toggleExpand = () => {
@@ -71,10 +98,11 @@ export function TariffComparisonResult({
     <Card className="w-full max-w-lg">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold">Tariff Comparison</CardTitle>
-          <Badge variant="secondary" className="text-sm">
-            {weightRange}
-          </Badge>
+          <CardTitle className="text-xl font-bold">Analisi Tariffe</CardTitle>
+          <div className="flex gap-2">
+            <Badge variant="secondary">{weightRange}</Badge>
+            {isVolumetric && <Badge variant="outline">Volumetrico</Badge>}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -94,12 +122,19 @@ export function TariffComparisonResult({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Tariff for {weightRange}</label>
+          <label className="text-sm font-medium">Tariffa Suggerita</label>
           <div className="flex items-center justify-between">
             <span className="text-2xl font-bold">€{currentPrice.toFixed(2)}</span>
-            <Badge variant="outline" className="text-sm">
-              Retail Price: €{retailPrice.toFixed(2)}
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="outline" className="text-sm">
+                Prezzo Base: €{retailPrice.toFixed(2)}
+              </Badge>
+              {fuelSurcharge > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  +{fuelSurcharge}% carburante
+                </span>
+              )}
+            </div>
           </div>
           <Slider
             min={purchasePrice}
@@ -116,17 +151,17 @@ export function TariffComparisonResult({
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Monthly Savings</span>
+            <span className="text-sm text-muted-foreground">Risparmio Mensile</span>
             <div className="flex items-center">
               <TrendingDown className="w-4 h-4 mr-2 text-green-500" />
-              <span className="text-2xl font-bold">€{monthlySavings.toFixed(2)}</span>
+              <span className="text-2xl font-bold">€{currentMonthlySavings.toFixed(2)}</span>
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Sendcloud Margin</span>
+            <span className="text-sm text-muted-foreground">Profitto Mensile</span>
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 mr-2 text-blue-500" />
-              <span className="text-2xl font-bold">€{monthlyMargin.toFixed(2)}</span>
+              <span className="text-2xl font-bold">€{currentMonthlyProfit.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -173,8 +208,12 @@ export function TariffComparisonResult({
           </motion.div>
         </div>
 
+        <div className="bg-muted p-3 rounded-lg text-sm">
+          <p>{explanation}</p>
+        </div>
+
         <Button className="w-full" onClick={onGenerateProposal}>
-          Generate Proposal
+          Genera Proposta
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </CardContent>
