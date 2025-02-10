@@ -36,6 +36,29 @@ interface TariffAnalysisResult {
   explanation: string
   availableCarriers: { id: string; name: string }[]
   maxDiscount: number
+  carriersData: {
+    id: string
+    name: string
+    services: {
+      range: string
+      retailPrice: number
+      purchasePrice: number
+      margin: number
+      weightRange: {
+        min: number
+        max: number
+      }
+    }[]
+    fuelSurcharge: number
+    isVolumetric: boolean
+  }[]
+  recommendation?: {
+    carrierName: string
+    serviceName: string
+    basePrice: number
+    suggestedPrice: number
+    explanation: string
+  }
 }
 
 const allTariffs = [
@@ -122,7 +145,23 @@ export default function SendcloudTariffComparison() {
       }
 
       const result = await response.json()
-      setAnalysisResult(result)
+      setAnalysisResult({
+        carrierName: result.recommendation.carrierName,
+        serviceName: result.recommendation.serviceName,
+        basePrice: result.recommendation.basePrice,
+        suggestedPrice: result.recommendation.suggestedPrice,
+        purchasePrice: result.recommendation.purchasePrice,
+        margin: result.recommendation.margin,
+        monthlyProfit: result.recommendation.monthlyProfit,
+        monthlySavings: result.recommendation.monthlySavings,
+        weightRange: result.recommendation.weightRange,
+        fuelSurcharge: result.recommendation.fuelSurcharge,
+        isVolumetric: result.recommendation.isVolumetric,
+        explanation: result.recommendation.explanation,
+        availableCarriers: result.availableCarriers,
+        maxDiscount: result.maxDiscount,
+        carriersData: result.carriersData
+      })
       setShowResults(true)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unknown error')
@@ -283,6 +322,15 @@ export default function SendcloudTariffComparison() {
                   availableCarriers={analysisResult.availableCarriers}
                   monthlyShipments={parseInt(formData.monthlyShipments)}
                   maxDiscount={analysisResult.maxDiscount}
+                  carriersData={analysisResult.carriersData}
+                  recommendation={analysisResult.recommendation || {
+                    carrierName: analysisResult.carrierName,
+                    serviceName: analysisResult.serviceName,
+                    basePrice: analysisResult.basePrice,
+                    suggestedPrice: analysisResult.suggestedPrice,
+                    explanation: analysisResult.explanation
+                  }}
+                  averageWeight={parseFloat(formData.averageWeight)}
                   onGenerateProposal={handleGenerateProposal}
                   clientData={{
                     verticalMarket: formData.verticalMarket,
@@ -291,7 +339,6 @@ export default function SendcloudTariffComparison() {
                     currentCourier: formData.currentCourier,
                     ecommerceUrl: formData.ecommerceUrl || undefined
                   }}
-                  averageWeight={formData.averageWeight}
                 />
               )}
             </>
