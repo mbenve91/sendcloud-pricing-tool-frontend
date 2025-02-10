@@ -30,6 +30,9 @@ interface TariffComparisonResultProps {
   fuelSurcharge: number
   isVolumetric: boolean
   onGenerateProposal: () => void
+  availableCarriers: { id: string; name: string }[]
+  monthlyShipments: number
+  maxDiscount: number
 }
 
 export function TariffComparisonResult({
@@ -45,6 +48,9 @@ export function TariffComparisonResult({
   fuelSurcharge,
   isVolumetric,
   onGenerateProposal,
+  availableCarriers,
+  monthlyShipments,
+  maxDiscount,
 }: TariffComparisonResultProps) {
   const [selectedCourier, setSelectedCourier] = useState(suggestedCourier)
   const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
@@ -55,7 +61,7 @@ export function TariffComparisonResult({
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
 
-  const maxDiscount = margin * 0.9
+  const minPrice = purchasePrice + (margin * 0.1)
 
   const handleCourierChange = (value: string) => {
     setSelectedCourier(value)
@@ -70,17 +76,13 @@ export function TariffComparisonResult({
     const newMargin = newPrice - purchasePrice
     setCurrentMargin(newMargin)
     
-    // Ricalcola il profitto mensile basato sul nuovo prezzo
-    // Assumiamo che monthlyProfit sia basato su suggestedPrice
-    const shipments = monthlyProfit / (suggestedPrice - purchasePrice)
-    const newMonthlyProfit = newMargin * shipments
+    // Ricalcola il profitto mensile
+    const newMonthlyProfit = newMargin * monthlyShipments
     setCurrentMonthlyProfit(newMonthlyProfit)
     
     // Ricalcola i risparmi mensili
-    // Assumiamo che monthlySavings sia basato su retailPrice
-    const originalSavingsPerUnit = retailPrice - suggestedPrice
-    const newSavingsPerUnit = retailPrice - newPrice
-    const newMonthlySavings = (newSavingsPerUnit / originalSavingsPerUnit) * monthlySavings
+    const savingsPerShipment = retailPrice - newPrice
+    const newMonthlySavings = savingsPerShipment * monthlyShipments
     setCurrentMonthlySavings(newMonthlySavings)
   }
 
@@ -98,7 +100,7 @@ export function TariffComparisonResult({
     <Card className="w-full max-w-lg">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold">Analisi Tariffe</CardTitle>
+          <CardTitle className="text-xl font-bold">Analysis</CardTitle>
           <div className="flex gap-2">
             <Badge variant="secondary">{weightRange}</Badge>
             {isVolumetric && <Badge variant="outline">Volumetrico</Badge>}
@@ -113,10 +115,11 @@ export function TariffComparisonResult({
               <SelectValue placeholder="Select a courier" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="sendcloud">Sendcloud</SelectItem>
-              <SelectItem value="dhl">DHL</SelectItem>
-              <SelectItem value="ups">UPS</SelectItem>
-              {/* Add more courier options as needed */}
+              {availableCarriers.map(carrier => (
+                <SelectItem key={carrier.id} value={carrier.name}>
+                  {carrier.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -137,14 +140,15 @@ export function TariffComparisonResult({
             </div>
           </div>
           <Slider
-            min={purchasePrice}
+            min={minPrice}
             max={retailPrice}
             step={0.01}
             value={[currentPrice]}
             onValueChange={handlePriceChange}
+            defaultValue={[suggestedPrice]}
           />
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Min: €{purchasePrice.toFixed(2)}</span>
+            <span>Min: €{minPrice.toFixed(2)}</span>
             <span>Max: €{retailPrice.toFixed(2)}</span>
           </div>
         </div>
