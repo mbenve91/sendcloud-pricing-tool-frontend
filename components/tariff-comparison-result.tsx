@@ -17,6 +17,23 @@ interface TariffRange {
   margin: number
 }
 
+interface CarrierData {
+  id: string
+  name: string
+  services: {
+    range: string
+    retailPrice: number
+    purchasePrice: number
+    margin: number
+    weightRange: {
+      min: number
+      max: number
+    }
+  }[]
+  fuelSurcharge: number
+  isVolumetric: boolean
+}
+
 interface TariffComparisonResultProps {
   suggestedCourier: string
   weightRange: string
@@ -33,6 +50,14 @@ interface TariffComparisonResultProps {
   availableCarriers: { id: string; name: string }[]
   monthlyShipments: number
   maxDiscount: number
+  carriersData: CarrierData[]
+  recommendation: {
+    carrierName: string
+    serviceName: string
+    basePrice: number
+    suggestedPrice: number
+    explanation: string
+  }
 }
 
 export function TariffComparisonResult({
@@ -51,8 +76,10 @@ export function TariffComparisonResult({
   availableCarriers = [],
   monthlyShipments,
   maxDiscount,
+  carriersData,
+  recommendation,
 }: TariffComparisonResultProps) {
-  const [selectedCourier, setSelectedCourier] = useState(suggestedCourier)
+  const [selectedCourier, setSelectedCourier] = useState(recommendation.carrierName)
   const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
   const [currentMonthlyProfit, setCurrentMonthlyProfit] = useState(monthlyProfit)
   const [currentMonthlySavings, setCurrentMonthlySavings] = useState(monthlySavings)
@@ -65,22 +92,29 @@ export function TariffComparisonResult({
 
   const handleCourierChange = (value: string) => {
     setSelectedCourier(value)
-    // In a real scenario, you would fetch new prices for the selected courier
+    const carrier = carriersData.find(c => c.name === value)
+    if (carrier) {
+      // Trova il servizio appropriato per il peso corrente
+      const appropriateService = carrier.services.find(s => 
+        averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
+      )
+      
+      if (appropriateService) {
+        setCurrentPrice(appropriateService.retailPrice)
+        setCurrentMargin(appropriateService.margin)
+        // Ricalcola profitti e risparmi
+        updateCalculations(appropriateService.retailPrice, appropriateService.purchasePrice)
+      }
+    }
   }
 
-  const handlePriceChange = (value: number[]) => {
-    const newPrice = value[0]
-    setCurrentPrice(newPrice)
-    
-    // Calcola il nuovo margine
+  const updateCalculations = (newPrice: number, purchasePrice: number) => {
     const newMargin = newPrice - purchasePrice
     setCurrentMargin(newMargin)
     
-    // Ricalcola il profitto mensile
     const newMonthlyProfit = newMargin * monthlyShipments
     setCurrentMonthlyProfit(newMonthlyProfit)
     
-    // Ricalcola i risparmi mensili
     const savingsPerShipment = retailPrice - newPrice
     const newMonthlySavings = savingsPerShipment * monthlyShipments
     setCurrentMonthlySavings(newMonthlySavings)
@@ -144,7 +178,7 @@ export function TariffComparisonResult({
             max={retailPrice}
             step={0.01}
             value={[currentPrice]}
-            onValueChange={handlePriceChange}
+            onValueChange={handleCourierChange}
             defaultValue={[suggestedPrice]}
           />
           <div className="flex justify-between text-sm text-muted-foreground">
@@ -189,20 +223,26 @@ export function TariffComparisonResult({
                       <TableHeader>
                         <TableRow>
                           <TableHead>Weight Range</TableHead>
-                          <TableHead>Retail Price</TableHead>
-                          <TableHead>Purchase Price</TableHead>
+                          <TableHead>List Price</TableHead>
+                          <TableHead>Discounted Price</TableHead>
                           <TableHead>Margin</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {allTariffs.map((tariff, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{tariff.range}</TableCell>
-                            <TableCell>€{tariff.retailPrice.toFixed(2)}</TableCell>
-                            <TableCell>€{tariff.purchasePrice.toFixed(2)}</TableCell>
-                            <TableCell>€{tariff.margin.toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
+                        {carriersData.find(c => c.name === selectedCourier)?.services.map((service, index) => {
+                          // Calcola lo stesso livello di sconto per tutte le fasce
+                          const discountPercentage = (retailPrice - currentPrice) / (retailPrice - purchasePrice)
+                          const discountedPrice = service.retailPrice - (discountPercentage * (service.retailPrice - service.purchasePrice))
+                          
+                          return (
+                            <TableRow key={index}>
+                              <TableCell>{service.range}</TableCell>
+                              <TableCell>€{service.retailPrice.toFixed(2)}</TableCell>
+                              <TableCell>€{discountedPrice.toFixed(2)}</TableCell>
+                              <TableCell>€{(discountedPrice - service.purchasePrice).toFixed(2)}</TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </motion.div>
