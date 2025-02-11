@@ -140,7 +140,14 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        const newPrice = calculatePriceWithSurcharge(appropriateService.retailPrice)
+        const basePrice = checked ? 
+          currentPrice / (1 + currentCarrier.fuelSurcharge/100) : 
+          currentPrice * (1 + currentCarrier.fuelSurcharge/100)
+        
+        const newPrice = checked ? 
+          basePrice * (1 + currentCarrier.fuelSurcharge/100) : 
+          basePrice
+        
         setCurrentPrice(newPrice)
         updateCalculations(newPrice, appropriateService.purchasePrice)
       }
