@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowRight, TrendingDown, TrendingUp, ChevronDown, EuroIcon, PiggyBank, ChevronUp } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
 
 interface TariffRange {
   range: string
@@ -130,7 +131,10 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        const finalPrice = calculatePriceWithSurcharge(newBasePrice, currentCarrier.fuelSurcharge)
+        const finalPrice = includeFuelSurcharge ? 
+          newBasePrice * (1 + currentCarrier.fuelSurcharge/100) : 
+          newBasePrice
+        
         setCurrentPrice(finalPrice)
         updateCalculations(finalPrice, appropriateService.purchasePrice)
       }
@@ -141,7 +145,10 @@ export function TariffComparisonResult({
     setIncludeFuelSurcharge(checked)
     const currentCarrier = carriersData.find(c => c.name === selectedCourier)
     if (currentCarrier) {
-      const finalPrice = calculatePriceWithSurcharge(basePrice, currentCarrier.fuelSurcharge)
+      const finalPrice = checked ? 
+        basePrice * (1 + currentCarrier.fuelSurcharge/100) : 
+        basePrice
+      
       setCurrentPrice(finalPrice)
       
       const appropriateService = currentCarrier.services.find(s => 
@@ -213,17 +220,12 @@ export function TariffComparisonResult({
           <label className="text-sm font-medium">Suggested Rate</label>
           <div className="flex items-center justify-between">
             <span className="text-2xl font-bold">€{currentPrice.toFixed(2)}</span>
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant="outline" className="text-sm">
-                Base Price: €{basePrice.toFixed(2)}
-              </Badge>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Fuel Surcharge ({fuelSurcharge}%)</span>
-                <Switch
-                  checked={includeFuelSurcharge}
-                  onCheckedChange={handleFuelSurchargeToggle}
-                />
-              </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Fuel Surcharge ({carriersData.find(c => c.name === selectedCourier)?.fuelSurcharge ?? 0}%)</span>
+              <Switch
+                checked={includeFuelSurcharge}
+                onCheckedChange={handleFuelSurchargeToggle}
+              />
             </div>
           </div>
           <Slider
@@ -293,9 +295,33 @@ export function TariffComparisonResult({
                           const discountPercentage = (retailPrice - currentPrice) / (retailPrice - purchasePrice)
                           const discountedPrice = service.retailPrice - (discountPercentage * (service.retailPrice - service.purchasePrice))
                           
+                          const isCurrentRange = 
+                            averageWeight >= service.weightRange.min && 
+                            averageWeight <= service.weightRange.max
+
                           return (
-                            <TableRow key={index}>
-                              <TableCell>{service.range}</TableCell>
+                            <TableRow 
+                              key={index}
+                              className={cn(
+                                "transition-colors duration-200",
+                                isCurrentRange && "bg-primary/5 relative",
+                              )}
+                            >
+                              <TableCell className="flex items-center gap-2">
+                                {isCurrentRange && (
+                                  <div className="absolute left-0 w-1 h-full bg-primary" />
+                                )}
+                                <span className={cn(
+                                  isCurrentRange && "font-medium text-primary"
+                                )}>
+                                  {service.range}
+                                </span>
+                                {isCurrentRange && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Current
+                                  </Badge>
+                                )}
+                              </TableCell>
                               <TableCell>€{service.retailPrice.toFixed(2)}</TableCell>
                               <TableCell>€{discountedPrice.toFixed(2)}</TableCell>
                               <TableCell>€{(discountedPrice - service.purchasePrice).toFixed(2)}</TableCell>
@@ -317,14 +343,14 @@ export function TariffComparisonResult({
         >
           <motion.p
             ref={explanationRef}
-            className={`${!isExplanationExpanded ? "line-clamp-2" : ""}`}
+            className={`${!isExplanationExpanded ? "line-clamp-2 relative after:absolute after:bottom-0 after:right-0 after:left-0 after:h-6 after:bg-gradient-to-t after:from-muted after:to-transparent" : ""}`}
             animate={{ height: isExplanationExpanded ? "auto" : "3em" }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             {explanation}
           </motion.p>
           <motion.div
-            className="absolute bottom-0 left-0 right-0 flex justify-center"
+            className="absolute bottom-1 right-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -333,17 +359,11 @@ export function TariffComparisonResult({
               variant="ghost"
               size="sm"
               onClick={() => setIsExplanationExpanded(!isExplanationExpanded)}
-              className="text-xs hover:bg-muted-foreground/10"
+              className="h-6 w-6 p-0 hover:bg-muted-foreground/10"
             >
-              {isExplanationExpanded ? (
-                <span className="flex items-center gap-1">
-                  Mostra meno <ChevronUp className="h-3 w-3" />
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  Mostra di più <ChevronDown className="h-3 w-3" />
-                </span>
-              )}
+              <ChevronDown 
+                className={`h-4 w-4 transition-transform duration-200 ${isExplanationExpanded ? "rotate-180" : ""}`}
+              />
             </Button>
           </motion.div>
         </motion.div>
