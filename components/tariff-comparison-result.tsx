@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, TrendingDown, TrendingUp, ChevronDown } from "lucide-react"
+import { ArrowRight, TrendingDown, TrendingUp, ChevronDown, EuroIcon, PiggyBank } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Switch } from "@/components/ui/switch"
 
 interface TariffRange {
   range: string
@@ -87,10 +88,15 @@ export function TariffComparisonResult({
   const [currentMonthlySavings, setCurrentMonthlySavings] = useState(monthlySavings)
   const [currentMargin, setCurrentMargin] = useState(margin)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
 
   const minPrice = purchasePrice + (margin * 0.1)
+
+  const calculatePriceWithSurcharge = (basePrice: number) => {
+    return includeFuelSurcharge ? basePrice * (1 + fuelSurcharge/100) : basePrice
+  }
 
   const handleCourierChange = (value: string) => {
     setSelectedCourier(value)
@@ -101,9 +107,10 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        setCurrentPrice(appropriateService.retailPrice)
+        const priceWithSurcharge = calculatePriceWithSurcharge(appropriateService.retailPrice)
+        setCurrentPrice(priceWithSurcharge)
         setCurrentMargin(appropriateService.margin)
-        updateCalculations(appropriateService.retailPrice, appropriateService.purchasePrice)
+        updateCalculations(priceWithSurcharge, appropriateService.purchasePrice)
       }
     }
   }
@@ -112,7 +119,6 @@ export function TariffComparisonResult({
     const newPrice = values[0]
     setCurrentPrice(newPrice)
     
-    // Trova il carrier corrente e il suo prezzo di acquisto
     const currentCarrier = carriersData.find(c => c.name === selectedCourier)
     if (currentCarrier) {
       const appropriateService = currentCarrier.services.find(s => 
@@ -120,6 +126,22 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
+        updateCalculations(newPrice, appropriateService.purchasePrice)
+      }
+    }
+  }
+
+  const handleFuelSurchargeToggle = (checked: boolean) => {
+    setIncludeFuelSurcharge(checked)
+    const currentCarrier = carriersData.find(c => c.name === selectedCourier)
+    if (currentCarrier) {
+      const appropriateService = currentCarrier.services.find(s => 
+        s.weightRange && averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
+      )
+      
+      if (appropriateService) {
+        const newPrice = calculatePriceWithSurcharge(appropriateService.retailPrice)
+        setCurrentPrice(newPrice)
         updateCalculations(newPrice, appropriateService.purchasePrice)
       }
     }
@@ -154,7 +176,7 @@ export function TariffComparisonResult({
           <CardTitle className="text-xl font-bold">Analysis</CardTitle>
           <div className="flex gap-2">
             <Badge variant="secondary">{weightRange}</Badge>
-            {isVolumetric && <Badge variant="outline">Volumetrico</Badge>}
+            {isVolumetric && <Badge variant="outline">Volumetric</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -176,18 +198,20 @@ export function TariffComparisonResult({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Tariffa Suggerita</label>
+          <label className="text-sm font-medium">Suggested Rate</label>
           <div className="flex items-center justify-between">
             <span className="text-2xl font-bold">€{currentPrice.toFixed(2)}</span>
             <div className="flex flex-col items-end gap-1">
               <Badge variant="outline" className="text-sm">
-                Prezzo Base: €{retailPrice.toFixed(2)}
+                Base Price: €{retailPrice.toFixed(2)}
               </Badge>
-              {fuelSurcharge > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  +{fuelSurcharge}% carburante
-                </span>
-              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Fuel Surcharge ({fuelSurcharge}%)</span>
+                <Switch
+                  checked={includeFuelSurcharge}
+                  onCheckedChange={handleFuelSurchargeToggle}
+                />
+              </div>
             </div>
           </div>
           <Slider
@@ -206,16 +230,16 @@ export function TariffComparisonResult({
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Risparmio Mensile</span>
+            <span className="text-sm text-muted-foreground">Customer Monthly Savings</span>
             <div className="flex items-center">
-              <TrendingDown className="w-4 h-4 mr-2 text-green-500" />
+              <PiggyBank className="w-4 h-4 mr-2 text-green-500" />
               <span className="text-2xl font-bold">€{currentMonthlySavings.toFixed(2)}</span>
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-sm text-muted-foreground">Profitto Mensile</span>
+            <span className="text-sm text-muted-foreground">Sendcloud Monthly Margin</span>
             <div className="flex items-center">
-              <TrendingUp className="w-4 h-4 mr-2 text-blue-500" />
+              <EuroIcon className="w-4 h-4 mr-2 text-blue-500" />
               <span className="text-2xl font-bold">€{currentMonthlyProfit.toFixed(2)}</span>
             </div>
           </div>
@@ -280,7 +304,7 @@ export function TariffComparisonResult({
         </div>
 
         <Button className="w-full" onClick={onGenerateProposal}>
-          Genera Proposta
+          Generate Proposal
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </CardContent>
