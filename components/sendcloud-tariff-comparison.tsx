@@ -126,6 +126,27 @@ export default function SendcloudTariffComparison() {
     setError(null)
     
     try {
+      // Prima analizza l'e-commerce se è stato fornito un URL
+      let ecommerceAnalysis = null;
+      if (formData.ecommerceUrl) {
+        const ecommerceResponse = await fetch(`${API_URL}/api/ecommerce/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ecommerceUrl: formData.ecommerceUrl
+          })
+        });
+        
+        if (!ecommerceResponse.ok) {
+          throw new Error('Ecommerce analysis failed');
+        }
+        
+        ecommerceAnalysis = await ecommerceResponse.json();
+      }
+
+      // Poi procedi con l'analisi delle tariffe
       const response = await fetch(`${API_URL}/api/carriers/analyze`, {
         method: 'POST',
         headers: {
@@ -134,11 +155,12 @@ export default function SendcloudTariffComparison() {
         body: JSON.stringify({
           monthlyShipments: parseInt(formData.monthlyShipments),
           averageWeight: parseFloat(formData.averageWeight),
-          isVolumetric: formData.weightType === "volume",
-          verticalMarket: formData.verticalMarket,
-          currentCourier: formData.currentCourier
+          isVolumetric: formData.weightType === "volume" || (ecommerceAnalysis?.isVolumetric ?? false),
+          verticalMarket: formData.verticalMarket || ecommerceAnalysis?.verticalMarket,
+          currentCourier: formData.currentCourier || ecommerceAnalysis?.currentCouriers?.[0],
+          ecommerceAnalysis // Passa l'analisi completa per ulteriori considerazioni
         })
-      })
+      });
 
       if (!response.ok) {
         throw new Error('Request failed')
