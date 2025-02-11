@@ -96,7 +96,6 @@ export function TariffComparisonResult({
     setSelectedCourier(value)
     const carrier = carriersData.find(c => c.name === value)
     if (carrier) {
-      // Trova il servizio appropriato per il peso corrente
       const appropriateService = carrier.services.find(s => 
         s.weightRange && averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
       )
@@ -104,8 +103,24 @@ export function TariffComparisonResult({
       if (appropriateService) {
         setCurrentPrice(appropriateService.retailPrice)
         setCurrentMargin(appropriateService.margin)
-        // Ricalcola profitti e risparmi
         updateCalculations(appropriateService.retailPrice, appropriateService.purchasePrice)
+      }
+    }
+  }
+
+  const handleSliderChange = (values: number[]) => {
+    const newPrice = values[0]
+    setCurrentPrice(newPrice)
+    
+    // Trova il carrier corrente e il suo prezzo di acquisto
+    const currentCarrier = carriersData.find(c => c.name === selectedCourier)
+    if (currentCarrier) {
+      const appropriateService = currentCarrier.services.find(s => 
+        s.weightRange && averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
+      )
+      
+      if (appropriateService) {
+        updateCalculations(newPrice, appropriateService.purchasePrice)
       }
     }
   }
@@ -151,7 +166,7 @@ export function TariffComparisonResult({
               <SelectValue placeholder="Select a courier" />
             </SelectTrigger>
             <SelectContent>
-              {(availableCarriers || []).map(carrier => (
+              {availableCarriers.map(carrier => (
                 <SelectItem key={carrier.id} value={carrier.name}>
                   {carrier.name}
                 </SelectItem>
@@ -180,7 +195,7 @@ export function TariffComparisonResult({
             max={retailPrice}
             step={0.01}
             value={[currentPrice]}
-            onValueChange={handleCourierChange}
+            onValueChange={handleSliderChange}
             defaultValue={[suggestedPrice]}
           />
           <div className="flex justify-between text-sm text-muted-foreground">
@@ -220,7 +235,12 @@ export function TariffComparisonResult({
             <div ref={contentRef}>
               <AnimatePresence>
                 {isExpanded && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pt-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }} 
+                    className="pt-4"
+                  >
                     <Table>
                       <TableHeader>
                         <TableRow>

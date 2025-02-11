@@ -188,6 +188,7 @@ export default function SendcloudTariffComparison() {
             placeholder="E-commerce URL"
             value={formData.ecommerceUrl}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
           <Input
             type="text"
@@ -195,6 +196,7 @@ export default function SendcloudTariffComparison() {
             placeholder="Vertical Market"
             value={formData.verticalMarket}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
         </div>
       ),
@@ -211,6 +213,7 @@ export default function SendcloudTariffComparison() {
             placeholder="Monthly Shipments"
             value={formData.monthlyShipments}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
           <Input
             type="number"
@@ -218,6 +221,7 @@ export default function SendcloudTariffComparison() {
             placeholder="Average package weight (kg)"
             value={formData.averageWeight}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
         </div>
       ),
@@ -234,6 +238,7 @@ export default function SendcloudTariffComparison() {
             placeholder="Current Courier"
             value={formData.currentCourier}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
         </div>
       ),
@@ -250,6 +255,7 @@ export default function SendcloudTariffComparison() {
             placeholder="Email for proposal"
             value={formData.email}
             onChange={handleInputChange}
+            className="focus:ring-0 focus:ring-offset-0"
           />
         </div>
       ),
