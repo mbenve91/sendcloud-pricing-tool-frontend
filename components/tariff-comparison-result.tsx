@@ -94,8 +94,8 @@ export function TariffComparisonResult({
 
   const minPrice = purchasePrice + (margin * 0.1)
 
-  const calculatePriceWithSurcharge = (basePrice: number) => {
-    return includeFuelSurcharge ? basePrice * (1 + fuelSurcharge/100) : basePrice
+  const calculatePriceWithSurcharge = (basePrice: number, carrierFuelSurcharge: number = fuelSurcharge) => {
+    return includeFuelSurcharge ? basePrice * (1 + carrierFuelSurcharge/100) : basePrice
   }
 
   const handleCourierChange = (value: string) => {
@@ -107,7 +107,7 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        const priceWithSurcharge = calculatePriceWithSurcharge(appropriateService.retailPrice)
+        const priceWithSurcharge = calculatePriceWithSurcharge(appropriateService.retailPrice, carrier.fuelSurcharge)
         setCurrentPrice(priceWithSurcharge)
         setCurrentMargin(appropriateService.margin)
         updateCalculations(priceWithSurcharge, appropriateService.purchasePrice)
