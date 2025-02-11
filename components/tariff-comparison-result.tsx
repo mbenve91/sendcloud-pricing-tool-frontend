@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, TrendingDown, TrendingUp, ChevronDown, EuroIcon, PiggyBank } from "lucide-react"
+import { ArrowRight, TrendingDown, TrendingUp, ChevronDown, EuroIcon, PiggyBank, ChevronUp } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
 
@@ -83,19 +83,22 @@ export function TariffComparisonResult({
   averageWeight,
 }: TariffComparisonResultProps) {
   const [selectedCourier, setSelectedCourier] = useState(recommendation.carrierName)
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(false)
+  const [basePrice, setBasePrice] = useState(suggestedPrice)
   const [currentPrice, setCurrentPrice] = useState(suggestedPrice)
   const [currentMonthlyProfit, setCurrentMonthlyProfit] = useState(monthlyProfit)
   const [currentMonthlySavings, setCurrentMonthlySavings] = useState(monthlySavings)
   const [currentMargin, setCurrentMargin] = useState(margin)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
+  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false)
+  const explanationRef = useRef<HTMLParagraphElement>(null)
 
   const minPrice = purchasePrice + (margin * 0.1)
 
-  const calculatePriceWithSurcharge = (basePrice: number, carrierFuelSurcharge: number = fuelSurcharge) => {
-    return includeFuelSurcharge ? basePrice * (1 + carrierFuelSurcharge/100) : basePrice
+  const calculatePriceWithSurcharge = (price: number, carrierFuelSurcharge: number = fuelSurcharge) => {
+    return includeFuelSurcharge ? price * (1 + carrierFuelSurcharge/100) : price
   }
 
   const handleCourierChange = (value: string) => {
@@ -107,17 +110,18 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        const priceWithSurcharge = calculatePriceWithSurcharge(appropriateService.retailPrice, carrier.fuelSurcharge)
-        setCurrentPrice(priceWithSurcharge)
-        setCurrentMargin(appropriateService.margin)
-        updateCalculations(priceWithSurcharge, appropriateService.purchasePrice)
+        const newBasePrice = appropriateService.retailPrice
+        setBasePrice(newBasePrice)
+        const finalPrice = calculatePriceWithSurcharge(newBasePrice, carrier.fuelSurcharge)
+        setCurrentPrice(finalPrice)
+        updateCalculations(finalPrice, appropriateService.purchasePrice)
       }
     }
   }
 
   const handleSliderChange = (values: number[]) => {
-    const newPrice = values[0]
-    setCurrentPrice(newPrice)
+    const newBasePrice = values[0]
+    setBasePrice(newBasePrice)
     
     const currentCarrier = carriersData.find(c => c.name === selectedCourier)
     if (currentCarrier) {
@@ -126,7 +130,9 @@ export function TariffComparisonResult({
       )
       
       if (appropriateService) {
-        updateCalculations(newPrice, appropriateService.purchasePrice)
+        const finalPrice = calculatePriceWithSurcharge(newBasePrice, currentCarrier.fuelSurcharge)
+        setCurrentPrice(finalPrice)
+        updateCalculations(finalPrice, appropriateService.purchasePrice)
       }
     }
   }
@@ -135,21 +141,15 @@ export function TariffComparisonResult({
     setIncludeFuelSurcharge(checked)
     const currentCarrier = carriersData.find(c => c.name === selectedCourier)
     if (currentCarrier) {
+      const finalPrice = calculatePriceWithSurcharge(basePrice, currentCarrier.fuelSurcharge)
+      setCurrentPrice(finalPrice)
+      
       const appropriateService = currentCarrier.services.find(s => 
         s.weightRange && averageWeight >= s.weightRange.min && averageWeight <= s.weightRange.max
       )
       
       if (appropriateService) {
-        const basePrice = checked ? 
-          currentPrice / (1 + currentCarrier.fuelSurcharge/100) : 
-          currentPrice * (1 + currentCarrier.fuelSurcharge/100)
-        
-        const newPrice = checked ? 
-          basePrice * (1 + currentCarrier.fuelSurcharge/100) : 
-          basePrice
-        
-        setCurrentPrice(newPrice)
-        updateCalculations(newPrice, appropriateService.purchasePrice)
+        updateCalculations(finalPrice, appropriateService.purchasePrice)
       }
     }
   }
@@ -168,6 +168,11 @@ export function TariffComparisonResult({
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded)
+  }
+
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text
+    return text.slice(0, maxLength) + '...'
   }
 
   useEffect(() => {
@@ -210,7 +215,7 @@ export function TariffComparisonResult({
             <span className="text-2xl font-bold">€{currentPrice.toFixed(2)}</span>
             <div className="flex flex-col items-end gap-1">
               <Badge variant="outline" className="text-sm">
-                Base Price: €{retailPrice.toFixed(2)}
+                Base Price: €{basePrice.toFixed(2)}
               </Badge>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Fuel Surcharge ({fuelSurcharge}%)</span>
@@ -225,7 +230,7 @@ export function TariffComparisonResult({
             min={minPrice}
             max={retailPrice}
             step={0.01}
-            value={[currentPrice]}
+            value={[basePrice]}
             onValueChange={handleSliderChange}
             defaultValue={[suggestedPrice]}
           />
@@ -306,9 +311,42 @@ export function TariffComparisonResult({
           </motion.div>
         </div>
 
-        <div className="bg-muted p-3 rounded-lg text-sm">
-          <p>{explanation}</p>
-        </div>
+        <motion.div 
+          className="bg-muted p-3 rounded-lg text-sm relative"
+          initial={false}
+        >
+          <motion.p
+            ref={explanationRef}
+            className={`${!isExplanationExpanded ? "line-clamp-2" : ""}`}
+            animate={{ height: isExplanationExpanded ? "auto" : "3em" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            {explanation}
+          </motion.p>
+          <motion.div
+            className="absolute bottom-0 left-0 right-0 flex justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExplanationExpanded(!isExplanationExpanded)}
+              className="text-xs hover:bg-muted-foreground/10"
+            >
+              {isExplanationExpanded ? (
+                <span className="flex items-center gap-1">
+                  Mostra meno <ChevronUp className="h-3 w-3" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  Mostra di più <ChevronDown className="h-3 w-3" />
+                </span>
+              )}
+            </Button>
+          </motion.div>
+        </motion.div>
 
         <Button className="w-full" onClick={onGenerateProposal}>
           Generate Proposal
