@@ -374,7 +374,13 @@ export default function CarriersPage() {
         setIsLoading(true);
         
         // Invia il file al server
-        const response = await fetch('http://localhost:5050/api/carriers/import', {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+                        (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                          ? 'http://localhost:5050/api/carriers/import'
+                          : '/api/carriers/import');
+        
+        console.log("Importing CSV to:", apiUrl);
+        const response = await fetch(apiUrl, {
           method: 'POST',
           body: formData,
           // Non settare Content-Type, viene impostato automaticamente con il boundary
@@ -429,7 +435,16 @@ export default function CarriersPage() {
   const fetchCarriers = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:5050/api/carriers');
+      
+      // Usa un URL relativo o determina l'URL base in base all'ambiente
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+                      (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                        ? 'http://localhost:5050/api/carriers'
+                        : '/api/carriers');
+      
+      console.log("Fetching carriers from:", apiUrl);
+      const response = await fetch(apiUrl);
+      
       if (!response.ok) {
         throw new Error('Errore nel caricamento dei corrieri');
       }
@@ -442,6 +457,8 @@ export default function CarriersPage() {
         description: "Impossibile caricare i corrieri",
         type: "error"
       });
+      // Fallback ai dati mock
+      setCarriers(mockCarriers);
     } finally {
       setIsLoading(false);
     }
