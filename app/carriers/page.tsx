@@ -374,10 +374,9 @@ export default function CarriersPage() {
         setIsLoading(true);
         
         // Invia il file al server
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-                        (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                          ? 'http://localhost:5050/api/carriers/import'
-                          : '/api/carriers/import');
+        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                        ? 'http://localhost:5050/api/carriers/import'
+                        : '/api/carriers/import'; // Usa la route API interna
         
         console.log("Importing CSV to:", apiUrl);
         const response = await fetch(apiUrl, {
@@ -436,28 +435,46 @@ export default function CarriersPage() {
     try {
       setIsLoading(true);
       
-      // Usa un URL relativo o determina l'URL base in base all'ambiente
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-                      (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                        ? 'http://localhost:5050/api/carriers'
-                        : '/api/carriers');
+      // Usa sempre l'URL completo in produzione per evitare problemi di routing
+      // Usa il percorso locale solo in sviluppo
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                      ? 'http://localhost:5050/api/carriers'
+                      : '/api/carriers'; // Usa la route API interna di Next.js
       
       console.log("Fetching carriers from:", apiUrl);
-      const response = await fetch(apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
       if (!response.ok) {
-        throw new Error('Errore nel caricamento dei corrieri');
+        const errorText = await response.text();
+        console.error('Error response details:', errorText.substring(0, 200));
+        throw new Error(`Errore nel caricamento dei corrieri: ${response.status} ${response.statusText}`);
       }
+      
+      // Verifica che la risposta sia in formato JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Non-JSON response:', textResponse.substring(0, 200));
+        throw new Error('Il server non ha restituito dati JSON validi');
+      }
+      
       const data = await response.json();
+      console.log('Carriers data received:', data.length ? `${data.length} carriers` : 'empty data');
       setCarriers(data);
     } catch (error) {
       console.error('Error fetching carriers:', error);
       setToastMessage({
         title: "Errore",
-        description: "Impossibile caricare i corrieri",
+        description: error instanceof Error ? error.message : "Impossibile caricare i corrieri",
         type: "error"
       });
       // Fallback ai dati mock
+      console.log('Using mock data as fallback');
       setCarriers(mockCarriers);
     } finally {
       setIsLoading(false);
@@ -585,11 +602,11 @@ export default function CarriersPage() {
                         </TableCell>
                         <TableCell>
                           {carrier.isActive ? (
-                            <Badge variant="success" className="bg-green-100 text-green-800">
+                            <Badge variant="default" className="bg-green-100 text-green-800">
                               Active
                             </Badge>
                           ) : (
-                            <Badge variant="destructive" className="bg-red-100 text-red-800">
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-800">
                               Inactive
                             </Badge>
                           )}
