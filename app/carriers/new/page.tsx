@@ -1643,5 +1643,118 @@ export default function NewCarrierPage() {
             <DialogDescription>
               {isEditingPromotion 
                 ? "Edit the promotion information" 
-                : \"Enter the information
+                : "Enter the information for the new promotion"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="promotionName">Promotion Name *</Label>
+              <Input 
+                id="promotionName" 
+                value={currentPromotion.name}
+                onChange={(e) => setCurrentPromotion({ ...currentPromotion, name: e.target.value })}
+                placeholder="E.g. Summer Sale, 20% Discount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="promotionDescription">Description</Label>
+              <Textarea 
+                id="promotionDescription" 
+                value={currentPromotion.description}
+                onChange={(e) => setCurrentPromotion({ ...currentPromotion, description: e.target.value })}
+                placeholder="Promotion description"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discountPercentage">Discount Percentage *</Label>
+              <Input 
+                id="discountPercentage" 
+                type="number"
+                step="0.01"
+                value={currentPromotion.discountPercentage}
+                onChange={(e) => setCurrentPromotion({ 
+                  ...currentPromotion, 
+                  discountPercentage: Number.parseFloat(e.target.value) 
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input 
+                id="startDate" 
+                type="date"
+                value={currentPromotion.startDate.toISOString().split('T')[0]}
+                onChange={(e) => setCurrentPromotion({ 
+                  ...currentPromotion, 
+                  startDate: new Date(e.target.value) 
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input 
+                id="endDate" 
+                type="date"
+                value={currentPromotion.endDate.toISOString().split('T')[0]}
+                onChange={(e) => setCurrentPromotion({ 
+                  ...currentPromotion, 
+                  endDate: new Date(e.target.value) 
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Applicable Services</Label>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
+                {carrier.services.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No services available</p>
+                ) : (
+                  <div className="space-y-2">
+                    {carrier.services.map((service, index) => (
+                      <label key={index} className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={currentPromotion.applicableServices.includes(service.code)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCurrentPromotion({
+                                ...currentPromotion,
+                                applicableServices: [...currentPromotion.applicableServices, service.code]
+                              });
+                            } else {
+                              setCurrentPromotion({
+                                ...currentPromotion,
+                                applicableServices: currentPromotion.applicableServices.filter(s => s !== service.code)
+                              });
+                            }
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <span>{service.name} ({service.code})</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                If you don't select any services, the promotion will apply to all services.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPromotionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePromotionSubmit}
+              disabled={!currentPromotion.name || currentPromotion.discountPercentage <= 0}
+            >
+              {isEditingPromotion ? "Update" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
