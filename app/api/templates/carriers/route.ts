@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // URL del template CSV sul backend
-    const templateUrl = process.env.BACKEND_TEMPLATE_URL || 
-                         'https://sendcloud-pricing-tool-backend.onrender.com/templates/carriers';
+    // URL del template CSV sul backend - assicurati che punti al percorso corretto
+    const backendUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:5050'
+      : 'https://sendcloud-pricing-tool-backend.onrender.com';
+    
+    const templateUrl = `${backendUrl}/templates/carriers`;
     
     console.log('Fetching CSV template from:', templateUrl);
     

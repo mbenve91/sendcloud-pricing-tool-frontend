@@ -630,7 +630,7 @@ export default function CarriersPage() {
               </div>
               <div className="mt-4">
                 <a
-                  href="http://localhost:5050/templates/carriers"
+                  href="/api/templates/carriers"
                   download
                   className="text-sm text-primary hover:underline flex items-center"
                 >
