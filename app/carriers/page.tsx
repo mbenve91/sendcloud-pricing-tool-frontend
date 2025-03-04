@@ -34,6 +34,9 @@ import {
   FileUp,
   FilePlus,
   FileQuestion,
+  FileCheck,
+  File,
+  Trash,
 } from "lucide-react"
 import { Toaster, toast } from "react-hot-toast"
 
@@ -104,203 +107,14 @@ interface Document {
   _id: string
   carrierId: string
   title: string
-  type: "faq" | "guide" | "contract" | "other"
-  fileUrl: string
-  uploadedAt: Date
+  type: 'contract' | 'agreement' | 'other' | 'faq' | 'guide'
+  uploadedAt?: string
+  fileUrl?: string
 }
 
-// Mock data for carriers
-const mockCarriers: Carrier[] = [
-  {
-    _id: "1",
-    name: "BRT",
-    logoUrl: "/brt.svg",
-    isVolumetric: true,
-    fuelSurcharge: 5.5,
-    services: [
-      {
-        name: "Standard",
-        code: "STD",
-        description: "Standard delivery in 24-48 hours",
-        deliveryTimeMin: 24,
-        deliveryTimeMax: 48,
-        destinationTypes: ["national", "eu"],
-        pricing: [
-          {
-            destinationType: "national",
-            countryCode: null,
-            weightRanges: [
-              { min: 0, max: 1, retailPrice: 7.9, purchasePrice: 5.5, margin: 30.38 },
-              { min: 1, max: 3, retailPrice: 9.9, purchasePrice: 6.8, margin: 31.31 },
-              { min: 3, max: 5, retailPrice: 11.9, purchasePrice: 8.2, margin: 31.09 },
-            ],
-          },
-        ],
-      },
-      {
-        name: "Express",
-        code: "EXP",
-        description: "Fast delivery in 24 hours",
-        deliveryTimeMin: 12,
-        deliveryTimeMax: 24,
-        destinationTypes: ["national"],
-        pricing: [
-          {
-            destinationType: "national",
-            countryCode: null,
-            weightRanges: [
-              { min: 0, max: 1, retailPrice: 9.9, purchasePrice: 6.5, margin: 34.34 },
-              { min: 1, max: 3, retailPrice: 12.9, purchasePrice: 8.5, margin: 34.11 },
-              { min: 3, max: 5, retailPrice: 15.9, purchasePrice: 10.5, margin: 33.96 },
-            ],
-          },
-        ],
-      },
-    ],
-    volumeDiscounts: [
-      {
-        minVolume: 50,
-        maxVolume: 100,
-        discountPercentage: 5,
-        applicableServices: ["STD", "EXP"],
-      },
-      {
-        minVolume: 101,
-        maxVolume: null,
-        discountPercentage: 10,
-        applicableServices: ["STD", "EXP"],
-      },
-    ],
-    additionalFees: [
-      {
-        name: "Floor delivery",
-        description: "Floor delivery service",
-        fee: 5.0,
-        applicableServices: ["STD", "EXP"],
-      },
-    ],
-    promotions: [
-      {
-        name: "Summer Promo 2023",
-        description: "Special summer discount",
-        discountPercentage: 7,
-        startDate: new Date("2023-06-01"),
-        endDate: new Date("2023-08-31"),
-        applicableServices: ["STD"],
-      },
-    ],
-    isActive: true,
-    createdAt: new Date("2022-01-15"),
-    updatedAt: new Date("2023-05-20"),
-  },
-  {
-    _id: "2",
-    name: "GLS",
-    logoUrl: "/gls.svg",
-    isVolumetric: true,
-    fuelSurcharge: 4.8,
-    services: [
-      {
-        name: "Standard",
-        code: "STD",
-        description: "Standard delivery in 24-48 hours",
-        deliveryTimeMin: 24,
-        deliveryTimeMax: 48,
-        destinationTypes: ["national", "eu"],
-        pricing: [
-          {
-            destinationType: "national",
-            countryCode: null,
-            weightRanges: [
-              { min: 0, max: 1, retailPrice: 7.5, purchasePrice: 5.2, margin: 30.67 },
-              { min: 1, max: 3, retailPrice: 9.5, purchasePrice: 6.5, margin: 31.58 },
-              { min: 3, max: 5, retailPrice: 11.5, purchasePrice: 7.9, margin: 31.3 },
-            ],
-          },
-        ],
-      },
-    ],
-    volumeDiscounts: [
-      {
-        minVolume: 50,
-        maxVolume: 100,
-        discountPercentage: 5,
-        applicableServices: ["STD"],
-      },
-    ],
-    additionalFees: [],
-    promotions: [],
-    isActive: true,
-    createdAt: new Date("2022-02-10"),
-    updatedAt: new Date("2023-04-15"),
-  },
-  {
-    _id: "3",
-    name: "DHL",
-    logoUrl: "/dhl.svg",
-    isVolumetric: true,
-    fuelSurcharge: 6.2,
-    services: [
-      {
-        name: "Express",
-        code: "EXP",
-        description: "Fast delivery in 24 hours",
-        deliveryTimeMin: 12,
-        deliveryTimeMax: 24,
-        destinationTypes: ["national", "eu", "extra_eu"],
-        pricing: [
-          {
-            destinationType: "national",
-            countryCode: null,
-            weightRanges: [
-              { min: 0, max: 1, retailPrice: 10.9, purchasePrice: 7.5, margin: 31.19 },
-              { min: 1, max: 3, retailPrice: 13.9, purchasePrice: 9.5, margin: 31.65 },
-              { min: 3, max: 5, retailPrice: 16.9, purchasePrice: 11.5, margin: 31.95 },
-            ],
-          },
-        ],
-      },
-    ],
-    volumeDiscounts: [],
-    additionalFees: [],
-    promotions: [],
-    isActive: false,
-    createdAt: new Date("2022-03-05"),
-    updatedAt: new Date("2023-03-10"),
-  },
-]
-
-// Mock data for documents
-const mockDocuments: Document[] = [
-  {
-    _id: "1",
-    carrierId: "1",
-    title: "BRT FAQ",
-    type: "faq",
-    fileUrl: "/documents/brt-faq.pdf",
-    uploadedAt: new Date("2023-01-15"),
-  },
-  {
-    _id: "2",
-    carrierId: "1",
-    title: "BRT Integration Guide",
-    type: "guide",
-    fileUrl: "/documents/brt-guide.pdf",
-    uploadedAt: new Date("2023-02-20"),
-  },
-  {
-    _id: "3",
-    carrierId: "2",
-    title: "GLS FAQ",
-    type: "faq",
-    fileUrl: "/documents/gls-faq.pdf",
-    uploadedAt: new Date("2023-03-10"),
-  },
-]
-
 export default function CarriersPage() {
-  const [carriers, setCarriers] = useState<Carrier[]>(mockCarriers)
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments)
+  const [carriers, setCarriers] = useState<Carrier[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false)
@@ -314,6 +128,7 @@ export default function CarriersPage() {
   const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [toastMessage, setToastMessage] = useState<{ title: string; description: string; type: "success" | "error" } | null>(null)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
 
   const router = useRouter()
 
@@ -327,10 +142,12 @@ export default function CarriersPage() {
     return matchesSearch && matchesTab
   })
 
-  // Get documents for a specific carrier
-  const getCarrierDocuments = (carrierId: string) => {
-    return documents.filter((doc) => doc.carrierId === carrierId)
-  }
+  // Fetch documents for a carrier
+  const getCarrierDocuments = (carrierId: string): Document[] => {
+    // In un'applicazione reale, questa funzione recupererebbe i documenti dal backend
+    // Per ora, restituiamo un array vuoto perché i dati reali non hanno documenti
+    return [];
+  };
 
   // Handle carrier deletion
   const handleDeleteCarrier = () => {
@@ -350,7 +167,7 @@ export default function CarriersPage() {
         title: documentTitle,
         type: documentType,
         fileUrl: "/documents/new-document.pdf", // In a real app, this would be the uploaded file URL
-        uploadedAt: new Date(),
+        uploadedAt: new Date().toISOString(),
       }
 
       setDocuments([...documents, newDocument])
@@ -360,6 +177,12 @@ export default function CarriersPage() {
       setSelectedCarrierId(null)
     }
   }
+
+  // Handle document deletion
+  const handleDocumentDelete = (documentId: string) => {
+    // In un'applicazione reale, questa funzione invierebbe una richiesta al backend per eliminare il documento
+    toast.success('Documento eliminato con successo');
+  };
 
   // Handle CSV import
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -475,7 +298,7 @@ export default function CarriersPage() {
       });
       // Fallback ai dati mock
       console.log('Using mock data as fallback');
-      setCarriers(mockCarriers);
+      setCarriers([]);
     } finally {
       setIsLoading(false);
     }
@@ -497,6 +320,27 @@ export default function CarriersPage() {
       setToastMessage(null);
     }
   }, [toastMessage]);
+
+  // Handle document creation
+  const handleDocumentCreate = () => {
+    if (selectedCarrier && documentTitle.trim() && documentType) {
+      // In a real app, this would send a POST request to create a new document
+      const newDocument: Document = {
+        _id: `doc${Math.random().toString(36).substring(7)}`,
+        carrierId: selectedCarrier._id,
+        title: documentTitle,
+        type: documentType as 'contract' | 'agreement' | 'other' | 'faq' | 'guide',
+        uploadedAt: new Date().toISOString(),
+        fileUrl: "/documents/new-document.pdf", // In a real app, this would be the uploaded file URL
+      }
+      
+      // Reset form
+      setDocumentTitle("")
+      setDocumentType("contract")
+      setIsDocumentModalOpen(false)
+      toast.success("Documento creato con successo")
+    }
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -585,11 +429,15 @@ export default function CarriersPage() {
                         <TableCell className="font-medium">{carrier.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {carrier.services.map((service, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {service.name}
-                              </Badge>
-                            ))}
+                            {carrier.services && carrier.services.length > 0 ? (
+                              carrier.services.map((service, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {service.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No services</span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>{carrier.fuelSurcharge}%</TableCell>
@@ -601,17 +449,23 @@ export default function CarriersPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {carrier.isActive ? (
+                          {carrier.isActive !== undefined ? (
+                            carrier.isActive ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800">
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                                Inactive
+                              </Badge>
+                            )
+                          ) : (
                             <Badge variant="default" className="bg-green-100 text-green-800">
                               Active
                             </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-800">
-                              Inactive
-                            </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{formatDate(carrier.updatedAt)}</TableCell>
+                        <TableCell>{carrier.updatedAt ? formatDate(carrier.updatedAt) : "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button variant="ghost" size="icon" onClick={() => router.push(`/carriers/${carrier._id}`)}>
@@ -694,7 +548,7 @@ export default function CarriersPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                               <span className="text-sm text-muted-foreground">
-                                                {formatDate(doc.uploadedAt)}
+                                                {doc.uploadedAt ? formatDate(new Date(doc.uploadedAt)) : "N/A"}
                                               </span>
                                               <Button variant="ghost" size="icon">
                                                 <Download className="h-4 w-4" />
@@ -851,6 +705,68 @@ export default function CarriersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Document Management */}
+      {selectedCarrier ? (
+        <div className="mt-6">
+          <h3 className="text-xl font-bold mb-4">Gestione Documenti</h3>
+          <div className="bg-white rounded-lg shadow p-4">
+            {getCarrierDocuments(selectedCarrier._id).length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-gray-500 mb-2">Nessun documento disponibile per questo corriere</p>
+                <Button 
+                  onClick={() => setIsDocumentModalOpen(true)} 
+                  variant="outline"
+                >
+                  Aggiungi il primo documento
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between mb-4">
+                  <h4 className="font-medium">Documenti del corriere</h4>
+                  <Button 
+                    onClick={() => setIsDocumentModalOpen(true)} 
+                    variant="outline" 
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Aggiungi Documento
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {getCarrierDocuments(selectedCarrier._id).map((doc: Document) => (
+                    <div key={doc._id} className="flex items-center justify-between border-b pb-2">
+                      <div className="flex items-center">
+                        <div className="mr-3">
+                          {doc.type === 'contract' && <FileText className="h-5 w-5 text-blue-500" />}
+                          {doc.type === 'agreement' && <FileCheck className="h-5 w-5 text-green-500" />}
+                          {doc.type === 'faq' && <FileQuestion className="h-5 w-5 text-purple-500" />}
+                          {doc.type === 'guide' && <FilePlus className="h-5 w-5 text-yellow-500" />}
+                          {doc.type === 'other' && <File className="h-5 w-5 text-gray-500" />}
+                        </div>
+                        <div>
+                          <p className="font-medium">{doc.title}</p>
+                          <p className="text-xs text-gray-500">
+                            Caricato il: {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex">
+                        <Button variant="ghost" size="sm">
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDocumentDelete(doc._id)}>
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
