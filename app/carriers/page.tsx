@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,6 +35,7 @@ import {
   FilePlus,
   FileQuestion,
 } from "lucide-react"
+import { Toaster, toast } from "react-hot-toast"
 
 // Types based on the Mongoose schema
 interface WeightRange {
@@ -313,6 +312,8 @@ export default function CarriersPage() {
   const [documentTitle, setDocumentTitle] = useState("")
   const [documentType, setDocumentType] = useState<"faq" | "guide" | "contract" | "other">("faq")
   const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [toastMessage, setToastMessage] = useState<{ title: string; description: string; type: "success" | "error" } | null>(null)
 
   const router = useRouter()
 
@@ -361,35 +362,59 @@ export default function CarriersPage() {
   }
 
   // Handle CSV import
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // In a real app, you would process the CSV file here
-      // For now, we'll just simulate adding a new carrier
-      const newCarrier: Carrier = {
-        _id: Math.random().toString(36).substring(7),
-        name: "Imported Carrier",
-        logoUrl: "/placeholder.svg",
-        isVolumetric: true,
-        fuelSurcharge: 5.0,
-        services: [],
-        volumeDiscounts: [],
-        additionalFees: [],
-        promotions: [],
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
+      try {
+        // Crea un FormData per inviare il file
+        const formData = new FormData();
+        formData.append('file', file);
 
-      setCarriers([...carriers, newCarrier])
-      setIsImportDialogOpen(false)
-
-      // Reset the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+        // Mostra stato di caricamento
+        setIsLoading(true);
+        
+        // Invia il file al server
+        const response = await fetch('http://localhost:5050/api/carriers/import', {
+          method: 'POST',
+          body: formData,
+          // Non settare Content-Type, viene impostato automaticamente con il boundary
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.message || 'Errore durante l\'importazione');
+        }
+        
+        // Mostra un messaggio di successo
+        setToastMessage({
+          title: "Importazione completata",
+          description: result.message,
+          type: "success"
+        });
+        
+        // Ricarica i carriers
+        fetchCarriers();
+        
+        // Chiudi il dialog
+        setIsImportDialogOpen(false);
+      } catch (error) {
+        console.error('Error importing CSV:', error);
+        setToastMessage({
+          title: "Errore di importazione",
+          description: error instanceof Error ? error.message : "Si è verificato un errore durante l'importazione",
+          type: "error"
+        });
+      } finally {
+        setIsLoading(false);
+        
+        // Reset input file
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     }
-  }
+  };
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -400,8 +425,50 @@ export default function CarriersPage() {
     })
   }
 
+  // Funzione per caricare i corrieri dal backend
+  const fetchCarriers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('http://localhost:5050/api/carriers');
+      if (!response.ok) {
+        throw new Error('Errore nel caricamento dei corrieri');
+      }
+      const data = await response.json();
+      setCarriers(data);
+    } catch (error) {
+      console.error('Error fetching carriers:', error);
+      setToastMessage({
+        title: "Errore",
+        description: "Impossibile caricare i corrieri",
+        type: "error"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Carica i corrieri all'avvio
+  useEffect(() => {
+    fetchCarriers();
+  }, []);
+
+  // Effect per gestire i messaggi toast
+  useEffect(() => {
+    if (toastMessage) {
+      if (toastMessage.type === "success") {
+        toast.success(toastMessage.description);
+      } else {
+        toast.error(toastMessage.description);
+      }
+      setToastMessage(null);
+    }
+  }, [toastMessage]);
+
   return (
     <div className="container mx-auto py-8">
+      {/* Toaster per le notifiche */}
+      <Toaster position="top-right" />
+      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-primary">Carrier Management</h1>
         <div className="flex space-x-2">
@@ -675,7 +742,7 @@ export default function CarriersPage() {
               </div>
               <div className="mt-4">
                 <a
-                  href="/template-carriers.csv"
+                  href="http://localhost:5050/templates/carriers"
                   download
                   className="text-sm text-primary hover:underline flex items-center"
                 >
