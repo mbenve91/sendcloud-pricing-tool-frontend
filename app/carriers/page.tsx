@@ -632,10 +632,18 @@ export default function CarriersPage() {
                 <a
                   href="/api/templates/carriers"
                   download
-                  className="text-sm text-primary hover:underline flex items-center"
+                  className="text-sm text-primary hover:underline flex items-center mb-2"
                 >
                   <Download className="h-4 w-4 mr-1" />
                   Download CSV template
+                </a>
+                <a
+                  href="/api/templates/carriers/instructions"
+                  download
+                  className="text-sm text-primary hover:underline flex items-center"
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  Download istruzioni
                 </a>
               </div>
             </div>

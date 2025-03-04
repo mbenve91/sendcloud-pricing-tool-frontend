@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ChevronLeft, Plus, Trash2, Save, Edit } from "lucide-react"
+import { toast } from "react-hot-toast"
 
 // Types
 interface WeightRange {
@@ -513,12 +514,42 @@ export default function NewCarrierPage() {
   };
 
   // Handle carrier save
-  const handleSaveCarrier = () => {
-    // In a real app, this would send the data to the server
-    console.log("Saving carrier:", carrier);
+  const handleSaveCarrier = async () => {
+    // Mostra stato di caricamento
+    const loadingToast = toast.loading("Salvataggio del corriere in corso...");
     
-    // Navigate back to carriers list
-    router.push("/carriers");
+    try {
+      // Invia i dati al server tramite l'API route
+      const response = await fetch('/api/carriers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(carrier),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Errore nella creazione del corriere: ${response.status}`);
+      }
+      
+      // Ottieni i dati dalla risposta
+      const data = await response.json();
+      console.log("Carrier creato con successo:", data);
+      
+      // Aggiorna il toast e mostra messaggio di successo
+      toast.dismiss(loadingToast);
+      toast.success("Corriere aggiunto con successo");
+      
+      // Torna alla lista dei corrieri dopo un breve ritardo
+      setTimeout(() => {
+        router.push("/carriers");
+      }, 1000);
+    } catch (error) {
+      console.error("Errore nella creazione del corriere:", error);
+      toast.dismiss(loadingToast);
+      toast.error(`Impossibile creare il corriere: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
+    }
   };
 
   // Format date for display
