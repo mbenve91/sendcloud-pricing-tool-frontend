@@ -15,8 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon, Loader2, Plus, Trash2, ChevronLeft, Edit } from "lucide-react"
-import { DatePicker } from "@/components/ui/date-picker"
 import { toast } from "react-hot-toast"
+import { cn } from "@/lib/utils"
 
 // Interfacce dei tipi di dati
 interface WeightRange {
@@ -111,22 +111,20 @@ export default function EditCarrierPage() {
     destinationTypes: ["national"]
   })
 
-  // Stato per il form di pricing
-  const [pricing, setPricing] = useState<Omit<Pricing, "weightRanges">>({
-    destinationType: "national",
-    countryCode: null,
-  })
+  // Stato per la gestione dei prezzi
   const [selectedServiceIndexForPricing, setSelectedServiceIndexForPricing] = useState<number | null>(null)
-
-  // Stato per il form di weight range
+  const [selectedPricingIndex, setSelectedPricingIndex] = useState<number | null>(null)
+  const [pricing, setPricing] = useState<Omit<Pricing, 'weightRanges'>>({
+    destinationType: "national",
+    countryCode: null
+  })
   const [weightRange, setWeightRange] = useState<WeightRange>({
     min: 0,
     max: 1,
-    retailPrice: 0,
     purchasePrice: 0,
+    retailPrice: 0,
     margin: 0
   })
-  const [selectedPricingIndex, setSelectedPricingIndex] = useState<number | null>(null)
 
   // Stato per il form di volume discount
   const [volumeDiscount, setVolumeDiscount] = useState<VolumeDiscount>({
@@ -313,8 +311,8 @@ export default function EditCarrierPage() {
     setWeightRange({
       min: 0,
       max: 1,
-      retailPrice: 0,
       purchasePrice: 0,
+      retailPrice: 0,
       margin: 0
     })
     setSelectedPricingIndex(null)
@@ -367,6 +365,10 @@ export default function EditCarrierPage() {
       ...carrier,
       services: updatedServices
     })
+
+    if (selectedPricingIndex === pricingIndex) {
+      setSelectedPricingIndex(null)
+    }
   }
 
   // Handler per eliminare un weight range
@@ -455,10 +457,28 @@ export default function EditCarrierPage() {
   };
 
   // Handle price change
-  const handlePriceChange = (field: 'retailPrice' | 'purchasePrice', value: number) => {
-    const newWeightRange = { ...weightRange, [field]: value };
-    newWeightRange.margin = calculateMargin(newWeightRange.retailPrice, newWeightRange.purchasePrice);
-    setWeightRange(newWeightRange);
+  const handlePriceChange = (type: 'purchasePrice' | 'retailPrice', value: number) => {
+    if (type === 'purchasePrice') {
+      const newPurchasePrice = value;
+      const margin = newPurchasePrice > 0 
+        ? ((weightRange.retailPrice - newPurchasePrice) / newPurchasePrice) * 100 
+        : 0;
+      setWeightRange({
+        ...weightRange,
+        purchasePrice: newPurchasePrice,
+        margin: margin
+      });
+    } else {
+      const newRetailPrice = value;
+      const margin = weightRange.purchasePrice > 0 
+        ? ((newRetailPrice - weightRange.purchasePrice) / weightRange.purchasePrice) * 100 
+        : 0;
+      setWeightRange({
+        ...weightRange,
+        retailPrice: newRetailPrice,
+        margin: margin
+      });
+    }
   };
 
   if (isLoading) {
@@ -714,8 +734,251 @@ export default function EditCarrierPage() {
           </Card>
         </div>
 
-        {/* Altri tabs omessi per brevità, ma sarebbero simili a quelli della pagina di creazione
-        ma con la funzionalità di modificare gli elementi esistenti */}
+        {/* Tab Pricing */}
+        <div className="space-y-4" data-value="pricing">
+          <Card>
+            <CardHeader>
+              <CardTitle>Aggiungi Prezzi</CardTitle>
+              <CardDescription>Configura i prezzi per i servizi del corriere</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="serviceForPricing">Seleziona Servizio</Label>
+                <Select 
+                  value={selectedServiceIndexForPricing !== null ? selectedServiceIndexForPricing.toString() : ""} 
+                  onValueChange={(value) => setSelectedServiceIndexForPricing(parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona un servizio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {carrier.services.map((svc, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        {svc.name} ({svc.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedServiceIndexForPricing !== null && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="destinationType">Tipo di Destinazione</Label>
+                    <Select 
+                      value={pricing.destinationType} 
+                      onValueChange={(value: "national" | "eu" | "extra_eu") => setPricing({...pricing, destinationType: value, countryCode: null})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona tipo di destinazione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("national") && (
+                          <SelectItem value="national">Nazionale</SelectItem>
+                        )}
+                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("eu") && (
+                          <SelectItem value="eu">UE</SelectItem>
+                        )}
+                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("extra_eu") && (
+                          <SelectItem value="extra_eu">Extra UE</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(pricing.destinationType === "eu" || pricing.destinationType === "extra_eu") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="countryCode">Codice Paese (es. DE, FR)</Label>
+                      <Input 
+                        id="countryCode" 
+                        placeholder="es. DE" 
+                        value={pricing.countryCode || ""}
+                        onChange={(e) => setPricing({...pricing, countryCode: e.target.value})}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Inserisci il codice ISO del paese (2 lettere). Lascia vuoto per applicare a tutti i paesi.
+                      </p>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handlePricingSubmit}
+                    disabled={selectedServiceIndexForPricing === null}
+                  >
+                    Aggiungi Destinazione
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {selectedServiceIndexForPricing !== null && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Destinazioni per {carrier.services[selectedServiceIndexForPricing].name}</CardTitle>
+                <CardDescription>Destinazioni configurate per questo servizio</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-4">
+                    {carrier.services[selectedServiceIndexForPricing].pricing.map((p, pIndex) => (
+                      <div key={pIndex} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-semibold">
+                              {p.destinationType === "national" 
+                                ? "Nazionale" 
+                                : p.destinationType === "eu" 
+                                  ? `UE ${p.countryCode ? `(${p.countryCode})` : '(Tutti)'}`
+                                  : `Extra UE ${p.countryCode ? `(${p.countryCode})` : '(Tutti)'}`}
+                            </h3>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPricingIndex(pIndex);
+                              }}
+                            >
+                              Aggiungi Prezzo
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleDeletePricing(selectedServiceIndexForPricing, pIndex)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {p.weightRanges.length > 0 ? (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Peso Min (kg)</TableHead>
+                                <TableHead>Peso Max (kg)</TableHead>
+                                <TableHead>Prezzo Acquisto (€)</TableHead>
+                                <TableHead>Prezzo Vendita (€)</TableHead>
+                                <TableHead>Margine (%)</TableHead>
+                                <TableHead></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {p.weightRanges.map((wr, wrIndex) => (
+                                <TableRow key={wrIndex}>
+                                  <TableCell>{wr.min}</TableCell>
+                                  <TableCell>{wr.max}</TableCell>
+                                  <TableCell>{wr.purchasePrice.toFixed(2)}</TableCell>
+                                  <TableCell>{wr.retailPrice.toFixed(2)}</TableCell>
+                                  <TableCell>{wr.margin.toFixed(1)}%</TableCell>
+                                  <TableCell>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => handleDeleteWeightRange(selectedServiceIndexForPricing, pIndex, wrIndex)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <p>Nessun prezzo configurato</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {carrier.services[selectedServiceIndexForPricing].pricing.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>Nessuna destinazione configurata</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedServiceIndexForPricing !== null && selectedPricingIndex !== null && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Aggiungi Fascia di Peso</CardTitle>
+                <CardDescription>Aggiungi una fascia di peso con relativi prezzi</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="weightMin">Peso Minimo (kg)</Label>
+                    <Input 
+                      id="weightMin" 
+                      type="number" 
+                      step="0.01"
+                      placeholder="es. 0" 
+                      value={weightRange.min}
+                      onChange={(e) => setWeightRange({...weightRange, min: parseFloat(e.target.value)})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="weightMax">Peso Massimo (kg)</Label>
+                    <Input 
+                      id="weightMax" 
+                      type="number" 
+                      step="0.01"
+                      placeholder="es. 1" 
+                      value={weightRange.max}
+                      onChange={(e) => setWeightRange({...weightRange, max: parseFloat(e.target.value)})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="purchasePrice">Prezzo di Acquisto (€)</Label>
+                    <Input 
+                      id="purchasePrice" 
+                      type="number" 
+                      step="0.01"
+                      placeholder="es. 5.5" 
+                      value={weightRange.purchasePrice}
+                      onChange={(e) => handlePriceChange('purchasePrice', parseFloat(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="retailPrice">Prezzo di Vendita (€)</Label>
+                    <Input 
+                      id="retailPrice" 
+                      type="number" 
+                      step="0.01"
+                      placeholder="es. 7.9" 
+                      value={weightRange.retailPrice}
+                      onChange={(e) => handlePriceChange('retailPrice', parseFloat(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="margin">Margine (%)</Label>
+                  <div className="h-10 px-3 py-2 rounded-md border bg-muted">
+                    {weightRange.margin.toFixed(1)}%
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleWeightRangeSubmit}
+                  disabled={selectedServiceIndexForPricing === null || selectedPricingIndex === null}
+                >
+                  Aggiungi Fascia di Peso
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Altri tabs omessi per brevità */}
       </Tabs>
     </div>
   )
