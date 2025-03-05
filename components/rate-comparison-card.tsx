@@ -159,6 +159,8 @@ interface Rate {
   retailPrice?: number;
   purchasePrice?: number;
   margin?: number;
+  weightMin?: number;
+  weightMax?: number;
 }
 
 export default function RateComparisonCard() {
@@ -286,6 +288,8 @@ export default function RateComparisonCard() {
               deliveryTimeMax,
               weightRanges, // Add all weight ranges
               currentWeightRange: defaultRange.weightRange, // Add current weight range
+              weightMin: defaultRange.weightRange.min,
+              weightMax: defaultRange.weightRange.max,
             })
           }
         } else {
@@ -361,6 +365,8 @@ export default function RateComparisonCard() {
             deliveryTimeMax,
             weightRanges, // Add all weight ranges
             currentWeightRange: defaultRange.weightRange, // Add current weight range
+            weightMin: defaultRange.weightRange.min,
+            weightMax: defaultRange.weightRange.max,
           })
         }
       }
@@ -608,6 +614,8 @@ export default function RateComparisonCard() {
           retailPrice: rate.retailPrice,
           purchasePrice: rate.purchasePrice,
           margin: rate.margin,
+          weightMin: rate.weightMin,
+          weightMax: rate.weightMax
         };
       });
       
@@ -846,7 +854,14 @@ export default function RateComparisonCard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {visibleColumns.find((col) => col.id === "select")?.isVisible && <TableHead className="w-8"></TableHead>}
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={areAllRowsSelected}
+                          onCheckedChange={handleSelectAllRows}
+                          aria-label="Select all rows"
+                        />
+                      </TableHead>
+                      <TableHead className="w-[30px]"></TableHead>
                       {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead>Carrier</TableHead>}
                       {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead>Service</TableHead>}
                       {(activeTab === "eu" || activeTab === "extra_eu") &&
@@ -858,7 +873,7 @@ export default function RateComparisonCard() {
                         <TableHead className="text-right">Base Rate</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="text-right">Discount</TableHead>
+                        <TableHead className="text-right">Discount (%)</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
                         <TableHead className="text-right">Final Price</TableHead>
@@ -906,7 +921,8 @@ export default function RateComparisonCard() {
                             )}
                           {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
                             <TableCell className="font-medium">
-                              {rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A"}
+                              {rate.weightMin && rate.weightMax ? `${rate.weightMin}-${rate.weightMax} kg` : 
+                               (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
                             </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
