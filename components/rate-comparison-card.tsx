@@ -206,15 +206,21 @@ export default function RateComparisonCard() {
 
   // Funzione per caricare le fasce di peso di un servizio
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      console.error('ERRORE: ServiceID mancante, impossibile caricare le fasce di peso');
+      return;
+    }
     
     try {
       // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
-      if (serviceWeightRanges[serviceId]) return;
+      if (serviceWeightRanges[serviceId]) {
+        console.log(`Fasce di peso già caricate per il servizio ${serviceId}`);
+        return;
+      }
       
       console.log(`Caricamento fasce di peso per il servizio ${serviceId}`);
       const weightRangesData = await api.getWeightRangesByService(serviceId);
-      console.log('Dati ricevuti:', weightRangesData);
+      console.log('Dati fasce di peso ricevuti:', weightRangesData);
       
       // Controlliamo che i dati siano un array e non vuoto
       if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
@@ -227,6 +233,11 @@ export default function RateComparisonCard() {
         console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
       } else {
         console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}`);
+        // NON generiamo fasce di peso simulate, manteniamo un array vuoto
+        setServiceWeightRanges(prev => ({
+          ...prev,
+          [serviceId]: []
+        }));
       }
     } catch (error) {
       console.error('Errore nel caricamento delle fasce di peso:', error);
@@ -620,7 +631,7 @@ export default function RateComparisonCard() {
         const serviceId = rate.service?._id;
         console.log('ServiceId per cercare tutte le fasce di peso:', serviceId);
         
-        // Utilizziamo le fasce di peso reali dal modello Mongoose se disponibili
+        // Utilizziamo solo le fasce di peso reali dal modello Mongoose se disponibili
         const weightRanges = rate.weightRanges?.length > 0 
           ? rate.weightRanges.map((range: any) => {
               return {
@@ -636,21 +647,8 @@ export default function RateComparisonCard() {
                 promotionDiscount: range.promotionDiscount || 0
               };
             })
-          // Facciamo fallback sulle fasce simulate solo se non ci sono dati reali
-          : WEIGHT_RANGES.map((range: any) => {
-              return {
-                id: `${rate._id}-${range.min}-${range.max}`,
-                label: `${range.min}-${range.max} kg`,
-                min: range.min,
-                max: range.max,
-                basePrice: rate.retailPrice,
-                userDiscount: 0,
-                finalPrice: rate.retailPrice,
-                actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
-                volumeDiscount: rate.volumeDiscount || 0,
-                promotionDiscount: rate.promotionDiscount || 0
-              };
-            });
+          // Non generiamo più fasce simulative
+          : [];
         
         // Trova l'intervallo di peso corrente in base al filtro del peso
         const weightValue = parseFloat(filters.weight);
@@ -1132,38 +1130,41 @@ export default function RateComparisonCard() {
                                   </TableHeader>
                                   <TableBody>
                                     {/* Utilizziamo le fasce di peso dal servizio se disponibili, altrimenti usiamo quelle della tariffa */}
-                                    {(serviceWeightRanges[rate.service?._id || ''] || rate.weightRanges)?.map((weightRange: WeightRange) => (
-                                      <TableRow key={weightRange?.id || `${rate.id}-${weightRange?.min || 0}-${weightRange?.max || 0}`} className="text-sm">
-                                        <TableCell className="font-medium py-2">
-                                          {weightRange?.label || `${weightRange?.min || 0}-${weightRange?.max || 0} kg`}
-                                        </TableCell>
-                                        <TableCell className="text-right py-2">
-                                          {formatCurrency(weightRange?.basePrice || 0)}
-                                        </TableCell>
-                                        <TableCell className="text-right py-2">
-                                          {weightRange?.userDiscount > 0 ? (
-                                            <Badge
-                                              variant="secondary"
-                                              className="bg-primary/20 text-primary hover:bg-primary/30"
-                                            >
-                                              -{weightRange?.userDiscount}%
-                                            </Badge>
-                                          ) : (
-                                            "-"
-                                          )}
-                                        </TableCell>
-                                        <TableCell className="text-right py-2 font-medium">
-                                          {formatCurrency(weightRange?.finalPrice || 0)}
-                                        </TableCell>
-                                        <TableCell className="text-center py-2">
-                                          <RateMarginIndicator marginValue={weightRange?.actualMargin || 0} />
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                    {(!serviceWeightRanges[rate.service?._id || ''] && !rate.weightRanges) && (
+                                    {(serviceWeightRanges[rate.service?._id || ''] || []).length > 0 ? (
+                                      // Renderizza le fasce quando sono disponibili
+                                      serviceWeightRanges[rate.service?._id || ''].map((weightRange: WeightRange) => (
+                                        <TableRow key={weightRange?.id || `${rate.id}-${weightRange?.min || 0}-${weightRange?.max || 0}`} className="text-sm">
+                                          <TableCell className="font-medium py-2">
+                                            {weightRange?.label || `${weightRange?.min || 0}-${weightRange?.max || 0} kg`}
+                                          </TableCell>
+                                          <TableCell className="text-right py-2">
+                                            {formatCurrency(weightRange?.basePrice || 0)}
+                                          </TableCell>
+                                          <TableCell className="text-right py-2">
+                                            {weightRange?.userDiscount > 0 ? (
+                                              <Badge
+                                                variant="secondary"
+                                                className="bg-primary/20 text-primary hover:bg-primary/30"
+                                              >
+                                                -{weightRange?.userDiscount}%
+                                              </Badge>
+                                            ) : (
+                                              "-"
+                                            )}
+                                          </TableCell>
+                                          <TableCell className="text-right py-2 font-medium">
+                                            {formatCurrency(weightRange?.finalPrice || 0)}
+                                          </TableCell>
+                                          <TableCell className="text-center py-2">
+                                            <RateMarginIndicator marginValue={weightRange?.actualMargin || 0} />
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    ) : (
+                                      // Messaggio chiaro all'utente quando non ci sono fasce disponibili
                                       <TableRow>
                                         <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                                          Nessuna fascia di peso disponibile
+                                          Nessuna fascia di peso disponibile per questo servizio. Contattare l'amministratore.
                                         </TableCell>
                                       </TableRow>
                                     )}
