@@ -21,6 +21,14 @@ export interface Carrier {
   isVolumetric: boolean;
 }
 
+export interface CarrierInput {
+  name: string;
+  logoUrl?: string | null;
+  isActive?: boolean;
+  fuelSurcharge?: number;
+  isVolumetric?: boolean;
+}
+
 export interface Rate {
   _id: string;
   carrier: Carrier | string;
@@ -57,6 +65,20 @@ export const apiService = {
   getCarrier: async (id: string): Promise<Carrier> => {
     const response = await apiClient.get(`/carriers/${id}`);
     return response.data.data;
+  },
+
+  createCarrier: async (carrierData: CarrierInput): Promise<Carrier> => {
+    const response = await apiClient.post('/carriers', carrierData);
+    return response.data.data;
+  },
+
+  updateCarrier: async (id: string, carrierData: Partial<CarrierInput>): Promise<Carrier> => {
+    const response = await apiClient.put(`/carriers/${id}`, carrierData);
+    return response.data.data;
+  },
+
+  deleteCarrier: async (id: string): Promise<void> => {
+    await apiClient.delete(`/carriers/${id}`);
   },
 
   // Rates
