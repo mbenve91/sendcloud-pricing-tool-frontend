@@ -11,19 +11,35 @@ const API_BASE_URL = isProduction
   ? 'https://sendcloud-pricing-tool-backend.onrender.com'
   : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050');
 
+// Funzione di utilità per le chiamate fetch con gestione degli errori
+async function fetchWithErrorHandling(url: string, options?: RequestInit) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      // Assicurati che le credenziali non siano inviate per evitare problemi CORS
+      credentials: 'omit', 
+      // Imposta mode: 'cors' esplicitamente
+      mode: 'cors'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Errore nella richiesta API: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Errore nella chiamata API a ${url}:`, error);
+    throw error;
+  }
+}
+
 /**
  * Recupera tutti i corrieri attivi dal backend
  */
 export async function getCarriers() {
   try {
-    // Usiamo l'endpoint API corretto
-    const response = await fetch(`${API_BASE_URL}/api/carriers`);
-    
-    if (!response.ok) {
-      throw new Error(`Errore durante il recupero dei corrieri: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    // Usa la funzione di utilità per fare la chiamata API
+    const data = await fetchWithErrorHandling(`${API_BASE_URL}/api/carriers`);
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio getCarriers:', error);
