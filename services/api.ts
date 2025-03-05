@@ -160,7 +160,7 @@ export async function getServices(carrierId?: string) {
  * @param serviceId - ID del servizio per cui recuperare le fasce di peso
  * @returns Una lista di fasce di peso con i relativi prezzi
  */
-export async function getWeightRangesByService(serviceId: string) {
+export async function getWeightRangesByService(serviceId: string): Promise<WeightRange[]> {
   try {
     const response = await fetch(`${API_URL}/rates/service/${serviceId}/weightRanges`);
     
@@ -168,8 +168,11 @@ export async function getWeightRangesByService(serviceId: string) {
       throw new Error(`Errore durante il recupero delle fasce di peso: ${response.statusText}`);
     }
     
-    const data = await response.json();
-    return data.data;
+    const result = await response.json();
+    console.log('Risposta API fasce di peso:', result);
+    
+    // Assicuriamoci di restituire l'array di dati, non l'oggetto di risposta
+    return result.data || [];
   } catch (error) {
     console.error('Errore nel servizio getWeightRangesByService:', error);
     throw error;

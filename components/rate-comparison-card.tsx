@@ -212,15 +212,22 @@ export default function RateComparisonCard() {
       // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
       if (serviceWeightRanges[serviceId]) return;
       
+      console.log(`Caricamento fasce di peso per il servizio ${serviceId}`);
       const weightRangesData = await api.getWeightRangesByService(serviceId);
+      console.log('Dati ricevuti:', weightRangesData);
       
-      // Aggiorniamo lo stato con type assertion per assicurarci che i dati abbiano il tipo corretto
-      setServiceWeightRanges(prev => ({
-        ...prev,
-        [serviceId]: weightRangesData as WeightRange[]
-      }));
-      
-      console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
+      // Controlliamo che i dati siano un array e non vuoto
+      if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
+        // Aggiorniamo lo stato con type assertion per assicurarci che i dati abbiano il tipo corretto
+        setServiceWeightRanges(prev => ({
+          ...prev,
+          [serviceId]: weightRangesData as WeightRange[]
+        }));
+        
+        console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
+      } else {
+        console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}`);
+      }
     } catch (error) {
       console.error('Errore nel caricamento delle fasce di peso:', error);
     }
@@ -680,7 +687,7 @@ export default function RateComparisonCard() {
           basePrice: rate.retailPrice || 0,
           userDiscount: 0,
           finalPrice: rate.retailPrice || 0,
-          actualMargin: rate.margin || (rate.retailPrice ? (rate.retailPrice - (rate.purchasePrice || 0)) : 0),
+          actualMargin: rate.margin || (rate.retailPrice - (rate.purchasePrice || 0)),
           marginPercentage: rate.marginPercentage || (rate.retailPrice ? ((rate.retailPrice - (rate.purchasePrice || 0)) / rate.retailPrice) * 100 : 0) || 0,
           deliveryTimeMin: service.deliveryTimeMin || rate.deliveryTimeMin,
           deliveryTimeMax: service.deliveryTimeMax || rate.deliveryTimeMax,
@@ -773,14 +780,14 @@ export default function RateComparisonCard() {
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
 
   // Modifichiamo la funzione handleExpandRow per caricare le fasce di peso
-  const handleExpandRow = useCallback((rateId: string, serviceId?: string) => {
-    // Toggle lo stato di espansione
-    setExpandedRows((prev) => ({
+  const handleExpandRow = useCallback((rateId: string, serviceId: string) => {
+    // Prima invertiamo lo stato di espansione
+    setExpandedRows(prev => ({
       ...prev,
-      [rateId]: !prev[rateId],
+      [rateId]: !prev[rateId]
     }));
     
-    // Se stiamo espandendo la riga e abbiamo un ID servizio, carichiamo le fasce di peso
+    // Se stiamo espandendo la riga e abbiamo un ID di servizio valido, carichiamo le fasce di peso
     if (!expandedRows[rateId] && serviceId) {
       loadServiceWeightRanges(serviceId);
     }
