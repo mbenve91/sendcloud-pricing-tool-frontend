@@ -218,9 +218,9 @@ export default function RateComparisonCard() {
         return;
       }
       
-      console.log(`Caricamento fasce di peso per il servizio ${serviceId}`);
+      console.log(`Richiesta fasce di peso per il servizio: ${serviceId}`);
       const weightRangesData = await api.getWeightRangesByService(serviceId);
-      console.log('Dati fasce di peso ricevuti:', weightRangesData);
+      console.log('Dati fasce di peso ricevuti:', JSON.stringify(weightRangesData));
       
       // Controlliamo che i dati siano un array e non vuoto
       if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
