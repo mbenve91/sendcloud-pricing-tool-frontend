@@ -1,12 +1,15 @@
 // services/api.ts - Servizio per interagire con l'API backend
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// URL per il backend su Render
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050';
 
 /**
  * Recupera tutti i corrieri attivi dal backend
  */
 export async function getCarriers() {
   try {
+    // Usiamo /api/carriers per accedere ai corrieri
     const response = await fetch(`${API_URL}/carriers`);
     
     if (!response.ok) {
