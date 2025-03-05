@@ -103,17 +103,34 @@ const ALL_COLUMNS = [
   { id: "details", name: "Details", isVisible: true },
 ]
 
+// Modifica alle colonne visibili per aggiungere la fascia di peso
+const DEFAULT_VISIBLE_COLUMNS = [
+  { id: "select", name: "Select", isVisible: true },
+  { id: "carrier", name: "Carrier", isVisible: true },
+  { id: "service", name: "Service", isVisible: true },
+  { id: "country", name: "Country", isVisible: true },
+  { id: "weightRange", name: "Weight Range", isVisible: true },
+  { id: "baseRate", name: "Base Rate", isVisible: true },
+  { id: "discount", name: "Discount", isVisible: true },
+  { id: "finalPrice", name: "Final Price", isVisible: true },
+  { id: "margin", name: "Margin", isVisible: true },
+  { id: "delivery", name: "Delivery", isVisible: true },
+  { id: "details", name: "Details", isVisible: true },
+]
+
 // Definizione delle interfacce per i tipi
 interface WeightRange {
-  id: string;
-  label: string;
-  basePrice: number;
-  userDiscount: number;
-  finalPrice: number;
-  actualMargin: number;
-  adjustedMargin?: number;
-  volumeDiscount: number;
-  promotionDiscount: number;
+  id: string
+  label: string
+  min: number
+  max: number
+  basePrice: number
+  userDiscount: number
+  finalPrice: number
+  actualMargin: number
+  adjustedMargin?: number
+  volumeDiscount: number
+  promotionDiscount: number
 }
 
 interface Rate {
@@ -166,7 +183,7 @@ export default function RateComparisonCard() {
 
   // Add state for column customization
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false)
-  const [visibleColumns, setVisibleColumns] = useState(ALL_COLUMNS)
+  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS)
 
   // Update the filters state to include country
   const [filters, setFilters] = useState({
@@ -829,23 +846,19 @@ export default function RateComparisonCard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={areAllRowsSelected}
-                          onCheckedChange={handleSelectAllRows}
-                          aria-label="Select all rows"
-                        />
-                      </TableHead>
-                      <TableHead className="w-[30px]"></TableHead>
+                      {visibleColumns.find((col) => col.id === "select")?.isVisible && <TableHead className="w-8"></TableHead>}
                       {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead>Carrier</TableHead>}
                       {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead>Service</TableHead>}
                       {(activeTab === "eu" || activeTab === "extra_eu") &&
                         visibleColumns.find((col) => col.id === "country")?.isVisible && <TableHead>Country</TableHead>}
+                      {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
+                        <TableHead>Weight Range</TableHead>
+                      )}
                       {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
                         <TableHead className="text-right">Base Rate</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="text-right">Discount (%)</TableHead>
+                        <TableHead className="text-right">Discount</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
                         <TableHead className="text-right">Final Price</TableHead>
@@ -891,6 +904,11 @@ export default function RateComparisonCard() {
                             visibleColumns.find((col) => col.id === "country")?.isVisible && (
                               <TableCell>{rate.countryName}</TableCell>
                             )}
+                          {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
+                            <TableCell className="font-medium">
+                              {rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A"}
+                            </TableCell>
+                          )}
                           {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
                             <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
                           )}
@@ -978,9 +996,9 @@ export default function RateComparisonCard() {
                                   </TableHeader>
                                   <TableBody>
                                     {rate.weightRanges.map((weightRange: any) => (
-                                      <TableRow key={weightRange.rangeId} className="text-sm">
+                                      <TableRow key={weightRange.id || `${rate.id}-${weightRange.min}-${weightRange.max}`} className="text-sm">
                                         <TableCell className="font-medium py-2">
-                                          {weightRange.weightRange.label}
+                                          {weightRange.label || `${weightRange.min}-${weightRange.max} kg`}
                                         </TableCell>
                                         <TableCell className="text-right py-2">
                                           {formatCurrency(weightRange.basePrice)}
