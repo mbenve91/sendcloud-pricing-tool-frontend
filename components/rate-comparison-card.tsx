@@ -567,21 +567,37 @@ export default function RateComparisonCard() {
       
       // Trasforma i dati dell'API nel formato atteso dal componente
       const formattedRates = ratesData.map((rate: any) => {
-        // Crea gli intervalli di peso simulati (da sostituire con dati reali quando disponibili)
-        const weightRanges = WEIGHT_RANGES.map((range) => {
-          return {
-            id: `${rate._id}-${range.min}-${range.max}`,
-            label: `${range.min}-${range.max} kg`,
-            min: range.min,
-            max: range.max,
-            basePrice: rate.basePrice || rate.retailPrice,
-            userDiscount: 0,
-            finalPrice: rate.finalPrice || rate.retailPrice,
-            actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
-            volumeDiscount: rate.volumeDiscount || 0,
-            promotionDiscount: rate.promotionDiscount || 0
-          };
-        });
+        // Utilizziamo le fasce di peso reali dal modello Mongoose se disponibili
+        const weightRanges = rate.weightRanges?.length > 0 
+          ? rate.weightRanges.map((range: any) => {
+              return {
+                id: `${rate._id}-${range.weightMin}-${range.weightMax}`,
+                label: `${range.weightMin}-${range.weightMax} kg`,
+                min: range.weightMin,
+                max: range.weightMax,
+                basePrice: range.retailPrice,
+                userDiscount: 0,
+                finalPrice: range.retailPrice,
+                actualMargin: range.margin || (range.retailPrice - range.purchasePrice),
+                volumeDiscount: range.volumeDiscount || 0,
+                promotionDiscount: range.promotionDiscount || 0
+              };
+            })
+          // Facciamo fallback sulle fasce simulate solo se non ci sono dati reali
+          : WEIGHT_RANGES.map((range) => {
+              return {
+                id: `${rate._id}-${range.min}-${range.max}`,
+                label: `${range.min}-${range.max} kg`,
+                min: range.min,
+                max: range.max,
+                basePrice: rate.retailPrice,
+                userDiscount: 0,
+                finalPrice: rate.retailPrice,
+                actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
+                volumeDiscount: rate.volumeDiscount || 0,
+                promotionDiscount: rate.promotionDiscount || 0
+              };
+            });
         
         // Trova l'intervallo di peso corrente in base al filtro del peso
         const weightValue = parseFloat(filters.weight);
@@ -598,9 +614,9 @@ export default function RateComparisonCard() {
           serviceName: rate.serviceName || 'Standard',
           serviceDescription: rate.description || '',
           countryName: rate.destinationCountry || '',
-          basePrice: rate.basePrice || rate.retailPrice,
+          basePrice: rate.retailPrice,
           userDiscount: 0,
-          finalPrice: rate.finalPrice || rate.retailPrice,
+          finalPrice: rate.retailPrice,
           actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
           marginPercentage: rate.marginPercentage || ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
           deliveryTimeMin: rate.deliveryTimeMin,
