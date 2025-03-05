@@ -185,9 +185,6 @@ export default function RateComparisonCard() {
   // Add state for selected rows
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
 
-  // Add state for expanded rows
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
-
   // Add state for column customization
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS)
@@ -540,8 +537,6 @@ export default function RateComparisonCard() {
     }))
     // Reset selected rows when changing tabs
     setSelectedRows({})
-    // Reset expanded rows when changing tabs
-    setExpandedRows({})
   }
 
   // Add a function to update the user discount
@@ -588,14 +583,6 @@ export default function RateComparisonCard() {
     )
   }
 
-  // Toggle row expansion
-  const toggleRowExpansion = (id: string) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }))
-  }
-
   // Load services when carrier filter changes
   useEffect(() => {
     const loadServices = async () => {
@@ -622,7 +609,6 @@ export default function RateComparisonCard() {
   const loadRates = useCallback(async () => {
     setLoading(true)
     setSelectedRows({}) // Reset selected rows when refreshing data
-    setExpandedRows({}) // Reset expanded rows when refreshing data
 
     try {
       // Carichiamo i corrieri se non sono già stati caricati
@@ -813,38 +799,6 @@ export default function RateComparisonCard() {
   // Check if all displayed rows are selected
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
 
-  // Modifica la funzione handleExpandRow per migliorare la logica di caricamento
-  const handleExpandRow = useCallback((rateId: string, serviceId: string) => {
-    // Troviamo la tariffa corrispondente
-    const currentRate = rates.find(r => r.id === rateId);
-    
-    // Utilizziamo l'ID del servizio passato o lo prendiamo dalla tariffa se esiste
-    const effectiveServiceId = serviceId || (currentRate?.service?._id || '');
-    
-    // Ottiene il valore corrente di espansione per questa riga
-    const isCurrentlyExpanded = expandedRows[rateId] || false;
-    const willBeExpanded = !isCurrentlyExpanded;
-    
-    // Aggiorniamo lo stato di espansione
-    setExpandedRows(prev => ({
-      ...prev,
-      [rateId]: willBeExpanded
-    }));
-    
-    // Se stiamo espandendo la riga e abbiamo un ID di servizio valido, carichiamo le fasce di peso
-    if (willBeExpanded) {
-      console.log(`Caricamento fasce di peso per servizio: ${effectiveServiceId}`);
-      
-      if (effectiveServiceId) {
-        loadServiceWeightRanges(effectiveServiceId);
-      } else if (currentRate?.id) {
-        // Se non abbiamo un ID di servizio ma abbiamo un ID di tariffa, usiamo quello
-        console.log(`Usando l'ID della tariffa come fallback: ${currentRate.id}`);
-        loadServiceWeightRanges(currentRate.id);
-      }
-    }
-  }, [expandedRows, loadServiceWeightRanges, rates]);
-
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
@@ -1015,7 +969,6 @@ export default function RateComparisonCard() {
                           aria-label="Select all rows"
                         />
                       </TableHead>
-                      <TableHead className="w-[30px]"></TableHead>
                       {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead>Carrier</TableHead>}
                       {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead>Service</TableHead>}
                       {(activeTab === "eu" || activeTab === "extra_eu") &&
@@ -1045,211 +998,95 @@ export default function RateComparisonCard() {
                   </TableHeader>
                   <TableBody>
                     {displayedRates.map((rate, index) => (
-                      <>
-                        <TableRow
-                          key={rate.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleRowExpansion(rate.id)}
-                        >
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={!!selectedRows[rate.id]}
-                              onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
-                              aria-label={`Select row ${index + 1}`}
-                            />
+                      <TableRow key={rate.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <Checkbox
+                            checked={!!selectedRows[rate.id]}
+                            onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
+                            aria-label={`Select row ${index + 1}`}
+                          />
+                        </TableCell>
+                        {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
+                          <TableCell>{rate.carrierName}</TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "service")?.isVisible && (
+                          <TableCell>{rate.serviceName}</TableCell>
+                        )}
+                        {(activeTab === "eu" || activeTab === "extra_eu") &&
+                          visibleColumns.find((col) => col.id === "country")?.isVisible && (
+                            <TableCell>{rate.countryName}</TableCell>
+                          )}
+                        {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
+                          <TableCell className="font-medium">
+                            {rate.weightMin !== undefined && rate.weightMax !== undefined 
+                              ? `${rate.weightMin}-${rate.weightMax} kg` 
+                              : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
                           </TableCell>
-                          <TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
+                          <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end">
+                              <Input
+                                type="number"
+                                value={rate.userDiscount || 0}
+                                onChange={(e) => {
+                                  const value = Number.parseInt(e.target.value, 10)
+                                  if (!isNaN(value)) {
+                                    updateUserDiscount(rate.id, value)
+                                  }
+                                }}
+                                className="h-8 w-16 text-right"
+                                min="0"
+                                max="90"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="ml-1">%</span>
+                            </div>
+                          </TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
+                          <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={getMarginColor(
+                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                              )}
+                            >
+                              {formatCurrency(
+                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                              )}{" "}
+                              (
+                              {getMarginLabel(
+                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                              )}
+                              )
+                            </Badge>
+                          </TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
+                          <TableCell className="text-center">
+                            {rate.deliveryTimeMin === rate.deliveryTimeMax
+                              ? `${rate.deliveryTimeMin}h`
+                              : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
+                          </TableCell>
+                        )}
+                        {visibleColumns.find((col) => col.id === "details")?.isVisible && (
+                          <TableCell className="text-center">
                             <Button
                               variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleExpandRow(rate.id, rate.service?._id || '')
-                              }}
                               size="icon"
-                              aria-label={expandedRows[rate.id] ? "Contrai dettagli" : "Espandi dettagli"}
+                              onClick={() => handleOpenDetail(rate)}
                             >
-                              {expandedRows[rate.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              <Info className="h-4 w-4" />
                             </Button>
                           </TableCell>
-                          {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
-                            <TableCell>{rate.carrierName}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                            <TableCell>{rate.serviceName}</TableCell>
-                          )}
-                          {(activeTab === "eu" || activeTab === "extra_eu") &&
-                            visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                              <TableCell>{rate.countryName}</TableCell>
-                            )}
-                          {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                            <TableCell className="font-medium">
-                              {rate.weightMin !== undefined && rate.weightMax !== undefined 
-                                ? `${rate.weightMin}-${rate.weightMax} kg` 
-                                : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                            <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end">
-                                <Input
-                                  type="number"
-                                  value={rate.userDiscount || 0}
-                                  onChange={(e) => {
-                                    e.stopPropagation()
-                                    const value = Number.parseInt(e.target.value, 10)
-                                    if (!isNaN(value)) {
-                                      updateUserDiscount(rate.id, value)
-                                    }
-                                  }}
-                                  className="h-8 w-16 text-right"
-                                  min="0"
-                                  max="90"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span className="ml-1">%</span>
-                              </div>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                            <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                            <TableCell className="text-center">
-                              <Badge
-                                variant={getMarginColor(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}
-                              >
-                                {formatCurrency(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}{" "}
-                                (
-                                {getMarginLabel(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}
-                                )
-                              </Badge>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                            <TableCell className="text-center">
-                              {rate.deliveryTimeMin === rate.deliveryTimeMax
-                                ? `${rate.deliveryTimeMin}h`
-                                : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenDetail(rate)
-                                }}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          )}
-                        </TableRow>
-
-                        {/* Expanded weight ranges */}
-                        {expandedRows[rate.id] && (
-                          <TableRow className="bg-muted/30">
-                            <TableCell colSpan={visibleColumns.length + 1} className="p-0">
-                              <div className="p-4">
-                                <h4 className="text-sm font-medium mb-2">Fasce di Peso</h4>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                      <TableHead className="text-xs">Fascia di Peso</TableHead>
-                                      <TableHead className="text-xs text-right">Tariffa Base</TableHead>
-                                      <TableHead className="text-xs text-right">Sconto</TableHead>
-                                      <TableHead className="text-xs text-right">Prezzo Finale</TableHead>
-                                      <TableHead className="text-xs text-center">Margine</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {/* Prima controlla se ci sono fasce di peso nel serviceWeightRanges */}
-                                    {serviceWeightRanges[rate.service?._id || rate.id || '']?.length > 0 ? (
-                                      // Renderizza le fasce dal serviceWeightRanges
-                                      serviceWeightRanges[rate.service?._id || rate.id || ''].map((weightRange: WeightRange) => (
-                                        <TableRow key={weightRange?.id || `${rate.id}-${weightRange?.min || 0}-${weightRange?.max || 0}`} className="text-sm">
-                                          <TableCell className="font-medium py-2">
-                                            {weightRange?.label || `${weightRange?.min || 0}-${weightRange?.max || 0} kg`}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2">
-                                            {formatCurrency(weightRange?.basePrice || 0)}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2">
-                                            {weightRange?.userDiscount > 0 ? (
-                                              <Badge
-                                                variant="secondary"
-                                                className="bg-primary/20 text-primary hover:bg-primary/30"
-                                              >
-                                                -{weightRange?.userDiscount}%
-                                              </Badge>
-                                            ) : (
-                                              "-"
-                                            )}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2 font-medium">
-                                            {formatCurrency(weightRange?.finalPrice || 0)}
-                                          </TableCell>
-                                          <TableCell className="text-center py-2">
-                                            <RateMarginIndicator marginValue={weightRange?.actualMargin || 0} />
-                                          </TableCell>
-                                        </TableRow>
-                                      ))
-                                    ) : rate.weightRanges?.length > 0 ? (
-                                      // Se non ci sono fasce in serviceWeightRanges, usa quelle nella tariffa stessa
-                                      rate.weightRanges.map((weightRange: any) => (
-                                        <TableRow key={`${rate.id}-${weightRange.min || 0}-${weightRange.max || 0}`} className="text-sm">
-                                          <TableCell className="font-medium py-2">
-                                            {weightRange.label || `${weightRange.min || 0}-${weightRange.max || 0} kg`}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2">
-                                            {formatCurrency(weightRange.basePrice || 0)}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2">
-                                            {weightRange.userDiscount > 0 ? (
-                                              <Badge
-                                                variant="secondary"
-                                                className="bg-primary/20 text-primary hover:bg-primary/30"
-                                              >
-                                                -{weightRange.userDiscount}%
-                                              </Badge>
-                                            ) : (
-                                              "-"
-                                            )}
-                                          </TableCell>
-                                          <TableCell className="text-right py-2 font-medium">
-                                            {formatCurrency(weightRange.finalPrice || 0)}
-                                          </TableCell>
-                                          <TableCell className="text-center py-2">
-                                            <RateMarginIndicator marginValue={weightRange.actualMargin || 0} />
-                                          </TableCell>
-                                        </TableRow>
-                                      ))
-                                    ) : (
-                                      // Messaggio chiaro all'utente quando non ci sono fasce disponibili
-                                      <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                                          Nessuna fascia di peso disponibile per questo servizio. Contattare l'amministratore.
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </TableCell>
-                          </TableRow>
                         )}
-                      </>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>
