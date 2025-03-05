@@ -162,6 +162,10 @@ interface Rate {
   margin?: number;
   weightMin?: number;
   weightMax?: number;
+  service?: {
+    _id?: string;
+    name?: string;
+  };
 }
 
 export default function RateComparisonCard() {
@@ -1096,7 +1100,7 @@ export default function RateComparisonCard() {
                         {/* Expanded weight ranges */}
                         {expandedRows[rate.id] && (
                           <TableRow className="bg-muted/30">
-                            <TableCell colSpan={columns.filter((c) => c.isVisible).length + 1} className="p-0">
+                            <TableCell colSpan={visibleColumns.length + 1} className="p-0">
                               <div className="p-4">
                                 <h4 className="text-sm font-medium mb-2">Fasce di Peso</h4>
                                 <Table>
