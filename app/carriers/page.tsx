@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import type React from "react"
+
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,11 +36,7 @@ import {
   FileUp,
   FilePlus,
   FileQuestion,
-  FileCheck,
-  File,
-  Trash,
 } from "lucide-react"
-import { Toaster, toast } from "react-hot-toast"
 
 // Types based on the Mongoose schema
 interface WeightRange {
@@ -107,14 +105,203 @@ interface Document {
   _id: string
   carrierId: string
   title: string
-  type: 'contract' | 'agreement' | 'other' | 'faq' | 'guide'
-  uploadedAt?: string
-  fileUrl?: string
+  type: "faq" | "guide" | "contract" | "other"
+  fileUrl: string
+  uploadedAt: Date
 }
 
+// Mock data for carriers
+const mockCarriers: Carrier[] = [
+  {
+    _id: "1",
+    name: "BRT",
+    logoUrl: "/brt.svg",
+    isVolumetric: true,
+    fuelSurcharge: 5.5,
+    services: [
+      {
+        name: "Standard",
+        code: "STD",
+        description: "Standard delivery in 24-48 hours",
+        deliveryTimeMin: 24,
+        deliveryTimeMax: 48,
+        destinationTypes: ["national", "eu"],
+        pricing: [
+          {
+            destinationType: "national",
+            countryCode: null,
+            weightRanges: [
+              { min: 0, max: 1, retailPrice: 7.9, purchasePrice: 5.5, margin: 30.38 },
+              { min: 1, max: 3, retailPrice: 9.9, purchasePrice: 6.8, margin: 31.31 },
+              { min: 3, max: 5, retailPrice: 11.9, purchasePrice: 8.2, margin: 31.09 },
+            ],
+          },
+        ],
+      },
+      {
+        name: "Express",
+        code: "EXP",
+        description: "Fast delivery in 24 hours",
+        deliveryTimeMin: 12,
+        deliveryTimeMax: 24,
+        destinationTypes: ["national"],
+        pricing: [
+          {
+            destinationType: "national",
+            countryCode: null,
+            weightRanges: [
+              { min: 0, max: 1, retailPrice: 9.9, purchasePrice: 6.5, margin: 34.34 },
+              { min: 1, max: 3, retailPrice: 12.9, purchasePrice: 8.5, margin: 34.11 },
+              { min: 3, max: 5, retailPrice: 15.9, purchasePrice: 10.5, margin: 33.96 },
+            ],
+          },
+        ],
+      },
+    ],
+    volumeDiscounts: [
+      {
+        minVolume: 50,
+        maxVolume: 100,
+        discountPercentage: 5,
+        applicableServices: ["STD", "EXP"],
+      },
+      {
+        minVolume: 101,
+        maxVolume: null,
+        discountPercentage: 10,
+        applicableServices: ["STD", "EXP"],
+      },
+    ],
+    additionalFees: [
+      {
+        name: "Floor delivery",
+        description: "Floor delivery service",
+        fee: 5.0,
+        applicableServices: ["STD", "EXP"],
+      },
+    ],
+    promotions: [
+      {
+        name: "Summer Promo 2023",
+        description: "Special summer discount",
+        discountPercentage: 7,
+        startDate: new Date("2023-06-01"),
+        endDate: new Date("2023-08-31"),
+        applicableServices: ["STD"],
+      },
+    ],
+    isActive: true,
+    createdAt: new Date("2022-01-15"),
+    updatedAt: new Date("2023-05-20"),
+  },
+  {
+    _id: "2",
+    name: "GLS",
+    logoUrl: "/gls.svg",
+    isVolumetric: true,
+    fuelSurcharge: 4.8,
+    services: [
+      {
+        name: "Standard",
+        code: "STD",
+        description: "Standard delivery in 24-48 hours",
+        deliveryTimeMin: 24,
+        deliveryTimeMax: 48,
+        destinationTypes: ["national", "eu"],
+        pricing: [
+          {
+            destinationType: "national",
+            countryCode: null,
+            weightRanges: [
+              { min: 0, max: 1, retailPrice: 7.5, purchasePrice: 5.2, margin: 30.67 },
+              { min: 1, max: 3, retailPrice: 9.5, purchasePrice: 6.5, margin: 31.58 },
+              { min: 3, max: 5, retailPrice: 11.5, purchasePrice: 7.9, margin: 31.3 },
+            ],
+          },
+        ],
+      },
+    ],
+    volumeDiscounts: [
+      {
+        minVolume: 50,
+        maxVolume: 100,
+        discountPercentage: 5,
+        applicableServices: ["STD"],
+      },
+    ],
+    additionalFees: [],
+    promotions: [],
+    isActive: true,
+    createdAt: new Date("2022-02-10"),
+    updatedAt: new Date("2023-04-15"),
+  },
+  {
+    _id: "3",
+    name: "DHL",
+    logoUrl: "/dhl.svg",
+    isVolumetric: true,
+    fuelSurcharge: 6.2,
+    services: [
+      {
+        name: "Express",
+        code: "EXP",
+        description: "Fast delivery in 24 hours",
+        deliveryTimeMin: 12,
+        deliveryTimeMax: 24,
+        destinationTypes: ["national", "eu", "extra_eu"],
+        pricing: [
+          {
+            destinationType: "national",
+            countryCode: null,
+            weightRanges: [
+              { min: 0, max: 1, retailPrice: 10.9, purchasePrice: 7.5, margin: 31.19 },
+              { min: 1, max: 3, retailPrice: 13.9, purchasePrice: 9.5, margin: 31.65 },
+              { min: 3, max: 5, retailPrice: 16.9, purchasePrice: 11.5, margin: 31.95 },
+            ],
+          },
+        ],
+      },
+    ],
+    volumeDiscounts: [],
+    additionalFees: [],
+    promotions: [],
+    isActive: false,
+    createdAt: new Date("2022-03-05"),
+    updatedAt: new Date("2023-03-10"),
+  },
+]
+
+// Mock data for documents
+const mockDocuments: Document[] = [
+  {
+    _id: "1",
+    carrierId: "1",
+    title: "BRT FAQ",
+    type: "faq",
+    fileUrl: "/documents/brt-faq.pdf",
+    uploadedAt: new Date("2023-01-15"),
+  },
+  {
+    _id: "2",
+    carrierId: "1",
+    title: "BRT Integration Guide",
+    type: "guide",
+    fileUrl: "/documents/brt-guide.pdf",
+    uploadedAt: new Date("2023-02-20"),
+  },
+  {
+    _id: "3",
+    carrierId: "2",
+    title: "GLS FAQ",
+    type: "faq",
+    fileUrl: "/documents/gls-faq.pdf",
+    uploadedAt: new Date("2023-03-10"),
+  },
+]
+
 export default function CarriersPage() {
-  const [carriers, setCarriers] = useState<Carrier[]>([])
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [carriers, setCarriers] = useState<Carrier[]>(mockCarriers)
+  const [documents, setDocuments] = useState<Document[]>(mockDocuments)
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false)
@@ -126,9 +313,6 @@ export default function CarriersPage() {
   const [documentTitle, setDocumentTitle] = useState("")
   const [documentType, setDocumentType] = useState<"faq" | "guide" | "contract" | "other">("faq")
   const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [toastMessage, setToastMessage] = useState<{ title: string; description: string; type: "success" | "error" } | null>(null)
-  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
 
   const router = useRouter()
 
@@ -142,12 +326,10 @@ export default function CarriersPage() {
     return matchesSearch && matchesTab
   })
 
-  // Fetch documents for a carrier
-  const getCarrierDocuments = (carrierId: string): Document[] => {
-    // In un'applicazione reale, questa funzione recupererebbe i documenti dal backend
-    // Per ora, restituiamo un array vuoto perché i dati reali non hanno documenti
-    return [];
-  };
+  // Get documents for a specific carrier
+  const getCarrierDocuments = (carrierId: string) => {
+    return documents.filter((doc) => doc.carrierId === carrierId)
+  }
 
   // Handle carrier deletion
   const handleDeleteCarrier = () => {
@@ -167,7 +349,7 @@ export default function CarriersPage() {
         title: documentTitle,
         type: documentType,
         fileUrl: "/documents/new-document.pdf", // In a real app, this would be the uploaded file URL
-        uploadedAt: new Date().toISOString(),
+        uploadedAt: new Date(),
       }
 
       setDocuments([...documents, newDocument])
@@ -178,71 +360,36 @@ export default function CarriersPage() {
     }
   }
 
-  // Handle document deletion
-  const handleDocumentDelete = (documentId: string) => {
-    // In un'applicazione reale, questa funzione invierebbe una richiesta al backend per eliminare il documento
-    toast.success('Documento eliminato con successo');
-  };
-
   // Handle CSV import
-  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      try {
-        // Crea un FormData per inviare il file
-        const formData = new FormData();
-        formData.append('file', file);
+      // In a real app, you would process the CSV file here
+      // For now, we'll just simulate adding a new carrier
+      const newCarrier: Carrier = {
+        _id: Math.random().toString(36).substring(7),
+        name: "Imported Carrier",
+        logoUrl: "/placeholder.svg",
+        isVolumetric: true,
+        fuelSurcharge: 5.0,
+        services: [],
+        volumeDiscounts: [],
+        additionalFees: [],
+        promotions: [],
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
 
-        // Mostra stato di caricamento
-        setIsLoading(true);
-        
-        // Invia il file al server
-        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                        ? 'http://localhost:5050/api/carriers/import'
-                        : '/api/carriers/import'; // Usa la route API interna
-        
-        console.log("Importing CSV to:", apiUrl);
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          body: formData,
-          // Non settare Content-Type, viene impostato automaticamente con il boundary
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.message || 'Errore durante l\'importazione');
-        }
-        
-        // Mostra un messaggio di successo
-        setToastMessage({
-          title: "Importazione completata",
-          description: result.message,
-          type: "success"
-        });
-        
-        // Ricarica i carriers
-        fetchCarriers();
-        
-        // Chiudi il dialog
-        setIsImportDialogOpen(false);
-      } catch (error) {
-        console.error('Error importing CSV:', error);
-        setToastMessage({
-          title: "Errore di importazione",
-          description: error instanceof Error ? error.message : "Si è verificato un errore durante l'importazione",
-          type: "error"
-        });
-      } finally {
-        setIsLoading(false);
-        
-        // Reset input file
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
+      setCarriers([...carriers, newCarrier])
+      setIsImportDialogOpen(false)
+
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
     }
-  };
+  }
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -253,100 +400,8 @@ export default function CarriersPage() {
     })
   }
 
-  // Funzione per caricare i corrieri dal backend
-  const fetchCarriers = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Usa sempre l'URL completo in produzione per evitare problemi di routing
-      // Usa il percorso locale solo in sviluppo
-      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                      ? 'http://localhost:5050/api/carriers'
-                      : '/api/carriers'; // Usa la route API interna di Next.js
-      
-      console.log("Fetching carriers from:", apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response details:', errorText.substring(0, 200));
-        throw new Error(`Errore nel caricamento dei corrieri: ${response.status} ${response.statusText}`);
-      }
-      
-      // Verifica che la risposta sia in formato JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const textResponse = await response.text();
-        console.error('Non-JSON response:', textResponse.substring(0, 200));
-        throw new Error('Il server non ha restituito dati JSON validi');
-      }
-      
-      const data = await response.json();
-      console.log('Carriers data received:', data.length ? `${data.length} carriers` : 'empty data');
-      setCarriers(data);
-    } catch (error) {
-      console.error('Error fetching carriers:', error);
-      setToastMessage({
-        title: "Errore",
-        description: error instanceof Error ? error.message : "Impossibile caricare i corrieri",
-        type: "error"
-      });
-      // Fallback ai dati mock
-      console.log('Using mock data as fallback');
-      setCarriers([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Carica i corrieri all'avvio
-  useEffect(() => {
-    fetchCarriers();
-  }, []);
-
-  // Effect per gestire i messaggi toast
-  useEffect(() => {
-    if (toastMessage) {
-      if (toastMessage.type === "success") {
-        toast.success(toastMessage.description);
-      } else {
-        toast.error(toastMessage.description);
-      }
-      setToastMessage(null);
-    }
-  }, [toastMessage]);
-
-  // Handle document creation
-  const handleDocumentCreate = () => {
-    if (selectedCarrier && documentTitle.trim() && documentType) {
-      // In a real app, this would send a POST request to create a new document
-      const newDocument: Document = {
-        _id: `doc${Math.random().toString(36).substring(7)}`,
-        carrierId: selectedCarrier._id,
-        title: documentTitle,
-        type: documentType as 'contract' | 'agreement' | 'other' | 'faq' | 'guide',
-        uploadedAt: new Date().toISOString(),
-        fileUrl: "/documents/new-document.pdf", // In a real app, this would be the uploaded file URL
-      }
-      
-      // Reset form
-      setDocumentTitle("")
-      setDocumentType("contract")
-      setIsDocumentModalOpen(false)
-      toast.success("Documento creato con successo")
-    }
-  }
-
   return (
     <div className="container mx-auto py-8">
-      {/* Toaster per le notifiche */}
-      <Toaster position="top-right" />
-      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-primary">Carrier Management</h1>
         <div className="flex space-x-2">
@@ -429,15 +484,11 @@ export default function CarriersPage() {
                         <TableCell className="font-medium">{carrier.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {carrier.services && carrier.services.length > 0 ? (
-                              carrier.services.map((service, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {service.name}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No services</span>
-                            )}
+                            {carrier.services.map((service, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {service.name}
+                              </Badge>
+                            ))}
                           </div>
                         </TableCell>
                         <TableCell>{carrier.fuelSurcharge}%</TableCell>
@@ -449,23 +500,17 @@ export default function CarriersPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {carrier.isActive !== undefined ? (
-                            carrier.isActive ? (
-                              <Badge variant="default" className="bg-green-100 text-green-800">
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-gray-100 text-gray-800">
-                                Inactive
-                              </Badge>
-                            )
-                          ) : (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
+                          {carrier.isActive ? (
+                            <Badge variant="success" className="bg-green-100 text-green-800">
                               Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="bg-red-100 text-red-800">
+                              Inactive
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{carrier.updatedAt ? formatDate(carrier.updatedAt) : "N/A"}</TableCell>
+                        <TableCell>{formatDate(carrier.updatedAt)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button variant="ghost" size="icon" onClick={() => router.push(`/carriers/${carrier._id}`)}>
@@ -548,7 +593,7 @@ export default function CarriersPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                               <span className="text-sm text-muted-foreground">
-                                                {doc.uploadedAt ? formatDate(new Date(doc.uploadedAt)) : "N/A"}
+                                                {formatDate(doc.uploadedAt)}
                                               </span>
                                               <Button variant="ghost" size="icon">
                                                 <Download className="h-4 w-4" />
@@ -630,20 +675,12 @@ export default function CarriersPage() {
               </div>
               <div className="mt-4">
                 <a
-                  href="/api/templates/carriers"
-                  download
-                  className="text-sm text-primary hover:underline flex items-center mb-2"
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download CSV template
-                </a>
-                <a
-                  href="/api/templates/carriers/instructions"
+                  href="/template-carriers.csv"
                   download
                   className="text-sm text-primary hover:underline flex items-center"
                 >
-                  <FileText className="h-4 w-4 mr-1" />
-                  Download istruzioni
+                  <Download className="h-4 w-4 mr-1" />
+                  Download CSV template
                 </a>
               </div>
             </div>
@@ -713,68 +750,6 @@ export default function CarriersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Document Management */}
-      {selectedCarrier ? (
-        <div className="mt-6">
-          <h3 className="text-xl font-bold mb-4">Gestione Documenti</h3>
-          <div className="bg-white rounded-lg shadow p-4">
-            {getCarrierDocuments(selectedCarrier._id).length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-gray-500 mb-2">Nessun documento disponibile per questo corriere</p>
-                <Button 
-                  onClick={() => setIsDocumentModalOpen(true)} 
-                  variant="outline"
-                >
-                  Aggiungi il primo documento
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between mb-4">
-                  <h4 className="font-medium">Documenti del corriere</h4>
-                  <Button 
-                    onClick={() => setIsDocumentModalOpen(true)} 
-                    variant="outline" 
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Aggiungi Documento
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {getCarrierDocuments(selectedCarrier._id).map((doc: Document) => (
-                    <div key={doc._id} className="flex items-center justify-between border-b pb-2">
-                      <div className="flex items-center">
-                        <div className="mr-3">
-                          {doc.type === 'contract' && <FileText className="h-5 w-5 text-blue-500" />}
-                          {doc.type === 'agreement' && <FileCheck className="h-5 w-5 text-green-500" />}
-                          {doc.type === 'faq' && <FileQuestion className="h-5 w-5 text-purple-500" />}
-                          {doc.type === 'guide' && <FilePlus className="h-5 w-5 text-yellow-500" />}
-                          {doc.type === 'other' && <File className="h-5 w-5 text-gray-500" />}
-                        </div>
-                        <div>
-                          <p className="font-medium">{doc.title}</p>
-                          <p className="text-xs text-gray-500">
-                            Caricato il: {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex">
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDocumentDelete(doc._id)}>
-                          <Trash className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
