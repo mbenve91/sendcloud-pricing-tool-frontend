@@ -153,4 +153,25 @@ export async function getServices(carrierId?: string) {
     console.error('Errore nel servizio getServices:', error);
     throw error;
   }
+}
+
+/**
+ * Recupera tutte le fasce di peso per un servizio specifico
+ * @param serviceId - ID del servizio per cui recuperare le fasce di peso
+ * @returns Una lista di fasce di peso con i relativi prezzi
+ */
+export async function getWeightRangesByService(serviceId: string) {
+  try {
+    const response = await fetch(`${API_URL}/rates/service/${serviceId}/weightRanges`);
+    
+    if (!response.ok) {
+      throw new Error(`Errore durante il recupero delle fasce di peso: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error('Errore nel servizio getWeightRangesByService:', error);
+    throw error;
+  }
 } 

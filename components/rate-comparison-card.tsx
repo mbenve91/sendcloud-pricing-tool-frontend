@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight } from "lucide-react"
+import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
 import {
   Pagination,
   PaginationContent as UPaginationContent,
@@ -29,8 +29,9 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from "@/components/ui/pagination"
-import { getCarriers, compareRates, getServices } from "../services/api"
+import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
+import { RateMarginIndicator } from "./rate-margin-indicator"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -195,6 +196,31 @@ export default function RateComparisonCard() {
     volume: "100",
     country: "",
   })
+
+  // Stato per memorizzare le fasce di peso complete per servizio
+  const [serviceWeightRanges, setServiceWeightRanges] = useState<{ [serviceId: string]: WeightRange[] }>({});
+
+  // Funzione per caricare le fasce di peso di un servizio
+  const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
+    if (!serviceId) return;
+    
+    try {
+      // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
+      if (serviceWeightRanges[serviceId]) return;
+      
+      const weightRangesData = await api.getWeightRangesByService(serviceId);
+      
+      // Aggiorniamo lo stato con type assertion per assicurarci che i dati abbiano il tipo corretto
+      setServiceWeightRanges(prev => ({
+        ...prev,
+        [serviceId]: weightRangesData as WeightRange[]
+      }));
+      
+      console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
+    } catch (error) {
+      console.error('Errore nel caricamento delle fasce di peso:', error);
+    }
+  }, [serviceWeightRanges]);
 
   // Update the generateMockRates function to include weight ranges
   const generateMockRates = useCallback((destinationType: string, filters: any) => {
@@ -522,11 +548,11 @@ export default function RateComparisonCard() {
       try {
         // Se abbiamo selezionato un carrier specifico, carichiamo solo i suoi servizi
         if (filters.carrierId) {
-          const servicesData = await getServices(filters.carrierId);
+          const servicesData = await api.getServices(filters.carrierId);
           setServices(servicesData);
         } else if (carriers.length > 0) {
           // Altrimenti carichiamo tutti i servizi disponibili
-          const servicesData = await getServices();
+          const servicesData = await api.getServices();
           setServices(servicesData);
         }
       } catch (error) {
@@ -547,18 +573,18 @@ export default function RateComparisonCard() {
     try {
       // Carichiamo i corrieri se non sono già stati caricati
       if (carriers.length === 0) {
-        const carriersData = await getCarriers();
+        const carriersData = await api.getCarriers();
         setCarriers(carriersData);
       }
 
       // Se non abbiamo servizi, li carichiamo
       if (services.length === 0) {
-        const servicesData = await getServices(filters.carrierId || undefined);
+        const servicesData = await api.getServices(filters.carrierId || undefined);
         setServices(servicesData);
       }
       
       // Confrontiamo le tariffe dal backend
-      const ratesData = await compareRates({
+      const ratesData = await api.compareRates({
         weight: filters.weight,
         destinationType: activeTab,
         destinationCountry: filters.country,
@@ -575,6 +601,13 @@ export default function RateComparisonCard() {
         console.log('Rate ricevuta dal backend:', rate);
         console.log('Rate.service:', rate.service);
         console.log('Rate.carrier:', rate.carrier);
+        
+        // Trova tutte le fasce di peso per il servizio corrente
+        // Il problema è che rate.weightRanges non contiene tutte le fasce di peso, ma solo quella corrispondente al peso selezionato
+        
+        // Utilizzo l'ID del servizio per ottenere TUTTE le fasce di peso dal backend
+        const serviceId = rate.service?._id;
+        console.log('ServiceId per cercare tutte le fasce di peso:', serviceId);
         
         // Utilizziamo le fasce di peso reali dal modello Mongoose se disponibili
         const weightRanges = rate.weightRanges?.length > 0 
@@ -734,6 +767,20 @@ export default function RateComparisonCard() {
 
   // Check if all displayed rows are selected
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
+
+  // Modifichiamo la funzione handleExpandRow per caricare le fasce di peso
+  const handleExpandRow = useCallback((rateId: string, serviceId?: string) => {
+    // Toggle lo stato di espansione
+    setExpandedRows((prev) => ({
+      ...prev,
+      [rateId]: !prev[rateId],
+    }));
+    
+    // Se stiamo espandendo la riga e abbiamo un ID servizio, carichiamo le fasce di peso
+    if (!expandedRows[rateId] && serviceId) {
+      loadServiceWeightRanges(serviceId);
+    }
+  }, [expandedRows, loadServiceWeightRanges]);
 
   return (
     <Card className="w-full shadow-md">
@@ -949,9 +996,17 @@ export default function RateComparisonCard() {
                             />
                           </TableCell>
                           <TableCell>
-                            <ChevronRight
-                              className={`h-4 w-4 transition-transform ${expandedRows[rate.id] ? "rotate-90" : ""}`}
-                            />
+                            <Button
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleExpandRow(rate.id, rate.service?._id || '')
+                              }}
+                              size="icon"
+                              aria-label={expandedRows[rate.id] ? "Contrai dettagli" : "Espandi dettagli"}
+                            >
+                              {expandedRows[rate.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
                           </TableCell>
                           {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
                             <TableCell>{rate.carrierName}</TableCell>
@@ -1041,21 +1096,22 @@ export default function RateComparisonCard() {
                         {/* Expanded weight ranges */}
                         {expandedRows[rate.id] && (
                           <TableRow className="bg-muted/30">
-                            <TableCell colSpan={12} className="p-0">
+                            <TableCell colSpan={columns.filter((c) => c.isVisible).length + 1} className="p-0">
                               <div className="p-4">
-                                <h4 className="text-sm font-medium mb-2">Weight Ranges</h4>
+                                <h4 className="text-sm font-medium mb-2">Fasce di Peso</h4>
                                 <Table>
                                   <TableHeader>
                                     <TableRow className="bg-muted/50">
-                                      <TableHead className="text-xs">Weight Range</TableHead>
-                                      <TableHead className="text-xs text-right">Base Rate</TableHead>
-                                      <TableHead className="text-xs text-right">Discount</TableHead>
-                                      <TableHead className="text-xs text-right">Final Price</TableHead>
-                                      <TableHead className="text-xs text-center">Margin</TableHead>
+                                      <TableHead className="text-xs">Fascia di Peso</TableHead>
+                                      <TableHead className="text-xs text-right">Tariffa Base</TableHead>
+                                      <TableHead className="text-xs text-right">Sconto</TableHead>
+                                      <TableHead className="text-xs text-right">Prezzo Finale</TableHead>
+                                      <TableHead className="text-xs text-center">Margine</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {rate.weightRanges && rate.weightRanges.map((weightRange: any) => (
+                                    {/* Utilizziamo le fasce di peso dal servizio se disponibili, altrimenti usiamo quelle della tariffa */}
+                                    {(serviceWeightRanges[rate.service?._id || ''] || rate.weightRanges)?.map((weightRange: WeightRange) => (
                                       <TableRow key={weightRange?.id || `${rate.id}-${weightRange?.min || 0}-${weightRange?.max || 0}`} className="text-sm">
                                         <TableCell className="font-medium py-2">
                                           {weightRange?.label || `${weightRange?.min || 0}-${weightRange?.max || 0} kg`}
@@ -1076,32 +1132,20 @@ export default function RateComparisonCard() {
                                           )}
                                         </TableCell>
                                         <TableCell className="text-right py-2 font-medium">
-                                          {formatCurrency(
-                                            weightRange?.finalPrice -
-                                              weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
-                                          )}
+                                          {formatCurrency(weightRange?.finalPrice || 0)}
                                         </TableCell>
                                         <TableCell className="text-center py-2">
-                                          <Badge
-                                            variant={getMarginColor(
-                                              weightRange?.actualMargin -
-                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
-                                            )}
-                                          >
-                                            {formatCurrency(
-                                              weightRange?.actualMargin -
-                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
-                                            )}{" "}
-                                            (
-                                            {getMarginLabel(
-                                              weightRange?.actualMargin -
-                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
-                                            )}
-                                            )
-                                          </Badge>
+                                          <RateMarginIndicator marginValue={weightRange?.actualMargin || 0} />
                                         </TableCell>
                                       </TableRow>
                                     ))}
+                                    {(!serviceWeightRanges[rate.service?._id || ''] && !rate.weightRanges) && (
+                                      <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                                          Nessuna fascia di peso disponibile
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
                                   </TableBody>
                                 </Table>
                               </div>
