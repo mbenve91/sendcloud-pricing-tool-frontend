@@ -571,6 +571,11 @@ export default function RateComparisonCard() {
       
       // Trasforma i dati dell'API nel formato atteso dal componente
       const formattedRates = ratesData.map((rate: any) => {
+        // Log per debug
+        console.log('Rate ricevuta dal backend:', rate);
+        console.log('Rate.service:', rate.service);
+        console.log('Rate.carrier:', rate.carrier);
+        
         // Utilizziamo le fasce di peso reali dal modello Mongoose se disponibili
         const weightRanges = rate.weightRanges?.length > 0 
           ? rate.weightRanges.map((range: any) => {
@@ -588,7 +593,7 @@ export default function RateComparisonCard() {
               };
             })
           // Facciamo fallback sulle fasce simulate solo se non ci sono dati reali
-          : WEIGHT_RANGES.map((range) => {
+          : WEIGHT_RANGES.map((range: any) => {
               return {
                 id: `${rate._id}-${range.min}-${range.max}`,
                 label: `${range.min}-${range.max} kg`,
@@ -609,34 +614,53 @@ export default function RateComparisonCard() {
           (range) => weightValue >= range.min && weightValue <= range.max
         ) || weightRanges[0];
         
-        return {
+        // Estrai i dati del servizio e del corriere con gestione null/undefined
+        const service = rate.service || {};
+        const carrier = rate.carrier || (service?.carrier || {});
+        
+        // Formatta la lista dei paesi se c'è una lista di codici paesi
+        let countryName = '';
+        if (service.destinationCountry) {
+          // Se contiene virgole, è una lista di codici paese - mostriamo solo il primo
+          if (service.destinationCountry.includes(',')) {
+            const countries = service.destinationCountry.split(/,\s*/);
+            countryName = countries[0].trim(); // Prendiamo il primo paese
+          } else {
+            countryName = service.destinationCountry;
+          }
+        }
+        
+        // Crea l'oggetto Rate con tutti i campi richiesti dall'interfaccia
+        const formattedRate: Rate = {
           id: rate._id || uuidv4(),
-          carrierId: rate.carrier?._id || '',
-          carrierName: rate.carrier?.name || 'Unknown',
-          carrierLogo: rate.carrier?.logoUrl || '',
-          serviceCode: rate.serviceCode || rate.serviceName || 'Standard',
-          serviceName: rate.serviceName || 'Standard',
-          serviceDescription: rate.description || '',
-          countryName: rate.destinationCountry || '',
-          basePrice: rate.retailPrice,
+          carrierId: carrier._id || '',
+          carrierName: carrier.name || 'Unknown',
+          carrierLogo: carrier.logoUrl || '',
+          serviceCode: service.code || service.name || rate.serviceCode || 'Standard',
+          serviceName: service.name || rate.serviceName || 'Standard',
+          serviceDescription: service.description || rate.description || '',
+          countryName: countryName,
+          basePrice: rate.retailPrice || 0,
           userDiscount: 0,
-          finalPrice: rate.retailPrice,
-          actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
-          marginPercentage: rate.marginPercentage || ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
-          deliveryTimeMin: rate.deliveryTimeMin,
-          deliveryTimeMax: rate.deliveryTimeMax,
-          fuelSurcharge: rate.fuelSurcharge || 0,
+          finalPrice: rate.retailPrice || 0,
+          actualMargin: rate.margin || (rate.retailPrice ? (rate.retailPrice - (rate.purchasePrice || 0)) : 0),
+          marginPercentage: rate.marginPercentage || (rate.retailPrice ? ((rate.retailPrice - (rate.purchasePrice || 0)) / rate.retailPrice) * 100 : 0) || 0,
+          deliveryTimeMin: service.deliveryTimeMin || rate.deliveryTimeMin,
+          deliveryTimeMax: service.deliveryTimeMax || rate.deliveryTimeMax,
+          fuelSurcharge: carrier.fuelSurcharge || rate.fuelSurcharge || 0,
           volumeDiscount: rate.volumeDiscount || 0,
           promotionDiscount: rate.promotionDiscount || 0,
-          totalBasePrice: rate.totalBasePrice || rate.retailPrice,
+          totalBasePrice: rate.totalBasePrice || rate.retailPrice || 0,
           weightRanges,
           currentWeightRange,
-          retailPrice: rate.retailPrice,
-          purchasePrice: rate.purchasePrice,
-          margin: rate.margin,
-          weightMin: rate.weightMin,
-          weightMax: rate.weightMax
+          retailPrice: rate.retailPrice || 0,
+          purchasePrice: rate.purchasePrice || 0,
+          margin: rate.margin || 0,
+          weightMin: rate.weightMin || 0,
+          weightMax: rate.weightMax || 0
         };
+        
+        return formattedRate;
       });
       
       setRates(formattedRates);
