@@ -64,7 +64,13 @@ export async function compareRates(filters: {
     const queryParams = new URLSearchParams();
     
     queryParams.append('weight', filters.weight);
-    queryParams.append('destinationType', filters.destinationType);
+    
+    // Mappiamo i tipi di destinazione del frontend a quelli supportati dal backend
+    let destinationType = filters.destinationType;
+    if (destinationType === 'eu' || destinationType === 'extra_eu') {
+      destinationType = 'international';
+    }
+    queryParams.append('destinationType', destinationType);
     
     if (filters.destinationCountry) {
       queryParams.append('destinationCountry', filters.destinationCountry);
