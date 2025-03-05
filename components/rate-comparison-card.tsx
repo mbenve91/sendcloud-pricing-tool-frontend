@@ -571,9 +571,12 @@ export default function RateComparisonCard() {
 
   // Handle filter change
   const handleFilterChange = (name: string, value: string) => {
+    // Convert 'all' to empty string for API compatibility
+    const apiValue = value === 'all' ? '' : value;
+    
     setFilters((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: apiValue,
     }))
   }
 
@@ -651,7 +654,7 @@ export default function RateComparisonCard() {
                     <SelectValue placeholder="All carriers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tutti i corrieri</SelectItem>
+                    <SelectItem value="all">Tutti i corrieri</SelectItem>
                     {carriers.map((carrier) => (
                       <SelectItem key={carrier._id} value={carrier._id}>
                         {carrier.name}
@@ -670,7 +673,7 @@ export default function RateComparisonCard() {
                     <SelectValue placeholder="Tutti i servizi" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tutti i servizi</SelectItem>
+                    <SelectItem value="all">Tutti i servizi</SelectItem>
                     {services.map((service) => (
                       <SelectItem key={service._id} value={service._id}>
                         {service.name}
