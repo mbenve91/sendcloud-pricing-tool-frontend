@@ -69,6 +69,12 @@ export async function compareRates(filters: {
     let destinationType = filters.destinationType;
     if (destinationType === 'eu' || destinationType === 'extra_eu') {
       destinationType = 'international';
+      // Aggiungiamo un parametro aggiuntivo per distinguere tra EU e Extra EU
+      if (filters.destinationType === 'eu') {
+        queryParams.append('euType', 'eu');
+      } else if (filters.destinationType === 'extra_eu') {
+        queryParams.append('euType', 'extra_eu');
+      }
     }
     queryParams.append('destinationType', destinationType);
     

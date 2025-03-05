@@ -470,23 +470,25 @@ export default function RateComparisonCard() {
       prevRates.map((rate) => {
         if (rate.id === rateId) {
           // Ensure discount is between 0 and 90%
-          const clampedDiscount = Math.max(0, Math.min(90, newDiscount))
+          const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
 
           // Update the discount for all weight ranges
-          const updatedWeightRanges = rate.weightRanges.map((weightRange: WeightRange) => {
-            // Calculate the discount amount - applica lo sconto sul margine
-            const discountAmount = weightRange.actualMargin * (clampedDiscount / 100)
+          const updatedWeightRanges = rate.weightRanges && rate.weightRanges.length > 0 
+            ? rate.weightRanges.map((weightRange: WeightRange) => {
+              // Calculate the discount amount - applica lo sconto sul margine
+              const discountAmount = weightRange.actualMargin * (clampedDiscount / 100);
 
-            return {
-              ...weightRange,
-              // Aggiorniamo solo userDiscount, non modifichiamo altri parametri di sconto
-              userDiscount: clampedDiscount,
-              // Recalculate final price come basePrice meno lo sconto sul margine
-              finalPrice: weightRange.basePrice - discountAmount,
-              // Adjust the margin based on the discount
-              adjustedMargin: weightRange.actualMargin - discountAmount,
-            }
-          })
+              return {
+                ...weightRange,
+                // Aggiorniamo solo userDiscount, non modifichiamo altri parametri di sconto
+                userDiscount: clampedDiscount,
+                // Recalculate final price come basePrice meno lo sconto sul margine
+                finalPrice: weightRange.basePrice - discountAmount,
+                // Adjust the margin based on the discount
+                adjustedMargin: weightRange.actualMargin - discountAmount,
+              };
+            })
+            : [];
 
           // Calculate the discount amount for the main rate - applica lo sconto sul margine
           const discountAmount = rate.actualMargin * (clampedDiscount / 100)
@@ -564,6 +566,8 @@ export default function RateComparisonCard() {
         serviceType: filters.serviceType,
         volume: filters.volume
       });
+      
+      console.log(`Richiesta tariffe per tab ${activeTab} con paese ${filters.country || 'tutti'}. Risultati: ${ratesData.length}`);
       
       // Trasforma i dati dell'API nel formato atteso dal componente
       const formattedRates = ratesData.map((rate: any) => {
@@ -1027,21 +1031,21 @@ export default function RateComparisonCard() {
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {rate.weightRanges.map((weightRange: any) => (
-                                      <TableRow key={weightRange.id || `${rate.id}-${weightRange.min}-${weightRange.max}`} className="text-sm">
+                                    {rate.weightRanges && rate.weightRanges.map((weightRange: any) => (
+                                      <TableRow key={weightRange?.id || `${rate.id}-${weightRange?.min || 0}-${weightRange?.max || 0}`} className="text-sm">
                                         <TableCell className="font-medium py-2">
-                                          {weightRange.label || `${weightRange.min}-${weightRange.max} kg`}
+                                          {weightRange?.label || `${weightRange?.min || 0}-${weightRange?.max || 0} kg`}
                                         </TableCell>
                                         <TableCell className="text-right py-2">
-                                          {formatCurrency(weightRange.basePrice)}
+                                          {formatCurrency(weightRange?.basePrice || 0)}
                                         </TableCell>
                                         <TableCell className="text-right py-2">
-                                          {rate.userDiscount > 0 ? (
+                                          {weightRange?.userDiscount > 0 ? (
                                             <Badge
                                               variant="secondary"
                                               className="bg-primary/20 text-primary hover:bg-primary/30"
                                             >
-                                              -{rate.userDiscount}%
+                                              -{weightRange?.userDiscount}%
                                             </Badge>
                                           ) : (
                                             "-"
@@ -1049,25 +1053,25 @@ export default function RateComparisonCard() {
                                         </TableCell>
                                         <TableCell className="text-right py-2 font-medium">
                                           {formatCurrency(
-                                            weightRange.finalPrice -
-                                              weightRange.actualMargin * ((rate.userDiscount || 0) / 100),
+                                            weightRange?.finalPrice -
+                                              weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
                                           )}
                                         </TableCell>
                                         <TableCell className="text-center py-2">
                                           <Badge
                                             variant={getMarginColor(
-                                              weightRange.actualMargin -
-                                                weightRange.actualMargin * ((rate.userDiscount || 0) / 100),
+                                              weightRange?.actualMargin -
+                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
                                             )}
                                           >
                                             {formatCurrency(
-                                              weightRange.actualMargin -
-                                                weightRange.actualMargin * ((rate.userDiscount || 0) / 100),
+                                              weightRange?.actualMargin -
+                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
                                             )}{" "}
                                             (
                                             {getMarginLabel(
-                                              weightRange.actualMargin -
-                                                weightRange.actualMargin * ((rate.userDiscount || 0) / 100),
+                                              weightRange?.actualMargin -
+                                                weightRange?.actualMargin * ((weightRange?.userDiscount || 0) / 100),
                                             )}
                                             )
                                           </Badge>
