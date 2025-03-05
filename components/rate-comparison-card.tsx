@@ -29,6 +29,7 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from "@/components/ui/pagination"
+import { getCarriers, compareRates, getServices } from "../services/api"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -111,6 +112,8 @@ export default function RateComparisonCard() {
   const [currentPage, setCurrentPage] = useState(1)
   const [rates, setRates] = useState<any[]>([])
   const [suggestions, setSuggestions] = useState<any[]>([])
+  const [carriers, setCarriers] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
   const rowsPerPage = 5
 
   // Add state for selected rows
@@ -446,23 +449,121 @@ export default function RateComparisonCard() {
     }))
   }
 
+  // Load services when carrier filter changes
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        // Se abbiamo selezionato un carrier specifico, carichiamo solo i suoi servizi
+        if (filters.carrierId) {
+          const servicesData = await getServices(filters.carrierId);
+          setServices(servicesData);
+        } else if (carriers.length > 0) {
+          // Altrimenti carichiamo tutti i servizi disponibili
+          const servicesData = await getServices();
+          setServices(servicesData);
+        }
+      } catch (error) {
+        console.error('Errore durante il caricamento dei servizi:', error);
+        setServices([]);
+      }
+    };
+
+    loadServices();
+  }, [filters.carrierId, carriers.length]);
+
   // Load rates when filters or tab changes
-  const loadRates = useCallback(() => {
+  const loadRates = useCallback(async () => {
     setLoading(true)
     setSelectedRows({}) // Reset selected rows when refreshing data
     setExpandedRows({}) // Reset expanded rows when refreshing data
 
-    // Simulate API call
-    setTimeout(() => {
-      const newRates = generateMockRates(activeTab, filters)
-      setRates(newRates)
+    try {
+      // Carichiamo i corrieri se non sono già stati caricati
+      if (carriers.length === 0) {
+        const carriersData = await getCarriers();
+        setCarriers(carriersData);
+      }
 
-      const newSuggestions = generateMockSuggestions(activeTab, filters)
-      setSuggestions(newSuggestions)
-
-      setLoading(false)
-    }, 500)
-  }, [activeTab, filters, generateMockRates, generateMockSuggestions])
+      // Se non abbiamo servizi, li carichiamo
+      if (services.length === 0) {
+        const servicesData = await getServices(filters.carrierId || undefined);
+        setServices(servicesData);
+      }
+      
+      // Confrontiamo le tariffe dal backend
+      const ratesData = await compareRates({
+        weight: filters.weight,
+        destinationType: activeTab,
+        destinationCountry: filters.country,
+        carrierId: filters.carrierId,
+        serviceType: filters.serviceType,
+        volume: filters.volume
+      });
+      
+      // Trasforma i dati dell'API nel formato atteso dal componente
+      const formattedRates = ratesData.map((rate: any) => {
+        // Crea gli intervalli di peso simulati (da sostituire con dati reali quando disponibili)
+        const weightRanges = WEIGHT_RANGES.map((range) => {
+          return {
+            id: `${rate._id}-${range.min}-${range.max}`,
+            label: `${range.min}-${range.max} kg`,
+            min: range.min,
+            max: range.max,
+            basePrice: rate.basePrice || rate.retailPrice,
+            userDiscount: 0,
+            finalPrice: rate.finalPrice || rate.retailPrice,
+            actualMargin: ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
+            volumeDiscount: rate.volumeDiscount || 0,
+            promotionDiscount: rate.promotionDiscount || 0
+          };
+        });
+        
+        // Trova l'intervallo di peso corrente in base al filtro del peso
+        const weightValue = parseFloat(filters.weight);
+        const currentWeightRange = weightRanges.find(
+          (range) => weightValue >= range.min && weightValue <= range.max
+        ) || weightRanges[0];
+        
+        return {
+          id: rate._id,
+          carrierName: rate.carrier?.name || 'Unknown',
+          carrierId: rate.carrier?._id || '',
+          serviceName: rate.serviceCode || rate.name || 'Standard',
+          serviceDescription: rate.description || '',
+          countryName: rate.destinationCountry || '',
+          destinationType: rate.destinationType || activeTab,
+          basePrice: rate.basePrice || rate.retailPrice,
+          userDiscount: 0,
+          finalPrice: rate.finalPrice || rate.retailPrice,
+          actualMargin: ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
+          deliveryTimeMin: rate.deliveryTimeMin || 24,
+          deliveryTimeMax: rate.deliveryTimeMax || 48,
+          fuelSurcharge: rate.fuelSurcharge || 5,
+          volumeDiscount: rate.volumeDiscount || 0,
+          promotionDiscount: rate.promotionDiscount || 0,
+          totalBasePrice: rate.totalBasePrice || rate.retailPrice,
+          weightRanges,
+          currentWeightRange
+        };
+      });
+      
+      setRates(formattedRates);
+      
+      // Per ora continuiamo a usare suggerimenti simulati
+      const newSuggestions = generateMockSuggestions(activeTab, filters);
+      setSuggestions(newSuggestions);
+    } catch (error) {
+      console.error('Errore durante il caricamento delle tariffe:', error);
+      // In caso di errore, mostriamo tariffe simulate
+      const newRates = generateMockRates(activeTab, filters);
+      setRates(newRates);
+      
+      const newSuggestions = generateMockSuggestions(activeTab, filters);
+      setSuggestions(newSuggestions);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length]);
 
   useEffect(() => {
     loadRates()
@@ -550,9 +651,9 @@ export default function RateComparisonCard() {
                     <SelectValue placeholder="All carriers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All carriers</SelectItem>
-                    {CARRIERS.map((carrier) => (
-                      <SelectItem key={carrier.id} value={carrier.id}>
+                    <SelectItem value="">Tutti i corrieri</SelectItem>
+                    {carriers.map((carrier) => (
+                      <SelectItem key={carrier._id} value={carrier._id}>
                         {carrier.name}
                       </SelectItem>
                     ))}
@@ -566,13 +667,15 @@ export default function RateComparisonCard() {
                 </label>
                 <Select value={filters.serviceType} onValueChange={(value) => handleFilterChange("serviceType", value)}>
                   <SelectTrigger id="service">
-                    <SelectValue placeholder="All services" />
+                    <SelectValue placeholder="Tutti i servizi" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All services</SelectItem>
-                    <SelectItem value="Standard">Standard</SelectItem>
-                    <SelectItem value="Express">Express</SelectItem>
-                    <SelectItem value="Premium">Premium</SelectItem>
+                    <SelectItem value="">Tutti i servizi</SelectItem>
+                    {services.map((service) => (
+                      <SelectItem key={service._id} value={service._id}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
