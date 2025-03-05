@@ -1,16 +1,22 @@
 // services/api.ts - Servizio per interagire con l'API backend
 
 // URL per il backend su Render
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050';
+// In produzione, usa sempre l'URL di Render per evitare riferimenti a localhost
+const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+const API_URL = isProduction 
+  ? 'https://sendcloud-pricing-tool-backend.onrender.com/api' 
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api');
+
+const API_BASE_URL = isProduction
+  ? 'https://sendcloud-pricing-tool-backend.onrender.com'
+  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050');
 
 /**
  * Recupera tutti i corrieri attivi dal backend
  */
 export async function getCarriers() {
   try {
-    // NOTA: Non aggiungere /api poiché l'URL completo è già configurato in .env.local
-    // Usiamo direttamente l'endpoint /carriers
+    // Usiamo l'endpoint API corretto
     const response = await fetch(`${API_BASE_URL}/api/carriers`);
     
     if (!response.ok) {
