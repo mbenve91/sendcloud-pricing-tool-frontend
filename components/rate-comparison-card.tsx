@@ -701,7 +701,11 @@ export default function RateComparisonCard() {
           purchasePrice: rate.purchasePrice || 0,
           margin: rate.margin || 0,
           weightMin: rate.weightMin || 0,
-          weightMax: rate.weightMax || 0
+          weightMax: rate.weightMax || 0,
+          service: {
+            _id: service._id || rate.service?._id || '',
+            name: service.name || rate.serviceName || 'Standard'
+          }
         };
         
         return formattedRate;
@@ -787,11 +791,17 @@ export default function RateComparisonCard() {
       [rateId]: !prev[rateId]
     }));
     
+    // Troviamo la tariffa corrispondente
+    const currentRate = rates.find(r => r.id === rateId);
+    // Utilizziamo l'ID del servizio passato o lo prendiamo dalla tariffa se esiste
+    const effectiveServiceId = serviceId || (currentRate?.service?._id || '');
+    
     // Se stiamo espandendo la riga e abbiamo un ID di servizio valido, carichiamo le fasce di peso
-    if (!expandedRows[rateId] && serviceId) {
-      loadServiceWeightRanges(serviceId);
+    if (!expandedRows[rateId] && effectiveServiceId) {
+      console.log(`Caricamento fasce di peso per servizio: ${effectiveServiceId}`);
+      loadServiceWeightRanges(effectiveServiceId);
     }
-  }, [expandedRows, loadServiceWeightRanges]);
+  }, [expandedRows, loadServiceWeightRanges, rates]);
 
   return (
     <Card className="w-full shadow-md">
