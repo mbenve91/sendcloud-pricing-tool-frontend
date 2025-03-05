@@ -30,6 +30,7 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination"
 import { getCarriers, compareRates, getServices } from "../services/api"
+import { v4 as uuidv4 } from "uuid"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -106,39 +107,41 @@ const ALL_COLUMNS = [
 interface WeightRange {
   id: string;
   label: string;
-  min: number;
-  max: number;
   basePrice: number;
   userDiscount: number;
   finalPrice: number;
   actualMargin: number;
+  adjustedMargin?: number;
   volumeDiscount: number;
   promotionDiscount: number;
-  adjustedMargin?: number;
 }
 
 interface Rate {
   id: string;
-  carrierName: string;
   carrierId: string;
+  carrierName: string;
+  carrierLogo: string;
+  serviceCode: string;
   serviceName: string;
   serviceDescription: string;
   countryName: string;
-  destinationType: string;
   basePrice: number;
   userDiscount: number;
   finalPrice: number;
   actualMargin: number;
-  marginPercentage?: number;
-  deliveryTimeMin: number;
-  deliveryTimeMax: number;
+  marginPercentage: number;
+  adjustedMargin?: number;
+  deliveryTimeMin?: number;
+  deliveryTimeMax?: number;
   fuelSurcharge: number;
   volumeDiscount: number;
   promotionDiscount: number;
   totalBasePrice: number;
   weightRanges: WeightRange[];
-  currentWeightRange: WeightRange;
-  adjustedMargin?: number;
+  currentWeightRange?: WeightRange;
+  retailPrice?: number;
+  purchasePrice?: number;
+  margin?: number;
 }
 
 export default function RateComparisonCard() {
@@ -455,8 +458,8 @@ export default function RateComparisonCard() {
               ...weightRange,
               // Aggiorniamo solo userDiscount, non modifichiamo altri parametri di sconto
               userDiscount: clampedDiscount,
-              // Recalculate final price with the user discount applied to the margin
-              finalPrice: weightRange.finalPrice - discountAmount,
+              // Recalculate final price come basePrice meno lo sconto sul margine
+              finalPrice: weightRange.basePrice - discountAmount,
               // Adjust the margin based on the discount
               adjustedMargin: weightRange.actualMargin - discountAmount,
             }
@@ -468,8 +471,8 @@ export default function RateComparisonCard() {
           return {
             ...rate,
             userDiscount: clampedDiscount,
-            // Recalculate final price with the user discount applied to the margin
-            finalPrice: rate.finalPrice - discountAmount,
+            // Recalculate final price come basePrice meno lo sconto sul margine
+            finalPrice: rate.basePrice - discountAmount,
             // Adjust the margin based on the discount
             adjustedMargin: rate.actualMargin - discountAmount,
             weightRanges: updatedWeightRanges,
@@ -564,26 +567,30 @@ export default function RateComparisonCard() {
         ) || weightRanges[0];
         
         return {
-          id: rate._id,
-          carrierName: rate.carrier?.name || 'Unknown',
+          id: rate._id || uuidv4(),
           carrierId: rate.carrier?._id || '',
-          serviceName: rate.serviceCode || rate.serviceName || 'Standard',
+          carrierName: rate.carrier?.name || 'Unknown',
+          carrierLogo: rate.carrier?.logoUrl || '',
+          serviceCode: rate.serviceCode || rate.serviceName || 'Standard',
+          serviceName: rate.serviceName || 'Standard',
           serviceDescription: rate.description || '',
           countryName: rate.destinationCountry || '',
-          destinationType: rate.destinationType || activeTab,
           basePrice: rate.basePrice || rate.retailPrice,
           userDiscount: 0,
           finalPrice: rate.finalPrice || rate.retailPrice,
           actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
           marginPercentage: rate.marginPercentage || ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
-          deliveryTimeMin: rate.deliveryTimeMin || 24,
-          deliveryTimeMax: rate.deliveryTimeMax || 48,
-          fuelSurcharge: rate.fuelSurcharge || 5,
+          deliveryTimeMin: rate.deliveryTimeMin,
+          deliveryTimeMax: rate.deliveryTimeMax,
+          fuelSurcharge: rate.fuelSurcharge || 0,
           volumeDiscount: rate.volumeDiscount || 0,
           promotionDiscount: rate.promotionDiscount || 0,
           totalBasePrice: rate.totalBasePrice || rate.retailPrice,
           weightRanges,
-          currentWeightRange
+          currentWeightRange,
+          retailPrice: rate.retailPrice,
+          purchasePrice: rate.purchasePrice,
+          margin: rate.margin,
         };
       });
       
