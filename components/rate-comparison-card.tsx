@@ -102,6 +102,45 @@ const ALL_COLUMNS = [
   { id: "details", name: "Details", isVisible: true },
 ]
 
+// Definizione delle interfacce per i tipi
+interface WeightRange {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  basePrice: number;
+  userDiscount: number;
+  finalPrice: number;
+  actualMargin: number;
+  volumeDiscount: number;
+  promotionDiscount: number;
+  adjustedMargin?: number;
+}
+
+interface Rate {
+  id: string;
+  carrierName: string;
+  carrierId: string;
+  serviceName: string;
+  serviceDescription: string;
+  countryName: string;
+  destinationType: string;
+  basePrice: number;
+  userDiscount: number;
+  finalPrice: number;
+  actualMargin: number;
+  marginPercentage?: number;
+  deliveryTimeMin: number;
+  deliveryTimeMax: number;
+  fuelSurcharge: number;
+  volumeDiscount: number;
+  promotionDiscount: number;
+  totalBasePrice: number;
+  weightRanges: WeightRange[];
+  currentWeightRange: WeightRange;
+  adjustedMargin?: number;
+}
+
 export default function RateComparisonCard() {
   // States
   const [activeTab, setActiveTab] = useState("national")
@@ -110,7 +149,7 @@ export default function RateComparisonCard() {
   const [selectedRate, setSelectedRate] = useState<any>(null)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rates, setRates] = useState<any[]>([])
+  const [rates, setRates] = useState<Rate[]>([])
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [carriers, setCarriers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -372,8 +411,8 @@ export default function RateComparisonCard() {
 
   // Get margin color based on monetary value
   const getMarginColor = (margin: number) => {
-    if (margin >= 10) return "success"
-    if (margin >= 5) return "warning"
+    if (margin >= 10) return "default"
+    if (margin >= 5) return "secondary"
     return "destructive"
   }
 
@@ -408,8 +447,8 @@ export default function RateComparisonCard() {
           const clampedDiscount = Math.max(0, Math.min(90, newDiscount))
 
           // Update the discount for all weight ranges
-          const updatedWeightRanges = rate.weightRanges.map((weightRange) => {
-            // Calculate the discount amount
+          const updatedWeightRanges = rate.weightRanges.map((weightRange: WeightRange) => {
+            // Calculate the discount amount - applica lo sconto sul margine
             const discountAmount = weightRange.actualMargin * (clampedDiscount / 100)
 
             return {
@@ -423,7 +462,7 @@ export default function RateComparisonCard() {
             }
           })
 
-          // Calculate the discount amount for the main rate
+          // Calculate the discount amount for the main rate - applica lo sconto sul margine
           const discountAmount = rate.actualMargin * (clampedDiscount / 100)
 
           return {
@@ -512,7 +551,7 @@ export default function RateComparisonCard() {
             basePrice: rate.basePrice || rate.retailPrice,
             userDiscount: 0,
             finalPrice: rate.finalPrice || rate.retailPrice,
-            actualMargin: ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
+            actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
             volumeDiscount: rate.volumeDiscount || 0,
             promotionDiscount: rate.promotionDiscount || 0
           };
@@ -528,14 +567,15 @@ export default function RateComparisonCard() {
           id: rate._id,
           carrierName: rate.carrier?.name || 'Unknown',
           carrierId: rate.carrier?._id || '',
-          serviceName: rate.serviceCode || rate.name || 'Standard',
+          serviceName: rate.serviceCode || rate.serviceName || 'Standard',
           serviceDescription: rate.description || '',
           countryName: rate.destinationCountry || '',
           destinationType: rate.destinationType || activeTab,
           basePrice: rate.basePrice || rate.retailPrice,
           userDiscount: 0,
           finalPrice: rate.finalPrice || rate.retailPrice,
-          actualMargin: ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
+          actualMargin: rate.margin || (rate.retailPrice - rate.purchasePrice),
+          marginPercentage: rate.marginPercentage || ((rate.retailPrice - rate.purchasePrice) / rate.retailPrice) * 100 || 15,
           deliveryTimeMin: rate.deliveryTimeMin || 24,
           deliveryTimeMax: rate.deliveryTimeMax || 48,
           fuelSurcharge: rate.fuelSurcharge || 5,
