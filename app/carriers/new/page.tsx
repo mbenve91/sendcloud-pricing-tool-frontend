@@ -136,8 +136,20 @@ const extraEuCountries = [
   { id: "mx", name: "Mexico" },
 ]
 
+// Definisci i passi del wizard
+const steps = [
+  "Informazioni di Base",
+  "Servizi",
+  "Prezzi e Fasce di Peso",
+  "Sconti e Promozioni",
+  "Revisione Finale"
+];
+
 export default function NewCarrierPage() {
   const router = useRouter();
+  
+  // Aggiungo uno stato per gestire il wizard
+  const [activeStep, setActiveStep] = useState(0);
   
   // Initial carrier state
   const [carrier, setCarrier] = useState<Carrier>({
@@ -152,436 +164,174 @@ export default function NewCarrierPage() {
     isActive: true
   });
 
-  // States for service form
-  const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
-  const [currentService, setCurrentService] = useState<Service>({
-    name: "",
-    code: "",
-    description: "",
-    deliveryTimeMin: 24,
-    deliveryTimeMax: 48,
-    destinationTypes: ["national"],
-    pricing: []
-  });
-  const [isEditingService, setIsEditingService] = useState(false);
-  const [serviceIndex, setServiceIndex] = useState(-1);
-
-  // States for pricing form
-  const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
-  const [currentPricing, setCurrentPricing] = useState<Pricing>({
-    destinationType: "national",
-    countryCode: null,
-    weightRanges: []
-  });
-  const [selectedServiceForPricing, setSelectedServiceForPricing] = useState<Service | null>(null);
-  const [selectedServiceIndexForPricing, setSelectedServiceIndexForPricing] = useState<number | null>(null);
-  const [selectedPricingIndex, setSelectedPricingIndex] = useState<number | null>(null);
-  const [isEditingPricing, setIsEditingPricing] = useState(false);
-  const [pricingIndex, setPricingIndex] = useState(-1);
-  const [pricing, setPricing] = useState<Omit<Pricing, "weightRanges">>({
-    destinationType: "national",
-    countryCode: null,
+  // Stato corrente del servizio attivo
+  const [activeServiceIndex, setActiveServiceIndex] = useState<number | null>(null);
+  
+  // States for pricing operations
+  const [tempWeightRanges, setTempWeightRanges] = useState<WeightRange[]>([]);
+  
+  // Stato per tenere traccia della validità dei dati in ogni step
+  const [stepsValidity, setStepsValidity] = useState<Record<number, boolean>>({
+    0: false, // Informazioni di base
+    1: false, // Servizi
+    2: false, // Prezzi
+    3: true,  // Sconti (opzionali)
+    4: true   // Revisione
   });
 
-  // States for weight range form
-  const [isWeightRangeDialogOpen, setIsWeightRangeDialogOpen] = useState(false);
-  const [currentWeightRange, setCurrentWeightRange] = useState<WeightRange>({
-    min: 0,
-    max: 1,
-    retailPrice: 0,
-    purchasePrice: 0,
-    margin: 0
-  });
-  const [weightRange, setWeightRange] = useState<WeightRange>({
-    min: 0,
-    max: 1,
-    retailPrice: 0,
-    purchasePrice: 0,
-    margin: 0
-  });
-  const [isEditingWeightRange, setIsEditingWeightRange] = useState(false);
-  const [weightRangeIndex, setWeightRangeIndex] = useState(-1);
-
-  // States for volume discount form
-  const [isVolumeDiscountDialogOpen, setIsVolumeDiscountDialogOpen] = useState(false);
-  const [currentVolumeDiscount, setCurrentVolumeDiscount] = useState<VolumeDiscount>({
-    minVolume: 0,
-    maxVolume: null,
-    discountPercentage: 0,
-    applicableServices: []
-  });
-  const [isEditingVolumeDiscount, setIsEditingVolumeDiscount] = useState(false);
-  const [volumeDiscountIndex, setVolumeDiscountIndex] = useState(-1);
-
-  // States for additional fee form
-  const [isAdditionalFeeDialogOpen, setIsAdditionalFeeDialogOpen] = useState(false);
-  const [currentAdditionalFee, setCurrentAdditionalFee] = useState<AdditionalFee>({
-    name: "",
-    description: "",
-    fee: 0,
-    applicableServices: []
-  });
-  const [isEditingAdditionalFee, setIsEditingAdditionalFee] = useState(false);
-  const [additionalFeeIndex, setAdditionalFeeIndex] = useState(-1);
-
-  // States for promotion form
-  const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
-  const [currentPromotion, setCurrentPromotion] = useState<Promotion>({
-    name: "",
-    description: "",
-    discountPercentage: 0,
-    startDate: new Date(),
-    endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-    applicableServices: []
-  });
-  const [isEditingPromotion, setIsEditingPromotion] = useState(false);
-  const [promotionIndex, setPromotionIndex] = useState(-1);
-
-  // State for discard changes dialog
-  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
-
-  // Handle basic carrier info changes
+  // Funzione per aggiornare le informazioni di base del corriere
   const handleCarrierChange = (field: keyof Carrier, value: any) => {
-    setCarrier({
+    const updatedCarrier = {
       ...carrier,
       [field]: value
-    });
-  };
-
-  // Handle service form submission
-  const handleServiceSubmit = () => {
-    if (isEditingService) {
-      // Update existing service
-      const updatedServices = [...carrier.services];
-      updatedServices[serviceIndex] = currentService;
-      setCarrier({
-        ...carrier,
-        services: updatedServices
-      });
-    } else {
-      // Add new service
-      setCarrier({
-        ...carrier,
-        services: [...carrier.services, currentService]
-      });
-    }
-    
-    setIsServiceDialogOpen(false);
-    resetServiceForm();
-  };
-
-  // Handle pricing form submission
-  const handlePricingSubmit = () => {
-    if (selectedServiceIndexForPricing === null) return;
-    
-    const newPricing: Pricing = {
-      ...pricing,
-      weightRanges: []
     };
+    setCarrier(updatedCarrier);
     
-    const updatedServices = [...carrier.services];
-    updatedServices[selectedServiceIndexForPricing].pricing.push(newPricing);
-    
-    setCarrier({
-      ...carrier,
-      services: updatedServices
-    });
-    
-    // Reset form
-    setPricing({
-      destinationType: "national",
-      countryCode: null,
+    // Aggiorna la validità del primo step
+    setStepsValidity({
+      ...stepsValidity,
+      0: !!updatedCarrier.name
     });
   };
 
-  // Handle weight range form submission
-  const handleWeightRangeSubmit = () => {
-    if (selectedServiceIndexForPricing === null || selectedPricingIndex === null) return;
-    
+  // Funzione per aggiungere o aggiornare un servizio
+  const handleServiceChange = (service: Service, index: number | null) => {
     const updatedServices = [...carrier.services];
-    updatedServices[selectedServiceIndexForPricing].pricing[selectedPricingIndex].weightRanges.push(weightRange);
     
-    setCarrier({
-      ...carrier,
-      services: updatedServices
-    });
-    
-    // Reset form
-    setWeightRange({
-      min: 0,
-      max: 1,
-      retailPrice: 0,
-      purchasePrice: 0,
-      margin: 0
-    });
-  };
-
-  // Handle volume discount form submission
-  const handleVolumeDiscountSubmit = () => {
-    if (isEditingVolumeDiscount) {
-      // Update existing volume discount
-      const updatedVolumeDiscounts = [...carrier.volumeDiscounts];
-      updatedVolumeDiscounts[volumeDiscountIndex] = currentVolumeDiscount;
-      setCarrier({
-        ...carrier,
-        volumeDiscounts: updatedVolumeDiscounts
-      });
+    if (index !== null) {
+      // Aggiorna servizio esistente
+      updatedServices[index] = service;
     } else {
-      // Add new volume discount
-      setCarrier({
-        ...carrier,
-        volumeDiscounts: [...carrier.volumeDiscounts, currentVolumeDiscount]
-      });
+      // Aggiungi nuovo servizio
+      updatedServices.push(service);
     }
     
-    setIsVolumeDiscountDialogOpen(false);
-    resetVolumeDiscountForm();
+    setCarrier({
+      ...carrier,
+      services: updatedServices
+    });
+    
+    // Aggiorna la validità del secondo step
+    setStepsValidity({
+      ...stepsValidity,
+      1: updatedServices.length > 0
+    });
   };
 
-  // Handle additional fee form submission
-  const handleAdditionalFeeSubmit = () => {
-    if (isEditingAdditionalFee) {
-      // Update existing additional fee
-      const updatedAdditionalFees = [...carrier.additionalFees];
-      updatedAdditionalFees[additionalFeeIndex] = currentAdditionalFee;
-      setCarrier({
-        ...carrier,
-        additionalFees: updatedAdditionalFees
-      });
+  // Funzione per aggiungere o aggiornare i prezzi per un servizio
+  const handlePricingChange = (serviceIndex: number, pricing: Pricing[]) => {
+    const updatedServices = [...carrier.services];
+    updatedServices[serviceIndex].pricing = pricing;
+    
+    setCarrier({
+      ...carrier,
+      services: updatedServices
+    });
+    
+    // Aggiorna la validità del terzo step
+    const allServicesHavePricing = carrier.services.every(service => 
+      service.pricing.length > 0 && 
+      service.pricing.every(p => p.weightRanges.length > 0)
+    );
+    
+    setStepsValidity({
+      ...stepsValidity,
+      2: allServicesHavePricing
+    });
+  };
+
+  // Funzione per aggiungere o aggiornare uno sconto volume
+  const handleVolumeDiscountChange = (volumeDiscount: VolumeDiscount, index: number | null) => {
+    let updatedVolumeDiscounts = [...carrier.volumeDiscounts];
+    
+    if (index !== null) {
+      updatedVolumeDiscounts[index] = volumeDiscount;
     } else {
-      // Add new additional fee
-      setCarrier({
-        ...carrier,
-        additionalFees: [...carrier.additionalFees, currentAdditionalFee]
-      });
+      updatedVolumeDiscounts.push(volumeDiscount);
     }
     
-    setIsAdditionalFeeDialogOpen(false);
-    resetAdditionalFeeForm();
-  };
-
-  // Handle promotion form submission
-  const handlePromotionSubmit = () => {
-    if (isEditingPromotion) {
-      // Update existing promotion
-      const updatedPromotions = [...carrier.promotions];
-      updatedPromotions[promotionIndex] = currentPromotion;
-      setCarrier({
-        ...carrier,
-        promotions: updatedPromotions
-      });
-    } else {
-      // Add new promotion
-      setCarrier({
-        ...carrier,
-        promotions: [...carrier.promotions, currentPromotion]
-      });
-    }
-    
-    setIsPromotionDialogOpen(false);
-    resetPromotionForm();
-  };
-
-  // Reset service form
-  const resetServiceForm = () => {
-    setCurrentService({
-      name: "",
-      code: "",
-      description: "",
-      deliveryTimeMin: 24,
-      deliveryTimeMax: 48,
-      destinationTypes: ["national"],
-      pricing: []
-    });
-    setIsEditingService(false);
-    setServiceIndex(-1);
-  };
-
-  // Reset pricing form
-  const resetPricingForm = () => {
-    setCurrentPricing({
-      destinationType: "national",
-      countryCode: null,
-      weightRanges: []
-    });
-    setIsEditingPricing(false);
-    setPricingIndex(-1);
-  };
-
-  // Reset weight range form
-  const resetWeightRangeForm = () => {
-    setCurrentWeightRange({
-      min: 0,
-      max: 1,
-      retailPrice: 0,
-      purchasePrice: 0,
-      margin: 0
-    });
-    setIsEditingWeightRange(false);
-    setWeightRangeIndex(-1);
-  };
-
-  // Reset volume discount form
-  const resetVolumeDiscountForm = () => {
-    setCurrentVolumeDiscount({
-      minVolume: 0,
-      maxVolume: null,
-      discountPercentage: 0,
-      applicableServices: []
-    });
-    setIsEditingVolumeDiscount(false);
-    setVolumeDiscountIndex(-1);
-  };
-
-  // Reset additional fee form
-  const resetAdditionalFeeForm = () => {
-    setCurrentAdditionalFee({
-      name: "",
-      description: "",
-      fee: 0,
-      applicableServices: []
-    });
-    setIsEditingAdditionalFee(false);
-    setAdditionalFeeIndex(-1);
-  };
-
-  // Reset promotion form
-  const resetPromotionForm = () => {
-    setCurrentPromotion({
-      name: "",
-      description: "",
-      discountPercentage: 0,
-      startDate: new Date(),
-      endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-      applicableServices: []
-    });
-    setIsEditingPromotion(false);
-    setPromotionIndex(-1);
-  };
-
-  // Handle service deletion
-  const handleDeleteService = (index: number) => {
-    const updatedServices = [...carrier.services];
-    updatedServices.splice(index, 1);
-    setCarrier({
-      ...carrier,
-      services: updatedServices
-    });
-  };
-
-  // Handle pricing deletion
-  const handleDeletePricing = (serviceIndex: number, pricingIndex: number) => {
-    const updatedServices = [...carrier.services];
-    updatedServices[serviceIndex].pricing.splice(pricingIndex, 1);
-    setCarrier({
-      ...carrier,
-      services: updatedServices
-    });
-  };
-
-  // Handle weight range deletion
-  const handleDeleteWeightRange = (serviceIndex: number, pricingIndex: number, rangeIndex: number) => {
-    const updatedServices = [...carrier.services];
-    updatedServices[serviceIndex].pricing[pricingIndex].weightRanges.splice(rangeIndex, 1);
-    setCarrier({
-      ...carrier,
-      services: updatedServices
-    });
-  };
-
-  // Handle volume discount deletion
-  const handleDeleteVolumeDiscount = (index: number) => {
-    const updatedVolumeDiscounts = [...carrier.volumeDiscounts];
-    updatedVolumeDiscounts.splice(index, 1);
     setCarrier({
       ...carrier,
       volumeDiscounts: updatedVolumeDiscounts
     });
   };
 
-  // Handle additional fee deletion
-  const handleDeleteAdditionalFee = (index: number) => {
-    const updatedAdditionalFees = [...carrier.additionalFees];
-    updatedAdditionalFees.splice(index, 1);
+  // Funzione per aggiungere o aggiornare un costo aggiuntivo
+  const handleAdditionalFeeChange = (additionalFee: AdditionalFee, index: number | null) => {
+    let updatedAdditionalFees = [...carrier.additionalFees];
+    
+    if (index !== null) {
+      updatedAdditionalFees[index] = additionalFee;
+    } else {
+      updatedAdditionalFees.push(additionalFee);
+    }
+    
     setCarrier({
       ...carrier,
       additionalFees: updatedAdditionalFees
     });
   };
 
-  // Handle promotion deletion
-  const handleDeletePromotion = (index: number) => {
-    const updatedPromotions = [...carrier.promotions];
-    updatedPromotions.splice(index, 1);
+  // Funzione per aggiungere o aggiornare una promozione
+  const handlePromotionChange = (promotion: Promotion, index: number | null) => {
+    let updatedPromotions = [...carrier.promotions];
+    
+    if (index !== null) {
+      updatedPromotions[index] = promotion;
+    } else {
+      updatedPromotions.push(promotion);
+    }
+    
     setCarrier({
       ...carrier,
       promotions: updatedPromotions
     });
   };
 
-  // Handle carrier save
-  const handleSaveCarrier = async () => {
-    // Mostra stato di caricamento
-    const loadingToast = toast.loading("Salvataggio del corriere in corso...");
-    
-    try {
-      // Invia i dati al server tramite l'API route
-      const response = await fetch('/api/carriers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(carrier),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Errore nella creazione del corriere: ${response.status}`);
-      }
-      
-      // Ottieni i dati dalla risposta
-      const data = await response.json();
-      console.log("Carrier creato con successo:", data);
-      
-      // Aggiorna il toast e mostra messaggio di successo
-      toast.dismiss(loadingToast);
-      toast.success("Corriere aggiunto con successo");
-      
-      // Torna alla lista dei corrieri dopo un breve ritardo
-      setTimeout(() => {
-        router.push("/carriers");
-      }, 1000);
-    } catch (error) {
-      console.error("Errore nella creazione del corriere:", error);
-      toast.dismiss(loadingToast);
-      toast.error(`Impossibile creare il corriere: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
-    }
-  };
-
-  // Format date for display
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  // Calculate margin based on retail and purchase price
+  // Funzione per calcolare il margine
   const calculateMargin = (retailPrice: number, purchasePrice: number) => {
     if (retailPrice <= 0 || purchasePrice <= 0) return 0;
     return ((retailPrice - purchasePrice) / retailPrice) * 100;
   };
 
-  // Update margin when retail or purchase price changes
-  const handlePriceChange = (field: 'retailPrice' | 'purchasePrice', value: number) => {
-    const updatedWeightRange = { ...currentWeightRange, [field]: value };
-    const margin = calculateMargin(updatedWeightRange.retailPrice, updatedWeightRange.purchasePrice);
-    
-    setCurrentWeightRange({
-      ...updatedWeightRange,
-      margin: Number.parseFloat(margin.toFixed(2))
-    });
+  // Verifica se è possibile procedere al prossimo step
+  const canProceedToNextStep = () => {
+    return stepsValidity[activeStep];
+  };
+
+  // Naviga al prossimo step
+  const goToNextStep = () => {
+    if (activeStep < steps.length - 1) {
+      setActiveStep(activeStep + 1);
+    }
+  };
+
+  // Naviga al precedente step
+  const goToPrevStep = () => {
+    if (activeStep > 0) {
+      setActiveStep(activeStep - 1);
+    }
+  };
+
+  // Salva il corriere
+  const handleSaveCarrier = async () => {
+    try {
+      const loadingToast = toast.loading("Salvataggio corriere in corso...");
+      
+      // Implementazione dell'API call per salvare il corriere
+      // ...
+
+      toast.dismiss(loadingToast);
+      toast.success("Corriere salvato con successo!");
+      
+      // Redirect alla lista corrieri
+      setTimeout(() => {
+        router.push("/carriers");
+      }, 1000);
+    } catch (error) {
+      console.error("Errore nella creazione del corriere:", error);
+      toast.error(`Impossibile creare il corriere: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
+    }
   };
 
   return (
@@ -592,1449 +342,611 @@ export default function NewCarrierPage() {
             variant="ghost" 
             size="icon" 
             className="mr-2"
-            onClick={() => {
-              // Check if there are changes before navigating away
-              if (
-                carrier.name !== "" || 
-                carrier.services.length > 0 || 
-                carrier.volumeDiscounts.length > 0 || 
-                carrier.additionalFees.length > 0 || 
-                carrier.promotions.length > 0
-              ) {
-                setIsDiscardDialogOpen(true);
-              } else {
-                router.push("/carriers");
-              }
-            }}
+            onClick={() => router.push("/carriers")}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-3xl font-bold text-primary">New Carrier</h1>
-        </div>
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsDiscardDialogOpen(true)}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSaveCarrier}
-            disabled={!carrier.name || carrier.services.length === 0}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save
-          </Button>
+          <h1 className="text-3xl font-bold text-primary">Nuovo Corriere</h1>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {/* Basic carrier info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>
-              Enter the basic information for the carrier
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Carrier Name *</Label>
-                <Input 
-                  id="name" 
-                  value={carrier.name}
-                  onChange={(e) => handleCarrierChange("name", e.target.value)}
-                  placeholder="E.g. BRT, GLS, DHL"
-                />
+      {/* Stepper */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center">
+          {steps.map((step, index) => (
+            <div key={index} className="flex flex-col items-center">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold 
+                ${activeStep === index ? 'bg-primary text-white' : 
+                activeStep > index ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {index + 1}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input 
-                  id="logoUrl" 
-                  value={carrier.logoUrl}
-                  onChange={(e) => handleCarrierChange("logoUrl", e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                />
-              </div>
+              <span className={`mt-2 text-sm ${activeStep === index ? 'text-primary font-semibold' : 'text-gray-500'}`}>
+                {step}
+              </span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="fuelSurcharge">Fuel Surcharge (%)</Label>
-                <Input 
-                  id="fuelSurcharge" 
-                  type="number"
-                  value={carrier.fuelSurcharge}
-                  onChange={(e) => handleCarrierChange("fuelSurcharge", Number.parseFloat(e.target.value))}
-                  placeholder="E.g. 5.5"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="isVolumetric">Volumetric Calculation</Label>
-                  <Switch 
-                    id="isVolumetric"
-                    checked={carrier.isVolumetric}
-                    onCheckedChange={(checked) => handleCarrierChange("isVolumetric", checked)}
+          ))}
+        </div>
+        <div className="mt-4 h-1 bg-gray-200 relative">
+          <div className="absolute top-0 left-0 h-1 bg-primary transition-all" style={{ width: `${(activeStep / (steps.length - 1)) * 100}%` }}></div>
+        </div>
+      </div>
+
+      {/* Step content */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          {/* Step 1: Informazioni di Base */}
+          {activeStep === 0 && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Corriere *</Label>
+                  <Input 
+                    id="name" 
+                    value={carrier.name}
+                    onChange={(e) => handleCarrierChange("name", e.target.value)}
+                    placeholder="Es. BRT, GLS, DHL"
                   />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Enable if the carrier uses volumetric weight calculation
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="logoUrl">URL del Logo</Label>
+                  <Input 
+                    id="logoUrl" 
+                    value={carrier.logoUrl}
+                    onChange={(e) => handleCarrierChange("logoUrl", e.target.value)}
+                    placeholder="https://esempio.com/logo.png"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="isActive">Status</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="isVolumetric"
+                      checked={carrier.isVolumetric}
+                      onCheckedChange={(checked) => handleCarrierChange("isVolumetric", checked)}
+                    />
+                    <Label htmlFor="isVolumetric">Calcolo Volumetrico</Label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fuelSurcharge">Supplemento Carburante (%)</Label>
+                  <Input 
+                    id="fuelSurcharge" 
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={carrier.fuelSurcharge}
+                    onChange={(e) => handleCarrierChange("fuelSurcharge", parseFloat(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
                 <Switch 
                   id="isActive"
                   checked={carrier.isActive}
                   onCheckedChange={(checked) => handleCarrierChange("isActive", checked)}
                 />
+                <Label htmlFor="isActive">Corriere Attivo</Label>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Enable to make the carrier available in the system
-              </p>
             </div>
-          </CardContent>
-        </Card>
+          )}
 
-        {/* Services */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Services</CardTitle>
-              <CardDescription>
-                Manage the services offered by the carrier
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => {
-                resetServiceForm();
-                setIsServiceDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {carrier.services.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <p>No services configured</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => {
-                    resetServiceForm();
-                    setIsServiceDialogOpen(true);
-                  }}
-                >
-                  Add first service
+          {/* Step 2: Servizi */}
+          {activeStep === 1 && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Servizi</h3>
+                <Button onClick={() => {
+                  setActiveServiceIndex(null);
+                  // Apri dialog per nuovo servizio
+                }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Aggiungi Servizio
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {carrier.services.map((service, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-medium">{service.name}</h3>
-                        <p className="text-sm text-muted-foreground">Code: {service.code}</p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => {
-                            setCurrentService({ ...service });
-                            setIsEditingService(true);
-                            setServiceIndex(index);
-                            setIsServiceDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleDeleteService(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm font-medium">Description</p>
-                        <p className="text-sm text-muted-foreground">{service.description || "No description"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Delivery Time</p>
-                        <p className="text-sm text-muted-foreground">
-                          {service.deliveryTimeMin === service.deliveryTimeMax
-                            ? `${service.deliveryTimeMin} hours`
-                            : `${service.deliveryTimeMin}-${service.deliveryTimeMax} hours`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <p className="text-sm font-medium">Destinations</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {service.destinationTypes.map((type, i) => (
-                          <span 
-                            key={i} 
-                            className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                          >
-                            {type === "national" ? "National" : type === "eu" ? "European Union" : "Extra EU"}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <Separator className="my-4" />
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-medium">Pricing</h4>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            resetPricingForm();
-                            setSelectedServiceForPricing(service);
-                            setIsPricingDialogOpen(true);
-                          }}
-                        >
-                          <Plus className="mr-2 h-3 w-3" />
-                          Add Pricing
-                        </Button>
-                      </div>
-                      {service.pricing.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No pricing configured</p>
-                      ) : (
-                        <div className="space-y-4">
-                          {service.pricing.map((pricing, pIndex) => (
-                            <div key={pIndex} className="border rounded-lg p-3">
-                              <div className="flex justify-between items-center mb-2">
-                                <div>
-                                  <h5 className="text-sm font-medium">
-                                    {pricing.destinationType === "national" 
-                                      ? "National" 
-                                      : pricing.destinationType === "eu" 
-                                        ? "European Union" 
-                                        : "Extra EU"}
-                                    {pricing.countryCode && (
-                                      <span className="ml-1">
-                                        - {pricing.destinationType === "eu" 
-                                          ? euCountries.find(c => c.id === pricing.countryCode)?.name 
-                                          : extraEuCountries.find(c => c.id === pricing.countryCode)?.name}
-                                      </span>
-                                    )}
-                                  </h5>
-                                </div>
-                                <div className="flex space-x-2">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => {
-                                      setCurrentPricing({ ...pricing });
-                                      setSelectedServiceForPricing(service);
-                                      setIsEditingPricing(true);
-                                      setPricingIndex(pIndex);
-                                      setIsPricingDialogOpen(true);
-                                    }}
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => handleDeletePricing(index, pIndex)}
-                                  >
-                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="mt-2">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Min Weight (kg)</TableHead>
-                                      <TableHead>Max Weight (kg)</TableHead>
-                                      <TableHead>Retail Price</TableHead>
-                                      <TableHead>Purchase Price</TableHead>
-                                      <TableHead>Margin (%)</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {pricing.weightRanges.length === 0 ? (
-                                      <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                          No weight ranges configured
-                                        </TableCell>
-                                      </TableRow>
-                                    ) : (
-                                      pricing.weightRanges.map((range, rIndex) => (
-                                        <TableRow key={rIndex}>
-                                          <TableCell>{range.min}</TableCell>
-                                          <TableCell>{range.max}</TableCell>
-                                          <TableCell>{range.retailPrice.toFixed(2)} €</TableCell>
-                                          <TableCell>{range.purchasePrice.toFixed(2)} €</TableCell>
-                                          <TableCell>{range.margin.toFixed(2)}%</TableCell>
-                                        </TableRow>
-                                      ))
-                                    )}
-                                  </TableBody>
-                                </Table>
-                                <div className="flex justify-end mt-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => {
-                                      resetWeightRangeForm();
-                                      setCurrentPricing(pricing);
-                                      setSelectedServiceForPricing(service);
-                                      setIsWeightRangeDialogOpen(true);
-                                    }}
-                                  >
-                                    <Plus className="mr-2 h-3 w-3" />
-                                    Add Weight Range
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+              
+              {carrier.services.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">Nessun servizio aggiunto. Aggiungi almeno un servizio per continuare.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {carrier.services.map((service, index) => (
+                    <Card key={index} className="overflow-hidden">
+                      <div className="p-4 flex justify-between items-center">
+                        <div>
+                          <h4 className="font-semibold">{service.name}</h4>
+                          <p className="text-sm text-gray-500">Codice: {service.code} • Tempi di consegna: {service.deliveryTimeMin}-{service.deliveryTimeMax}h</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {service.destinationTypes.map((type) => (
+                              <span key={type} className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                                {type === "national" ? "Nazionale" : type === "eu" ? "UE" : "Extra UE"}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setActiveServiceIndex(index);
+                            // Apri dialog per modifica
+                          }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => {
+                            // Dialog di conferma rimozione
+                            const updatedServices = carrier.services.filter((_, i) => i !== index);
+                            setCarrier({
+                              ...carrier,
+                              services: updatedServices
+                            });
+                            setStepsValidity({
+                              ...stepsValidity,
+                              1: updatedServices.length > 0
+                            });
+                          }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Tab Pricing */}
-        <div className="space-y-4" data-value="pricing">
-          <Card>
-            <CardHeader>
-              <CardTitle>Aggiungi Prezzi</CardTitle>
-              <CardDescription>Configura i prezzi per i servizi del corriere</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="serviceForPricing">Seleziona Servizio</Label>
-                <Select 
-                  value={selectedServiceIndexForPricing !== null ? selectedServiceIndexForPricing.toString() : ""} 
-                  onValueChange={(value) => setSelectedServiceIndexForPricing(parseInt(value))}
-                >
+          {/* Step 3: Prezzi e Fasce di Peso */}
+          {activeStep === 2 && (
+            <div className="space-y-6">
+              <div className="mb-4">
+                <Select onValueChange={(value) => setActiveServiceIndex(parseInt(value))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleziona un servizio" />
                   </SelectTrigger>
                   <SelectContent>
-                    {carrier.services.map((svc, index) => (
+                    {carrier.services.map((service, index) => (
                       <SelectItem key={index} value={index.toString()}>
-                        {svc.name} ({svc.code})
+                        {service.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
-              {selectedServiceIndexForPricing !== null && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="destinationType">Tipo di Destinazione</Label>
-                    <Select 
-                      value={pricing.destinationType} 
-                      onValueChange={(value: "national" | "eu" | "extra_eu") => setPricing({...pricing, destinationType: value, countryCode: null})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleziona tipo di destinazione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("national") && (
-                          <SelectItem value="national">Nazionale</SelectItem>
-                        )}
-                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("eu") && (
-                          <SelectItem value="eu">UE</SelectItem>
-                        )}
-                        {carrier.services[selectedServiceIndexForPricing].destinationTypes.includes("extra_eu") && (
-                          <SelectItem value="extra_eu">Extra UE</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+              
+              {activeServiceIndex !== null && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Prezzi per {carrier.services[activeServiceIndex].name}</h3>
+                    <Button onClick={() => {
+                      // Apri dialog per aggiungere prezzo
+                    }}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Aggiungi Destinazione
+                    </Button>
                   </div>
-
-                  {(pricing.destinationType === "eu" || pricing.destinationType === "extra_eu") && (
-                    <div className="space-y-2">
-                      <Label htmlFor="countryCode">Codice Paese (es. DE, FR)</Label>
-                      <Input 
-                        id="countryCode" 
-                        placeholder="es. DE" 
-                        value={pricing.countryCode || ""}
-                        onChange={(e) => setPricing({...pricing, countryCode: e.target.value})}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Inserisci il codice ISO del paese (2 lettere). Lascia vuoto per applicare a tutti i paesi.
-                      </p>
+                  
+                  {carrier.services[activeServiceIndex].pricing.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500">Nessun prezzo definito. Aggiungi almeno una destinazione.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {carrier.services[activeServiceIndex].pricing.map((price, priceIndex) => (
+                        <Card key={priceIndex} className="overflow-hidden">
+                          <div className="p-4">
+                            <div className="flex justify-between items-center mb-4">
+                              <h4 className="font-semibold">
+                                {price.destinationType === "national" ? "Nazionale" : 
+                                 price.destinationType === "eu" ? `UE - ${price.countryCode ? euCountries.find(c => c.id === price.countryCode)?.name : "Tutti"}` : 
+                                 `Extra UE - ${price.countryCode ? extraEuCountries.find(c => c.id === price.countryCode)?.name : "Tutti"}`}
+                              </h4>
+                              <div className="flex space-x-2">
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  // Apri dialog per modifica
+                                }}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={() => {
+                                  // Dialog di conferma rimozione
+                                }}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="mb-2 flex justify-between items-center">
+                              <h5 className="text-sm font-medium">Fasce di Peso</h5>
+                              <Button variant="outline" size="sm" onClick={() => {
+                                // Apri dialog per aggiungere fascia peso
+                              }}>
+                                <Plus className="h-4 w-4 mr-1" />
+                                Aggiungi Fascia
+                              </Button>
+                            </div>
+                            
+                            {price.weightRanges.length === 0 ? (
+                              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-500">Nessuna fascia di peso. Aggiungine almeno una.</p>
+                              </div>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Peso Min (kg)</TableHead>
+                                    <TableHead>Peso Max (kg)</TableHead>
+                                    <TableHead>Prezzo Cliente (€)</TableHead>
+                                    <TableHead>Prezzo Acquisto (€)</TableHead>
+                                    <TableHead>Margine (%)</TableHead>
+                                    <TableHead className="w-[100px]">Azioni</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {price.weightRanges.map((range, rangeIndex) => (
+                                    <TableRow key={rangeIndex}>
+                                      <TableCell>{range.min}</TableCell>
+                                      <TableCell>{range.max}</TableCell>
+                                      <TableCell>{range.retailPrice.toFixed(2)}</TableCell>
+                                      <TableCell>{range.purchasePrice.toFixed(2)}</TableCell>
+                                      <TableCell>{range.margin.toFixed(2)}%</TableCell>
+                                      <TableCell>
+                                        <div className="flex space-x-1">
+                                          <Button variant="ghost" size="sm" onClick={() => {
+                                            // Modifica fascia
+                                          }}>
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button variant="ghost" size="sm" onClick={() => {
+                                            // Rimuovi fascia
+                                          }}>
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
                     </div>
                   )}
-
-                  <Button 
-                    onClick={handlePricingSubmit}
-                    disabled={selectedServiceIndexForPricing === null}
-                  >
-                    Aggiungi Destinazione
-                  </Button>
-                </>
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
-          {selectedServiceIndexForPricing !== null && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Destinazioni per {carrier.services[selectedServiceIndexForPricing].name}</CardTitle>
-                <CardDescription>Destinazioni configurate per questo servizio</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[200px]">
-                  <div className="space-y-4">
-                    {carrier.services[selectedServiceIndexForPricing].pricing.map((p, pIndex) => (
-                      <div key={pIndex} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="font-semibold">
-                              {p.destinationType === "national" 
-                                ? "Nazionale" 
-                                : p.destinationType === "eu" 
-                                  ? `UE ${p.countryCode ? `(${p.countryCode})` : '(Tutti)'}`
-                                  : `Extra UE ${p.countryCode ? `(${p.countryCode})` : '(Tutti)'}`}
-                            </h3>
+          {/* Step 4: Sconti e Promozioni */}
+          {activeStep === 3 && (
+            <div className="space-y-8">
+              {/* Sconti Volume */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Sconti Volume</h3>
+                  <Button onClick={() => {
+                    // Apri dialog per aggiungere sconto volume
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Aggiungi Sconto Volume
+                  </Button>
+                </div>
+                
+                {carrier.volumeDiscounts.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Nessuno sconto volume.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Volume Min</TableHead>
+                        <TableHead>Volume Max</TableHead>
+                        <TableHead>Sconto (%)</TableHead>
+                        <TableHead>Servizi Applicabili</TableHead>
+                        <TableHead className="w-[100px]">Azioni</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {carrier.volumeDiscounts.map((discount, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{discount.minVolume}</TableCell>
+                          <TableCell>{discount.maxVolume ?? "∞"}</TableCell>
+                          <TableCell>{discount.discountPercentage}%</TableCell>
+                          <TableCell>
+                            {discount.applicableServices.map(code => 
+                              carrier.services.find(s => s.code === code)?.name
+                            ).join(", ")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button variant="ghost" size="sm">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              
+              {/* Costi Aggiuntivi */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Costi Aggiuntivi</h3>
+                  <Button onClick={() => {
+                    // Apri dialog per aggiungere costo aggiuntivo
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Aggiungi Costo
+                  </Button>
+                </div>
+                
+                {carrier.additionalFees.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Nessun costo aggiuntivo.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Descrizione</TableHead>
+                        <TableHead>Costo (€)</TableHead>
+                        <TableHead>Servizi Applicabili</TableHead>
+                        <TableHead className="w-[100px]">Azioni</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {carrier.additionalFees.map((fee, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{fee.name}</TableCell>
+                          <TableCell>{fee.description}</TableCell>
+                          <TableCell>{fee.fee.toFixed(2)}</TableCell>
+                          <TableCell>
+                            {fee.applicableServices.map(code => 
+                              carrier.services.find(s => s.code === code)?.name
+                            ).join(", ")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button variant="ghost" size="sm">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              
+              {/* Promozioni */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Promozioni</h3>
+                  <Button onClick={() => {
+                    // Apri dialog per aggiungere promozione
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Aggiungi Promozione
+                  </Button>
+                </div>
+                
+                {carrier.promotions.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Nessuna promozione.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Descrizione</TableHead>
+                        <TableHead>Sconto (%)</TableHead>
+                        <TableHead>Data Inizio</TableHead>
+                        <TableHead>Data Fine</TableHead>
+                        <TableHead>Servizi Applicabili</TableHead>
+                        <TableHead className="w-[100px]">Azioni</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {carrier.promotions.map((promo, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{promo.name}</TableCell>
+                          <TableCell>{promo.description}</TableCell>
+                          <TableCell>{promo.discountPercentage}%</TableCell>
+                          <TableCell>{new Date(promo.startDate).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(promo.endDate).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {promo.applicableServices.map(code => 
+                              carrier.services.find(s => s.code === code)?.name
+                            ).join(", ")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button variant="ghost" size="sm">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Revisione */}
+          {activeStep === 4 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium">Riepilogo Corriere</h3>
+              
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Informazioni di Base</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <dt className="text-sm font-medium">Nome:</dt>
+                      <dd>{carrier.name}</dd>
+                      
+                      <dt className="text-sm font-medium">Logo:</dt>
+                      <dd>{carrier.logoUrl || "Non specificato"}</dd>
+                      
+                      <dt className="text-sm font-medium">Calcolo Volumetrico:</dt>
+                      <dd>{carrier.isVolumetric ? "Sì" : "No"}</dd>
+                      
+                      <dt className="text-sm font-medium">Supplemento Carburante:</dt>
+                      <dd>{carrier.fuelSurcharge}%</dd>
+                      
+                      <dt className="text-sm font-medium">Stato:</dt>
+                      <dd>{carrier.isActive ? "Attivo" : "Non attivo"}</dd>
+                    </dl>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Servizi ({carrier.services.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {carrier.services.length === 0 ? (
+                      <p className="text-gray-500">Nessun servizio definito.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {carrier.services.map((service, index) => (
+                          <div key={index} className="border-b pb-3 last:border-b-0 last:pb-0">
+                            <h4 className="font-semibold">{service.name} ({service.code})</h4>
+                            <p className="text-sm text-gray-500">{service.description}</p>
+                            <p className="text-sm">Tempi di consegna: {service.deliveryTimeMin}-{service.deliveryTimeMax}h</p>
+                            <div className="mt-2">
+                              <h5 className="text-sm font-medium">Prezzi:</h5>
+                              <ul className="text-sm list-disc pl-5 mt-1">
+                                {service.pricing.map((price, priceIndex) => (
+                                  <li key={priceIndex}>
+                                    {price.destinationType === "national" ? "Nazionale" : 
+                                     price.destinationType === "eu" ? `UE ${price.countryCode ? `- ${euCountries.find(c => c.id === price.countryCode)?.name}` : ""}` : 
+                                     `Extra UE ${price.countryCode ? `- ${extraEuCountries.find(c => c.id === price.countryCode)?.name}` : ""}`}
+                                    : {price.weightRanges.length} fasce di peso
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPricingIndex(pIndex);
-                              }}
-                            >
-                              Aggiungi Prezzo
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleDeletePricing(selectedServiceIndexForPricing, pIndex)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        {p.weightRanges.length > 0 ? (
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Peso Min (kg)</TableHead>
-                                <TableHead>Peso Max (kg)</TableHead>
-                                <TableHead>Prezzo Acquisto (€)</TableHead>
-                                <TableHead>Prezzo Vendita (€)</TableHead>
-                                <TableHead>Margine (%)</TableHead>
-                                <TableHead></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {p.weightRanges.map((wr, wrIndex) => (
-                                <TableRow key={wrIndex}>
-                                  <TableCell>{wr.min}</TableCell>
-                                  <TableCell>{wr.max}</TableCell>
-                                  <TableCell>{wr.purchasePrice.toFixed(2)}</TableCell>
-                                  <TableCell>{wr.retailPrice.toFixed(2)}</TableCell>
-                                  <TableCell>{wr.margin.toFixed(1)}%</TableCell>
-                                  <TableCell>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      onClick={() => handleDeleteWeightRange(selectedServiceIndexForPricing, pIndex, wrIndex)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        ) : (
-                          <div className="text-center py-4 text-muted-foreground">
-                            <p>Nessun prezzo configurato</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {carrier.services[selectedServiceIndexForPricing].pricing.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>Nessuna destinazione configurata</p>
+                        ))}
                       </div>
                     )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Sconti Volume ({carrier.volumeDiscounts.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {carrier.volumeDiscounts.length === 0 ? (
+                        <p className="text-gray-500">Nessuno sconto volume.</p>
+                      ) : (
+                        <ul className="text-sm list-disc pl-5">
+                          {carrier.volumeDiscounts.map((discount, index) => (
+                            <li key={index}>
+                              {discount.minVolume}-{discount.maxVolume ?? "∞"}: {discount.discountPercentage}% di sconto
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Costi Aggiuntivi ({carrier.additionalFees.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {carrier.additionalFees.length === 0 ? (
+                        <p className="text-gray-500">Nessun costo aggiuntivo.</p>
+                      ) : (
+                        <ul className="text-sm list-disc pl-5">
+                          {carrier.additionalFees.map((fee, index) => (
+                            <li key={index}>
+                              {fee.name}: {fee.fee.toFixed(2)}€
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Promozioni ({carrier.promotions.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {carrier.promotions.length === 0 ? (
+                        <p className="text-gray-500">Nessuna promozione.</p>
+                      ) : (
+                        <ul className="text-sm list-disc pl-5">
+                          {carrier.promotions.map((promo, index) => (
+                            <li key={index}>
+                              {promo.name}: {promo.discountPercentage}% di sconto
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
           )}
+        </CardContent>
+      </Card>
 
-          {selectedServiceIndexForPricing !== null && selectedPricingIndex !== null && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Aggiungi Fascia di Peso</CardTitle>
-                <CardDescription>Aggiungi una fascia di peso con relativi prezzi</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="weightMin">Peso Minimo (kg)</Label>
-                    <Input 
-                      id="weightMin" 
-                      type="number" 
-                      step="0.01"
-                      placeholder="es. 0" 
-                      value={weightRange.min}
-                      onChange={(e) => setWeightRange({...weightRange, min: parseFloat(e.target.value)})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="weightMax">Peso Massimo (kg)</Label>
-                    <Input 
-                      id="weightMax" 
-                      type="number" 
-                      step="0.01"
-                      placeholder="es. 1" 
-                      value={weightRange.max}
-                      onChange={(e) => setWeightRange({...weightRange, max: parseFloat(e.target.value)})}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="purchasePrice">Prezzo di Acquisto (€)</Label>
-                    <Input 
-                      id="purchasePrice" 
-                      type="number" 
-                      step="0.01"
-                      placeholder="es. 5.5" 
-                      value={weightRange.purchasePrice}
-                      onChange={(e) => handlePriceChange('purchasePrice', parseFloat(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="retailPrice">Prezzo di Vendita (€)</Label>
-                    <Input 
-                      id="retailPrice" 
-                      type="number" 
-                      step="0.01"
-                      placeholder="es. 7.9" 
-                      value={weightRange.retailPrice}
-                      onChange={(e) => handlePriceChange('retailPrice', parseFloat(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="margin">Margine (%)</Label>
-                  <div className="h-10 px-3 py-2 rounded-md border bg-muted">
-                    {weightRange.margin.toFixed(1)}%
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handleWeightRangeSubmit}
-                  disabled={selectedServiceIndexForPricing === null || selectedPricingIndex === null}
-                >
-                  Aggiungi Fascia di Peso
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Volume Discounts */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Volume Discounts</CardTitle>
-              <CardDescription>
-                Configure discounts based on monthly shipping volume
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => {
-                resetVolumeDiscountForm();
-                setIsVolumeDiscountDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Discount
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {carrier.volumeDiscounts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <p>No volume discounts configured</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => {
-                    resetVolumeDiscountForm();
-                    setIsVolumeDiscountDialogOpen(true);
-                  }}
-                >
-                  Add first volume discount
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Min Volume</TableHead>
-                    <TableHead>Max Volume</TableHead>
-                    <TableHead>Discount (%)</TableHead>
-                    <TableHead>Applicable Services</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {carrier.volumeDiscounts.map((discount, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{discount.minVolume}</TableCell>
-                      <TableCell>{discount.maxVolume || "∞"}</TableCell>
-                      <TableCell>{discount.discountPercentage}%</TableCell>
-                      <TableCell>
-                        {discount.applicableServices.length === 0 
-                          ? "All services" 
-                          : discount.applicableServices.join(", ")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => {
-                              setCurrentVolumeDiscount({ ...discount });
-                              setIsEditingVolumeDiscount(true);
-                              setVolumeDiscountIndex(index);
-                              setIsVolumeDiscountDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleDeleteVolumeDiscount(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Additional Fees */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Additional Fees</CardTitle>
-              <CardDescription>
-                Configure optional additional fees
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => {
-                resetAdditionalFeeForm();
-                setIsAdditionalFeeDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Fee
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {carrier.additionalFees.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <p>No additional fees configured</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => {
-                    resetAdditionalFeeForm();
-                    setIsAdditionalFeeDialogOpen(true);
-                  }}
-                >
-                  Add first additional fee
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Fee (€)</TableHead>
-                    <TableHead>Applicable Services</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {carrier.additionalFees.map((fee, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{fee.name}</TableCell>
-                      <TableCell>{fee.description || "-"}</TableCell>
-                      <TableCell>{fee.fee.toFixed(2)} €</TableCell>
-                      <TableCell>
-                        {fee.applicableServices.length === 0 
-                          ? "All services" 
-                          : fee.applicableServices.join(", ")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => {
-                              setCurrentAdditionalFee({ ...fee });
-                              setIsEditingAdditionalFee(true);
-                              setAdditionalFeeIndex(index);
-                              setIsAdditionalFeeDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleDeleteAdditionalFee(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Promotions */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Promotions</CardTitle>
-              <CardDescription>
-                Configure temporary promotions
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => {
-                resetPromotionForm();
-                setIsPromotionDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Promotion
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {carrier.promotions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <p>No promotions configured</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => {
-                    resetPromotionForm();
-                    setIsPromotionDialogOpen(true);
-                  }}
-                >
-                  Add first promotion
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Discount (%)</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Applicable Services</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {carrier.promotions.map((promotion, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{promotion.name}</TableCell>
-                      <TableCell>{promotion.description || "-"}</TableCell>
-                      <TableCell>{promotion.discountPercentage}%</TableCell>
-                      <TableCell>
-                        {formatDate(promotion.startDate)} - {formatDate(promotion.endDate)}
-                      </TableCell>
-                      <TableCell>
-                        {promotion.applicableServices.length === 0 
-                          ? "All services" 
-                          : promotion.applicableServices.join(", ")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => {
-                              setCurrentPromotion({ ...promotion });
-                              setIsEditingPromotion(true);
-                              setPromotionIndex(index);
-                              setIsPromotionDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleDeletePromotion(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      {/* Navigation buttons */}
+      <div className="flex justify-between">
+        <Button 
+          variant="outline" 
+          onClick={goToPrevStep}
+          disabled={activeStep === 0}
+        >
+          Indietro
+        </Button>
+        
+        {activeStep < steps.length - 1 ? (
+          <Button 
+            onClick={goToNextStep}
+            disabled={!canProceedToNextStep()}
+          >
+            Avanti
+          </Button>
+        ) : (
+          <Button 
+            onClick={handleSaveCarrier}
+            disabled={!carrier.name || carrier.services.length === 0}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Salva Corriere
+          </Button>
+        )}
       </div>
-
-      {/* Service Dialog */}
-      <Dialog open={isServiceDialogOpen} onOpenChange={setIsServiceDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{isEditingService ? "Edit Service" : "Add Service"}</DialogTitle>
-            <DialogDescription>
-              {isEditingService 
-                ? "Edit the service information" 
-                : "Enter the information for the new service"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="serviceName">Service Name *</Label>
-                <Input 
-                  id="serviceName" 
-                  value={currentService.name}
-                  onChange={(e) => setCurrentService({ ...currentService, name: e.target.value })}
-                  placeholder="E.g. Standard, Express"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="serviceCode">Service Code *</Label>
-                <Input 
-                  id="serviceCode" 
-                  value={currentService.code}
-                  onChange={(e) => setCurrentService({ ...currentService, code: e.target.value })}
-                  placeholder="E.g. STD, EXP"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="serviceDescription">Description</Label>
-              <Textarea 
-                id="serviceDescription" 
-                value={currentService.description}
-                onChange={(e) => setCurrentService({ ...currentService, description: e.target.value })}
-                placeholder="Service description"
-                rows={2}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="deliveryTimeMin">Minimum Delivery Time (hours)</Label>
-                <Input 
-                  id="deliveryTimeMin" 
-                  type="number"
-                  value={currentService.deliveryTimeMin}
-                  onChange={(e) => setCurrentService({ 
-                    ...currentService, 
-                    deliveryTimeMin: Number.parseInt(e.target.value) 
-                  })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="deliveryTimeMax">Maximum Delivery Time (hours)</Label>
-                <Input 
-                  id="deliveryTimeMax" 
-                  type="number"
-                  value={currentService.deliveryTimeMax}
-                  onChange={(e) => setCurrentService({ 
-                    ...currentService, 
-                    deliveryTimeMax: Number.parseInt(e.target.value) 
-                  })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Destinations</Label>
-              <div className="flex flex-wrap gap-2">
-                {["national", "eu", "extra_eu"].map((type) => (
-                  <label 
-                    key={type} 
-                    className="flex items-center space-x-2 border rounded-md p-2 cursor-pointer hover:bg-muted/30"
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={currentService.destinationTypes.includes(type as any)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setCurrentService({
-                            ...currentService,
-                            destinationTypes: [...currentService.destinationTypes, type as any]
-                          });
-                        } else {
-                          setCurrentService({
-                            ...currentService,
-                            destinationTypes: currentService.destinationTypes.filter(t => t !== type)
-                          });
-                        }
-                      }}
-                      className="h-4 w-4"
-                    />
-                    <span>
-                      {type === "national" ? "National" : type === "eu" ? "European Union" : "Extra EU"}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsServiceDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleServiceSubmit}
-              disabled={!currentService.name || !currentService.code || currentService.destinationTypes.length === 0}
-            >
-              {isEditingService ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Pricing Dialog */}
-      <Dialog open={isPricingDialogOpen} onOpenChange={setIsPricingDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isEditingPricing ? "Edit Pricing" : "Add Pricing"}</DialogTitle>
-            <DialogDescription>
-              {isEditingPricing 
-                ? "Edit the pricing information" 
-                : "Enter the information for the new pricing"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="destinationType">Destination Type *</Label>
-              <Select 
-                value={currentPricing.destinationType}
-                onValueChange={(value) => setCurrentPricing({ 
-                  ...currentPricing, 
-                  destinationType: value as any,
-                  countryCode: null // Reset country code when destination type changes
-                })}
-              >
-                <SelectTrigger id="destinationType">
-                  <SelectValue placeholder="Select destination type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="national">National</SelectItem>
-                  <SelectItem value="eu">European Union</SelectItem>
-                  <SelectItem value="extra_eu">Extra EU</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {currentPricing.destinationType !== "national" && (
-              <div className="space-y-2">
-                <Label htmlFor="countryCode">Country (optional)</Label>
-                <Select 
-                  value={currentPricing.countryCode || "all"}
-                  onValueChange={(value) => setCurrentPricing({ 
-                    ...currentPricing, 
-                    countryCode: value === "all" ? null : value
-                  })}
-                >
-                  <SelectTrigger id="countryCode">
-                    <SelectValue placeholder="All countries" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All countries</SelectItem>
-                    {(currentPricing.destinationType === "eu" ? euCountries : extraEuCountries).map((country) => (
-                      <SelectItem key={country.id} value={country.id}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  If you don't select a specific country, this pricing will apply to all countries of the selected destination type.
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPricingDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handlePricingSubmit}>
-              {isEditingPricing ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Weight Range Dialog */}
-      <Dialog open={isWeightRangeDialogOpen} onOpenChange={setIsWeightRangeDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isEditingWeightRange ? "Edit Weight Range" : "Add Weight Range"}</DialogTitle>
-            <DialogDescription>
-              {isEditingWeightRange 
-                ? "Edit the weight range information" 
-                : "Enter the information for the new weight range"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="weightMin">Minimum Weight (kg) *</Label>
-                <Input 
-                  id="weightMin" 
-                  type="number"
-                  step="0.01"
-                  value={currentWeightRange.min}
-                  onChange={(e) => setCurrentWeightRange({ 
-                    ...currentWeightRange, 
-                    min: Number.parseFloat(e.target.value) 
-                  })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="weightMax">Maximum Weight (kg) *</Label>
-                <Input 
-                  id="weightMax" 
-                  type="number"
-                  step="0.01"
-                  value={currentWeightRange.max}
-                  onChange={(e) => setCurrentWeightRange({ 
-                    ...currentWeightRange, 
-                    max: Number.parseFloat(e.target.value) 
-                  })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="retailPrice">Retail Price (€) *</Label>
-                <Input 
-                  id="retailPrice" 
-                  type="number"
-                  step="0.01"
-                  value={currentWeightRange.retailPrice}
-                  onChange={(e) => handlePriceChange('retailPrice', Number.parseFloat(e.target.value))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="purchasePrice">Purchase Price (€) *</Label>
-                <Input 
-                  id="purchasePrice" 
-                  type="number"
-                  step="0.01"
-                  value={currentWeightRange.purchasePrice}
-                  onChange={(e) => handlePriceChange('purchasePrice', Number.parseFloat(e.target.value))}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="margin">Margin (%)</Label>
-              <Input 
-                id="margin" 
-                type="number"
-                step="0.01"
-                value={currentWeightRange.margin}
-                readOnly
-                className="bg-muted/30"
-              />
-              <p className="text-xs text-muted-foreground">
-                The margin is automatically calculated based on retail and purchase prices.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsWeightRangeDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleWeightRangeSubmit}
-              disabled={
-                currentWeightRange.min < 0 || 
-                currentWeightRange.max <= currentWeightRange.min || 
-                currentWeightRange.retailPrice <= 0 || 
-                currentWeightRange.purchasePrice <= 0
-              }
-            >
-              {isEditingWeightRange ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Volume Discount Dialog */}
-      <Dialog open={isVolumeDiscountDialogOpen} onOpenChange={setIsVolumeDiscountDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isEditingVolumeDiscount ? "Edit Volume Discount" : "Add Volume Discount"}</DialogTitle>
-            <DialogDescription>
-              {isEditingVolumeDiscount 
-                ? "Edit the volume discount information" 
-                : "Enter the information for the new volume discount"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="minVolume">Minimum Volume *</Label>
-                <Input 
-                  id="minVolume" 
-                  type="number"
-                  value={currentVolumeDiscount.minVolume}
-                  onChange={(e) => setCurrentVolumeDiscount({ 
-                    ...currentVolumeDiscount, 
-                    minVolume: Number.parseInt(e.target.value) 
-                  })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="maxVolume">Maximum Volume (optional)</Label>
-                <Input 
-                  id="maxVolume" 
-                  type="number"
-                  value={currentVolumeDiscount.maxVolume || ""}
-                  onChange={(e) => setCurrentVolumeDiscount({ 
-                    ...currentVolumeDiscount, 
-                    maxVolume: e.target.value ? Number.parseInt(e.target.value) : null
-                  })}
-                  placeholder="Unlimited"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="discountPercentage">Discount Percentage *</Label>
-              <Input 
-                id="discountPercentage" 
-                type="number"
-                step="0.01"
-                value={currentVolumeDiscount.discountPercentage}
-                onChange={(e) => setCurrentVolumeDiscount({ 
-                  ...currentVolumeDiscount, 
-                  discountPercentage: Number.parseFloat(e.target.value) 
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Applicable Services</Label>
-              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                {carrier.services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No services available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {carrier.services.map((service, index) => (
-                      <label key={index} className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          checked={currentVolumeDiscount.applicableServices.includes(service.code)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCurrentVolumeDiscount({
-                                ...currentVolumeDiscount,
-                                applicableServices: [...currentVolumeDiscount.applicableServices, service.code]
-                              });
-                            } else {
-                              setCurrentVolumeDiscount({
-                                ...currentVolumeDiscount,
-                                applicableServices: currentVolumeDiscount.applicableServices.filter(s => s !== service.code)
-                              });
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <span>{service.name} ({service.code})</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                If you don't select any services, the discount will apply to all services.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsVolumeDiscountDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleVolumeDiscountSubmit}
-              disabled={
-                currentVolumeDiscount.minVolume < 0 || 
-                (currentVolumeDiscount.maxVolume !== null && currentVolumeDiscount.maxVolume <= currentVolumeDiscount.minVolume) || 
-                currentVolumeDiscount.discountPercentage <= 0
-              }
-            >
-              {isEditingVolumeDiscount ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Additional Fee Dialog */}
-      <Dialog open={isAdditionalFeeDialogOpen} onOpenChange={setIsAdditionalFeeDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isEditingAdditionalFee ? "Edit Additional Fee" : "Add Additional Fee"}</DialogTitle>
-            <DialogDescription>
-              {isEditingAdditionalFee 
-                ? "Edit the additional fee information" 
-                : "Enter the information for the new additional fee"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="feeName">Fee Name *</Label>
-              <Input 
-                id="feeName" 
-                value={currentAdditionalFee.name}
-                onChange={(e) => setCurrentAdditionalFee({ 
-                  ...currentAdditionalFee, 
-                  name: e.target.value 
-                })}
-                placeholder="E.g. Floor delivery, Insurance"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="feeDescription">Description</Label>
-              <Textarea 
-                id="feeDescription" 
-                value={currentAdditionalFee.description}
-                onChange={(e) => setCurrentAdditionalFee({ 
-                  ...currentAdditionalFee, 
-                  description: e.target.value 
-                })}
-                placeholder="Fee description"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fee">Fee (€) *</Label>
-              <Input 
-                id="fee" 
-                type="number"
-                step="0.01"
-                value={currentAdditionalFee.fee}
-                onChange={(e) => setCurrentAdditionalFee({ 
-                  ...currentAdditionalFee, 
-                  fee: Number.parseFloat(e.target.value) 
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Applicable Services</Label>
-              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                {carrier.services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No services available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {carrier.services.map((service, index) => (
-                      <label key={index} className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          checked={currentAdditionalFee.applicableServices.includes(service.code)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCurrentAdditionalFee({
-                                ...currentAdditionalFee,
-                                applicableServices: [...currentAdditionalFee.applicableServices, service.code]
-                              });
-                            } else {
-                              setCurrentAdditionalFee({
-                                ...currentAdditionalFee,
-                                applicableServices: currentAdditionalFee.applicableServices.filter(s => s !== service.code)
-                              });
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <span>{service.name} ({service.code})</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                If you don't select any services, the fee will apply to all services.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAdditionalFeeDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleAdditionalFeeSubmit}
-              disabled={!currentAdditionalFee.name || currentAdditionalFee.fee <= 0}
-            >
-              {isEditingAdditionalFee ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Promotion Dialog */}
-      <Dialog open={isPromotionDialogOpen} onOpenChange={setIsPromotionDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isEditingPromotion ? "Edit Promotion" : "Add Promotion"}</DialogTitle>
-            <DialogDescription>
-              {isEditingPromotion 
-                ? "Edit the promotion information" 
-                : "Enter the information for the new promotion"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="promotionName">Promotion Name *</Label>
-              <Input 
-                id="promotionName" 
-                value={currentPromotion.name}
-                onChange={(e) => setCurrentPromotion({ ...currentPromotion, name: e.target.value })}
-                placeholder="E.g. Summer Sale, 20% Discount"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="promotionDescription">Description</Label>
-              <Textarea 
-                id="promotionDescription" 
-                value={currentPromotion.description}
-                onChange={(e) => setCurrentPromotion({ ...currentPromotion, description: e.target.value })}
-                placeholder="Promotion description"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="discountPercentage">Discount Percentage *</Label>
-              <Input 
-                id="discountPercentage" 
-                type="number"
-                step="0.01"
-                value={currentPromotion.discountPercentage}
-                onChange={(e) => setCurrentPromotion({ 
-                  ...currentPromotion, 
-                  discountPercentage: Number.parseFloat(e.target.value) 
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input 
-                id="startDate" 
-                type="date"
-                value={currentPromotion.startDate.toISOString().split('T')[0]}
-                onChange={(e) => setCurrentPromotion({ 
-                  ...currentPromotion, 
-                  startDate: new Date(e.target.value) 
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input 
-                id="endDate" 
-                type="date"
-                value={currentPromotion.endDate.toISOString().split('T')[0]}
-                onChange={(e) => setCurrentPromotion({ 
-                  ...currentPromotion, 
-                  endDate: new Date(e.target.value) 
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Applicable Services</Label>
-              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                {carrier.services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No services available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {carrier.services.map((service, index) => (
-                      <label key={index} className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          checked={currentPromotion.applicableServices.includes(service.code)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCurrentPromotion({
-                                ...currentPromotion,
-                                applicableServices: [...currentPromotion.applicableServices, service.code]
-                              });
-                            } else {
-                              setCurrentPromotion({
-                                ...currentPromotion,
-                                applicableServices: currentPromotion.applicableServices.filter(s => s !== service.code)
-                              });
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <span>{service.name} ({service.code})</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                If you don't select any services, the promotion will apply to all services.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPromotionDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handlePromotionSubmit}
-              disabled={!currentPromotion.name || currentPromotion.discountPercentage <= 0}
-            >
-              {isEditingPromotion ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
