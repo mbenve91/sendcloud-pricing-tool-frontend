@@ -1039,8 +1039,9 @@ export default function RateComparisonCard() {
                             )}
                           {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
                             <TableCell className="font-medium">
-                              {rate.weightMin && rate.weightMax ? `${rate.weightMin}-${rate.weightMax} kg` : 
-                               (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
+                              {rate.weightMin !== undefined && rate.weightMax !== undefined 
+                                ? `${rate.weightMin}-${rate.weightMax} kg` 
+                                : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
                             </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
