@@ -9,8 +9,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5
  */
 export async function getCarriers() {
   try {
-    // Usiamo /api/carriers per accedere ai corrieri
-    const response = await fetch(`${API_URL}/carriers`);
+    // NOTA: Non aggiungere /api poiché l'URL completo è già configurato in .env.local
+    // Usiamo direttamente l'endpoint /carriers
+    const response = await fetch(`${API_BASE_URL}/api/carriers`);
     
     if (!response.ok) {
       throw new Error(`Errore durante il recupero dei corrieri: ${response.statusText}`);
