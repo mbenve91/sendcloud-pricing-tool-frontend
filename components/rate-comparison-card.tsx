@@ -35,6 +35,7 @@ import { RateMarginIndicator } from "./rate-margin-indicator"
 import { useCart } from "@/hooks/use-cart"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
+import Image from 'next/image'
 
 // Mock data for carriers
 const CARRIERS = [
@@ -1125,15 +1126,24 @@ export default function RateComparisonCard() {
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-3 relative">
+      <CardHeader className="pb-3 relative bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
         <div className="flex items-center justify-between">
-          <CardTitle>Rate Comparison</CardTitle>
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/sendcloud_logo.png" 
+              alt="Sendcloud Logo" 
+              width={40} 
+              height={40} 
+              className="rounded-md bg-white p-1"
+            />
+            <CardTitle>SendQuote</CardTitle>
+          </div>
           
           {/* Cart Icon with Item Count */}
           <Button 
             variant="outline"
             size="icon" 
-            className="relative"
+            className="relative bg-white text-blue-600 hover:bg-blue-50"
             onClick={() => router.push("/cart")}
           >
             <ShoppingCart className="h-5 w-5" />
@@ -1147,7 +1157,7 @@ export default function RateComparisonCard() {
             )}
           </Button>
         </div>
-        <CardDescription>
+        <CardDescription className="text-blue-100">
           Compare shipping rates across different carriers
         </CardDescription>
       </CardHeader>
