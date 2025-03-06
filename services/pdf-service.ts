@@ -291,8 +291,41 @@ const generateSimplePDF = async (
     const startY = 85;
     const rowHeight = 10;
     const margin = 14;
-    const cols = rates.some(r => r.countryName) ? 6 : 5;
-    const colWidth = (210 - (margin * 2)) / cols;
+    const hasCountry = rates.some(r => r.countryName);
+    const cols = hasCountry ? 6 : 5;
+    
+    // MODIFICA: Adatta le larghezze delle colonne in base alla lingua
+    // Assegna più spazio alla colonna del tempo di consegna in italiano
+    let colWidths: number[] = [];
+    if (language === 'italian') {
+      // Larghezze personalizzate per italiano (più spazio per "Tempo di Consegna")
+      if (hasCountry) {
+        colWidths = [0.19, 0.19, 0.15, 0.15, 0.22, 0.10].map(w => (210 - (margin * 2)) * w);
+      } else {
+        colWidths = [0.22, 0.22, 0.17, 0.25, 0.14].map(w => (210 - (margin * 2)) * w);
+      }
+    } else if (language === 'german') {
+      // Larghezze personalizzate per tedesco
+      if (hasCountry) {
+        colWidths = [0.19, 0.19, 0.15, 0.15, 0.17, 0.15].map(w => (210 - (margin * 2)) * w);
+      } else {
+        colWidths = [0.22, 0.22, 0.17, 0.20, 0.19].map(w => (210 - (margin * 2)) * w);
+      }
+    } else if (language === 'spanish') {
+      // Larghezze personalizzate per spagnolo
+      if (hasCountry) {
+        colWidths = [0.19, 0.19, 0.15, 0.15, 0.19, 0.13].map(w => (210 - (margin * 2)) * w);
+      } else {
+        colWidths = [0.22, 0.22, 0.17, 0.22, 0.17].map(w => (210 - (margin * 2)) * w);
+      }
+    } else {
+      // Larghezze predefinite per inglese e altre lingue
+      if (hasCountry) {
+        colWidths = [0.19, 0.19, 0.15, 0.15, 0.17, 0.15].map(w => (210 - (margin * 2)) * w);
+      } else {
+        colWidths = [0.22, 0.22, 0.17, 0.20, 0.19].map(w => (210 - (margin * 2)) * w);
+      }
+    }
     
     // Riga di intestazione
     doc.rect(margin, startY, 210 - (margin * 2), rowHeight, 'F');
@@ -300,34 +333,53 @@ const generateSimplePDF = async (
     // Testi delle intestazioni
     let currentX = margin + 3;
     
+    // MODIFICA: Adatta la dimensione del font per le intestazioni lunghe
+    const getHeaderFontSize = (text: string): number => {
+      if (text.length > 15) return 8;
+      return 10;
+    };
+    
     // Carrier
-    doc.text(getTranslation('carrier', language), currentX, startY + 6);
-    currentX += colWidth;
+    const carrierText = getTranslation('carrier', language);
+    doc.setFontSize(getHeaderFontSize(carrierText));
+    doc.text(carrierText, currentX, startY + 6);
+    currentX += colWidths[0];
     
     // Service
-    doc.text(getTranslation('service', language), currentX, startY + 6);
-    currentX += colWidth;
+    const serviceText = getTranslation('service', language);
+    doc.setFontSize(getHeaderFontSize(serviceText));
+    doc.text(serviceText, currentX, startY + 6);
+    currentX += colWidths[1];
     
     // Country (opzionale)
-    if (rates.some(r => r.countryName)) {
-      doc.text(getTranslation('destination', language), currentX, startY + 6);
-      currentX += colWidth;
+    if (hasCountry) {
+      const destText = getTranslation('destination', language);
+      doc.setFontSize(getHeaderFontSize(destText));
+      doc.text(destText, currentX, startY + 6);
+      currentX += colWidths[2];
     }
     
     // Weight
-    doc.text(getTranslation('weight', language), currentX, startY + 6);
-    currentX += colWidth;
+    const weightText = getTranslation('weight', language);
+    doc.setFontSize(getHeaderFontSize(weightText));
+    doc.text(weightText, currentX, startY + 6);
+    currentX += colWidths[hasCountry ? 3 : 2];
     
     // Delivery Time
-    doc.text(getTranslation('delivery_time', language), currentX, startY + 6);
-    currentX += colWidth;
+    const deliveryText = getTranslation('delivery_time', language);
+    doc.setFontSize(getHeaderFontSize(deliveryText));
+    doc.text(deliveryText, currentX, startY + 6);
+    currentX += colWidths[hasCountry ? 4 : 3];
     
     // Price
-    doc.text(getTranslation('price', language), currentX, startY + 6);
+    const priceText = getTranslation('price', language);
+    doc.setFontSize(getHeaderFontSize(priceText));
+    doc.text(priceText, currentX, startY + 6);
     
     // Dati delle righe
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); // Ripristina dimensione font standard per i dati
     
     let currentY = startY + rowHeight;
     let isAlternateRow = false;
@@ -349,16 +401,16 @@ const generateSimplePDF = async (
       
       // Carrier
       doc.text(rate.carrierName.substring(0, 16), currentX, currentY + 6);
-      currentX += colWidth;
+      currentX += colWidths[0];
       
       // Service
       doc.text(rate.serviceName.substring(0, 16), currentX, currentY + 6);
-      currentX += colWidth;
+      currentX += colWidths[1];
       
       // Country (opzionale)
-      if (rates.some(r => r.countryName)) {
+      if (hasCountry) {
         doc.text(rate.countryName?.substring(0, 16) || "", currentX, currentY + 6);
-        currentX += colWidth;
+        currentX += colWidths[2];
       }
       
       // Weight
@@ -367,14 +419,14 @@ const generateSimplePDF = async (
         (rate.weightMin !== undefined && rate.weightMax !== undefined ? 
           `${rate.weightMin}-${rate.weightMax} kg` : "");
       doc.text(weightText, currentX, currentY + 6);
-      currentX += colWidth;
+      currentX += colWidths[hasCountry ? 3 : 2];
       
       // Delivery Time
       const deliveryText = rate.deliveryTimeMin && rate.deliveryTimeMax
         ? `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} ${getTranslation('days', language)}`
         : "";
       doc.text(deliveryText, currentX, currentY + 6);
-      currentX += colWidth;
+      currentX += colWidths[hasCountry ? 4 : 3];
       
       // Price - utilizziamo il grassetto per il prezzo
       const priceText = formatCurrency(rate.finalPrice, language);
