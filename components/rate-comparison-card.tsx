@@ -1109,7 +1109,7 @@ export default function RateComparisonCard() {
                   </Button>
                 </div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted">
                     <TableRow>
                       <TableHead className="w-[50px]">
                         <Checkbox
@@ -1150,7 +1150,7 @@ export default function RateComparisonCard() {
                   <TableBody>
                     {displayedRates.map((rate, index) => (
                       <>
-                        <TableRow key={rate.id} className="even:bg-muted/50 hover:bg-muted/60">
+                        <TableRow key={rate.id} className="even:bg-muted/20 hover:bg-muted/40">
                           <TableCell>
                             <Checkbox
                               checked={!!selectedRows[rate.id]}
@@ -1269,7 +1269,7 @@ export default function RateComparisonCard() {
                                   <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
                                 ) : (
                                   <Table>
-                                    <TableHeader>
+                                    <TableHeader className="bg-muted">
                                       <TableRow>
                                         <TableHead>Select</TableHead>
                                         <TableHead>Carrier</TableHead>
@@ -1285,7 +1285,7 @@ export default function RateComparisonCard() {
                                     </TableHeader>
                                     <TableBody>
                                       {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
-                                        <TableRow key={weightRange.id} className="even:bg-muted/50 hover:bg-muted/60">
+                                        <TableRow key={weightRange.id} className="even:bg-muted/20 hover:bg-muted/40">
                                           {/* Checkbox per la fascia di peso */}
                                           <TableCell>
                                             <Checkbox
