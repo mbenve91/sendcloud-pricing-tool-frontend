@@ -1274,7 +1274,24 @@ export default function RateComparisonCard() {
                                           {/* Margin */}
                                           <TableCell>
                                             {weightRange.actualMargin !== undefined ? (
-                                              <RateMarginIndicator margin={weightRange.actualMargin} />
+                                              <Badge
+                                                variant={getMarginColor(
+                                                  weightRange.adjustedMargin !== undefined 
+                                                    ? weightRange.adjustedMargin 
+                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
+                                                )}
+                                              >
+                                                {formatCurrency(
+                                                  weightRange.adjustedMargin !== undefined 
+                                                    ? weightRange.adjustedMargin 
+                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
+                                                )}{" "}
+                                                ({getMarginLabel(
+                                                  weightRange.adjustedMargin !== undefined 
+                                                    ? weightRange.adjustedMargin 
+                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
+                                                )})
+                                              </Badge>
                                             ) : (
                                               "N/D"
                                             )}
