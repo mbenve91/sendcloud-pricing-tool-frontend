@@ -811,21 +811,33 @@ export default function RateComparisonCard() {
     });
   }, [loadServiceWeightRanges]);
 
-  // Correggi la funzione per applicare lo sconto al margine anziché al prezzo base
+  // Correggi la funzione per applicare lo sconto al margine e aggiornare il prezzo finale
   const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
     // Aggiorna lo sconto per la riga principale
     setRates(prevRates => {
       return prevRates.map(rate => {
         if (rate.id === rateId) {
-          // Lo sconto si applica al margine, non al prezzo
-          // Calcola la percentuale di riduzione del margine
-          const marginReduction = (rate.actualMargin * newDiscount) / 100;
-          const newMargin = rate.actualMargin - marginReduction;
-          // Il prezzo finale resta invariato
+          // Base rate = prezzo di vendita pieno
+          // Margine = valore già calcolato (vendita - acquisto)
+          // Lo sconto si applica al margine
+          // Final price = base rate - (margine * percentuale sconto / 100)
+          
+          const baseRate = rate.basePrice; // Prezzo di vendita pieno
+          const margin = rate.actualMargin; // Margine originale
+          
+          // Calcola la riduzione del prezzo dovuta allo sconto sul margine
+          const marginDiscount = margin * (newDiscount / 100);
+          
+          // Calcola il nuovo prezzo finale
+          const newFinalPrice = baseRate - marginDiscount;
+          
+          // Calcola il nuovo margine dopo lo sconto
+          const newMargin = margin - marginDiscount;
           
           return {
             ...rate,
             userDiscount: newDiscount,
+            finalPrice: newFinalPrice,
             actualMargin: newMargin
           };
         }
@@ -841,14 +853,22 @@ export default function RateComparisonCard() {
         
         // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
         const updatedRanges = prevRanges[serviceId].map(weightRange => {
-          // Lo sconto si applica al margine, non al prezzo
-          const marginReduction = (weightRange.actualMargin * newDiscount) / 100;
-          const newMargin = weightRange.actualMargin - marginReduction;
-          // Il prezzo finale resta invariato
+          const baseRate = weightRange.basePrice; // Prezzo di vendita pieno
+          const margin = weightRange.actualMargin; // Margine originale
+          
+          // Calcola la riduzione del prezzo dovuta allo sconto sul margine
+          const marginDiscount = margin * (newDiscount / 100);
+          
+          // Calcola il nuovo prezzo finale
+          const newFinalPrice = baseRate - marginDiscount;
+          
+          // Calcola il nuovo margine dopo lo sconto
+          const newMargin = margin - marginDiscount;
           
           return {
             ...weightRange,
             userDiscount: newDiscount,
+            finalPrice: newFinalPrice,
             actualMargin: newMargin
           };
         });
@@ -1105,7 +1125,9 @@ export default function RateComparisonCard() {
                             <TableCell>{rate.carrierName}</TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                            <TableCell>{rate.serviceName}</TableCell>
+                            <TableCell>
+                              <span className="font-medium">{rate.serviceName}</span>
+                            </TableCell>
                           )}
                           {(activeTab === "eu" || activeTab === "extra_eu") &&
                             visibleColumns.find((col) => col.id === "country")?.isVisible && (
@@ -1238,9 +1260,8 @@ export default function RateComparisonCard() {
                                           
                                           {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
                                           <TableCell>
-                                            <div className="flex items-center space-x-2">
+                                            <div className="flex items-center">
                                               <span className="text-center min-w-16">{rate.userDiscount || 0}%</span>
-                                              <Badge variant="outline" className="ml-1">Sincronizzato</Badge>
                                             </div>
                                           </TableCell>
                                           
