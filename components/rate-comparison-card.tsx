@@ -1843,7 +1843,7 @@ export default function RateComparisonCard() {
 
       {/* Modify the "Add to Cart" banner to show counts correctly */}
       {hasSelectedItems && (
-        <div className="fixed bottom-0 left-0 right-0 bg-primary text-white p-4 shadow-lg z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-primary bg-opacity-85 backdrop-blur-sm text-white p-4 shadow-lg z-50">
           <div className="container mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <ShoppingCart className="h-5 w-5" />

@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { toast } from "react-toastify"
 
 interface Rate {
   id: string;
@@ -58,6 +59,23 @@ export const useCart = create<CartStore>()(
         
         if (!isItemInCart) {
           set({ cartItems: [...currentCart, item] });
+          
+          toast.success(
+            <div>
+              <span>Rate added to cart!</span>
+              <br />
+              <a href="/cart" className="text-blue-500 underline">Go to cart</a>
+            </div>,
+            {
+              position: "top-right",
+              autoClose: 5000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              progress: undefined,
+            }
+          );
         }
       },
       
