@@ -90,6 +90,265 @@ interface Carrier {
   name: string
 }
 
+// Componente per il form di creazione/modifica
+const ServiceForm = ({
+  form,
+  carriers,
+  isLoadingCarriers,
+  onSubmit,
+  editingService,
+  onCancel
+}: {
+  form: any,
+  carriers: Carrier[],
+  isLoadingCarriers: boolean,
+  onSubmit: (data: ServiceFormValues) => void,
+  editingService: Service | null,
+  onCancel: () => void
+}) => {
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter service name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Code</FormLabel>
+                <FormControl>
+                  <Input placeholder="Service code (optional)" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Enter service description (optional)" 
+                  className="resize-none" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="carrier"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Carrier</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a carrier" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {isLoadingCarriers ? (
+                    <SelectItem value="loading" disabled>Loading carriers...</SelectItem>
+                  ) : carriers.length === 0 ? (
+                    <SelectItem value="none" disabled>No carriers available</SelectItem>
+                  ) : (
+                    carriers.map((carrier) => (
+                      <SelectItem key={carrier._id} value={carrier._id}>
+                        {carrier.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                The carrier that provides this service
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="destinationType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Destination Type</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select destination type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="national">National</SelectItem>
+                    <SelectItem value="international">International</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="destinationCountry"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Destination Country</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Country code or name (for international)" 
+                    {...field} 
+                    disabled={form.watch("destinationType") === "national"}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Required for specific international destinations
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="isEU"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel>EU Destination</FormLabel>
+                <FormDescription>
+                  Check if the destination is in the European Union
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={form.watch("destinationType") === "national"}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="deliveryTimeMin"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Minimum Delivery Time (days)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Min days"
+                    {...field}
+                    value={field.value === null ? "" : field.value}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? null : parseInt(e.target.value);
+                      field.onChange(value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="deliveryTimeMax"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Maximum Delivery Time (days)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Max days"
+                    {...field}
+                    value={field.value === null ? "" : field.value}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? null : parseInt(e.target.value);
+                      field.onChange(value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="isActive"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel>Active</FormLabel>
+                <FormDescription>
+                  Inactive services will not be shown in rate comparisons
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button variant="outline" type="button" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            {editingService ? "Update" : "Create"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+};
+
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [carriers, setCarriers] = useState<Carrier[]>([])
@@ -418,245 +677,14 @@ export default function ServicesPage() {
                 : "Fill in the service details below to create a new service."}
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter service name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Service code (optional)" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Enter service description (optional)" 
-                        className="resize-none" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="carrier"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Carrier</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a carrier" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingCarriers ? (
-                          <SelectItem value="loading" disabled>Loading carriers...</SelectItem>
-                        ) : carriers.length === 0 ? (
-                          <SelectItem value="none" disabled>No carriers available</SelectItem>
-                        ) : (
-                          carriers.map((carrier) => (
-                            <SelectItem key={carrier._id} value={carrier._id}>
-                              {carrier.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      The carrier that provides this service
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="destinationType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Destination Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select destination type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="national">National</SelectItem>
-                          <SelectItem value="international">International</SelectItem>
-                          <SelectItem value="both">Both</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="destinationCountry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Destination Country</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="Country code or name (for international)" 
-                          {...field} 
-                          disabled={form.watch("destinationType") === "national"}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Required for specific international destinations
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="isEU"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>EU Destination</FormLabel>
-                      <FormDescription>
-                        Check if the destination is in the European Union
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={form.watch("destinationType") === "national"}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="deliveryTimeMin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Minimum Delivery Time (days)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="Min days"
-                          {...field}
-                          value={field.value === null ? "" : field.value}
-                          onChange={(e) => {
-                            const value = e.target.value === "" ? null : parseInt(e.target.value);
-                            field.onChange(value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="deliveryTimeMax"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Maximum Delivery Time (days)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="Max days"
-                          {...field}
-                          value={field.value === null ? "" : field.value}
-                          onChange={(e) => {
-                            const value = e.target.value === "" ? null : parseInt(e.target.value);
-                            field.onChange(value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active</FormLabel>
-                      <FormDescription>
-                        Inactive services will not be shown in rate comparisons
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingService ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <ServiceForm 
+            form={form}
+            carriers={carriers}
+            isLoadingCarriers={isLoadingCarriers}
+            onSubmit={onSubmit}
+            editingService={editingService}
+            onCancel={() => setIsOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 

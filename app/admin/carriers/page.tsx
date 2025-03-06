@@ -64,6 +64,115 @@ interface Carrier {
   isVolumetric: boolean
 }
 
+// Componente per il form di creazione/modifica
+const CarrierForm = ({
+  form,
+  onSubmit,
+  editingCarrier,
+  onCancel
+}: {
+  form: any,
+  onSubmit: (data: CarrierFormValues) => void,
+  editingCarrier: Carrier | null,
+  onCancel: () => void
+}) => {
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter carrier name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="logoUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Logo URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/logo.png" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="fuelSurcharge"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fuel Surcharge (%)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  {...field}
+                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="isVolumetric"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel>Volumetric</FormLabel>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="isActive"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel>Active</FormLabel>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <DialogFooter>
+          <Button variant="outline" type="button" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            {editingCarrier ? "Update" : "Create"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+};
+
 export default function CarriersPage() {
   const [carriers, setCarriers] = useState<Carrier[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -336,99 +445,12 @@ export default function CarriersPage() {
                 : "Fill in the carrier details below to create a new carrier."}
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter carrier name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="logoUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Logo URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/logo.png" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="fuelSurcharge"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fuel Surcharge (%)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min="0" 
-                        max="100" 
-                        step="0.01" 
-                        placeholder="0.00" 
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isVolumetric"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Volumetric</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingCarrier ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <CarrierForm 
+            form={form}
+            onSubmit={onSubmit}
+            editingCarrier={editingCarrier}
+            onCancel={() => setIsOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 

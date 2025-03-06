@@ -117,6 +117,330 @@ interface Service {
   }
 }
 
+// Componente per il filtro del servizio
+const ServiceFilter = ({ 
+  services, 
+  selectedService, 
+  isLoadingServices, 
+  onServiceChange 
+}: { 
+  services: Service[], 
+  selectedService: string, 
+  isLoadingServices: boolean, 
+  onServiceChange: (serviceId: string) => void 
+}) => {
+  return (
+    <div className="mb-6">
+      <div className="flex flex-col space-y-2">
+        <label className="text-sm font-medium">Filter by Service</label>
+        <Select
+          value={selectedService}
+          onValueChange={onServiceChange}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="All Services" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Services</SelectItem>
+            {isLoadingServices ? (
+              <SelectItem value="loading" disabled>Loading services...</SelectItem>
+            ) : services.length === 0 ? (
+              <SelectItem value="none" disabled>No services available</SelectItem>
+            ) : (
+              services.map((service) => (
+                <SelectItem key={service._id} value={service._id}>
+                  {service.carrier.name} - {service.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+};
+
+// Componente per il form di creazione/modifica
+const RateForm = ({
+  form,
+  services,
+  isLoadingServices,
+  onSubmit,
+  editingRate,
+  onCancel
+}: {
+  form: any,
+  services: Service[],
+  isLoadingServices: boolean,
+  onSubmit: (data: RateFormValues) => void,
+  editingRate: Rate | null,
+  onCancel: () => void
+}) => {
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="service"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Service</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a service" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {isLoadingServices ? (
+                    <SelectItem value="loading" disabled>Loading services...</SelectItem>
+                  ) : services.length === 0 ? (
+                    <SelectItem value="none" disabled>No services available</SelectItem>
+                  ) : (
+                    services.map((service) => (
+                      <SelectItem key={service._id} value={service._id}>
+                        {service.carrier.name} - {service.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                The shipping service for this rate
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="weightMin"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Minimum Weight (kg)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="weightMax"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Maximum Weight (kg)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="purchasePrice"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Purchase Price (€)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  What you pay to the carrier
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="retailPrice"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Retail Price (€)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  What you charge your customers
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="margin"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Margin (€)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...field}
+                    disabled
+                  />
+                </FormControl>
+                <FormDescription>
+                  Auto-calculated: Retail - Purchase
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="marginPercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Margin (%)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...field}
+                    disabled
+                  />
+                </FormControl>
+                <FormDescription>
+                  Auto-calculated percentage
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="volumeDiscount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Volume Discount (%)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="promotionalDiscount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Promotional Discount (%)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="minimumVolume"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Min. Volume (packages)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="isActive"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel>Active</FormLabel>
+                <FormDescription>
+                  Inactive rates will not be shown in comparisons
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button variant="outline" type="button" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            {editingRate ? "Update" : "Create"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+};
+
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -389,41 +713,12 @@ export default function RatesPage() {
               <CardTitle>Rates</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-6">
-                <FormField
-                  control={form.control}
-                  name="service"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Filter by Service</FormLabel>
-                      <Select 
-                        onValueChange={handleServiceChange}
-                        value={selectedService}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="All Services" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">All Services</SelectItem>
-                          {isLoadingServices ? (
-                            <SelectItem value="loading" disabled>Loading services...</SelectItem>
-                          ) : services.length === 0 ? (
-                            <SelectItem value="none" disabled>No services available</SelectItem>
-                          ) : (
-                            services.map((service) => (
-                              <SelectItem key={service._id} value={service._id}>
-                                {service.carrier.name} - {service.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <ServiceFilter 
+                services={services}
+                selectedService={selectedService}
+                isLoadingServices={isLoadingServices}
+                onServiceChange={handleServiceChange}
+              />
 
               {isLoading ? (
                 <div className="flex justify-center items-center h-32">
@@ -531,267 +826,14 @@ export default function RatesPage() {
                 : "Fill in the rate details below to create a new rate."}
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="service"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Service</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a service" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingServices ? (
-                          <SelectItem value="loading" disabled>Loading services...</SelectItem>
-                        ) : services.length === 0 ? (
-                          <SelectItem value="none" disabled>No services available</SelectItem>
-                        ) : (
-                          services.map((service) => (
-                            <SelectItem key={service._id} value={service._id}>
-                              {service.carrier.name} - {service.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      The shipping service for this rate
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="weightMin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Minimum Weight (kg)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="weightMax"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Maximum Weight (kg)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="purchasePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purchase Price (€)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        What you pay to the carrier
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="retailPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Retail Price (€)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        What you charge your customers
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="margin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Margin (€)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          disabled
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Auto-calculated: Retail - Purchase
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="marginPercentage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Margin (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          disabled
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Auto-calculated percentage
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="volumeDiscount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Volume Discount (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="promotionalDiscount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Promotional Discount (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="minimumVolume"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Min. Volume (packages)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active</FormLabel>
-                      <FormDescription>
-                        Inactive rates will not be shown in comparisons
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingRate ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <RateForm 
+            form={form}
+            services={services}
+            isLoadingServices={isLoadingServices}
+            onSubmit={onSubmit}
+            editingRate={editingRate}
+            onCancel={() => setIsOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
