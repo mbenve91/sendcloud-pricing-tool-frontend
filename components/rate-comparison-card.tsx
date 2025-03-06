@@ -885,81 +885,64 @@ export default function RateComparisonCard() {
   }, [loadServiceWeightRanges]);
 
   // Correggi la funzione per applicare lo sconto al margine e aggiornare il prezzo finale
-  const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
-    // Arrotonda lo sconto a massimo 2 decimali
-    const roundedDiscount = Math.round(newDiscount * 100) / 100;
-    
-    // Aggiorna lo sconto per la riga principale
-    setRates(prevRates => {
-      return prevRates.map(rate => {
-        if (rate.id === rateId) {
-          // Ensure discount is between 0 and 90%
-          const clampedDiscount = Math.max(0, Math.min(90, roundedDiscount));
+  const handleDiscountChange = (rateId: string, serviceId: string, newDiscount: number) => {
+    setRates(prevRates => prevRates.map(rate => {
+      if (rate.id === rateId) {
+        // Limita lo sconto tra 0 e 90%
+        const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+        
+        // Calcola il prezzo base scontato (prima dell'applicazione del fuel)
+        const discountAmount = rate.actualMargin * (clampedDiscount / 100);
+        const priceAfterDiscount = rate.basePrice - discountAmount;
+        
+        // Applica il fuel surcharge se abilitato
+        const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0 
+          ? priceAfterDiscount * (1 + (rate.fuelSurcharge / 100))
+          : priceAfterDiscount;
+        
+        // Aggiorna anche le fasce di peso
+        if (serviceId && rate.weightRanges) {
+          // Carica le fasce di peso se non ancora caricate
+          if (!serviceWeightRanges[serviceId] && serviceId) {
+            loadServiceWeightRanges(serviceId);
+          }
           
-          // Base rate = prezzo di vendita pieno
-          // Margine = valore già calcolato (vendita - acquisto)
-          // Lo sconto si applica al margine
-          // Final price = base rate - (margine * percentuale sconto / 100)
-          
-          const baseRate = rate.basePrice; // Prezzo di vendita pieno
-          const margin = rate.actualMargin; // Margine originale
-          
-          // Calcola la riduzione del prezzo dovuta allo sconto sul margine
-          const marginDiscount = margin * (clampedDiscount / 100);
-          
-          // Calcola il nuovo prezzo finale
-          const newFinalPrice = baseRate - marginDiscount;
-          
-          // Calcola il nuovo margine dopo lo sconto
-          const newMargin = margin - marginDiscount;
+          const updatedWeightRanges = rate.weightRanges.map(range => {
+            const rangeDiscountAmount = range.actualMargin * (clampedDiscount / 100);
+            const rangePriceAfterDiscount = range.basePrice - rangeDiscountAmount;
+            
+            // Applica il fuel surcharge se abilitato
+            const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+              ? rangePriceAfterDiscount * (1 + (rate.fuelSurcharge / 100))
+              : rangePriceAfterDiscount;
+            
+            return {
+              ...range,
+              userDiscount: clampedDiscount,
+              finalPrice: rangeFinalPrice,
+              adjustedMargin: range.actualMargin - rangeDiscountAmount
+            };
+          });
           
           return {
             ...rate,
             userDiscount: clampedDiscount,
-            finalPrice: newFinalPrice,
-            adjustedMargin: newMargin
+            finalPrice,
+            adjustedMargin: rate.actualMargin - discountAmount,
+            weightRanges: updatedWeightRanges
           };
         }
-        return rate;
-      });
-    });
-    
-    // Aggiorna lo sconto per tutte le fasce di peso associate
-    if (serviceId) {
-      setServiceWeightRanges(prevRanges => {
-        // Se non ci sono fasce di peso per questo servizio, non fare nulla
-        if (!prevRanges[serviceId]) return prevRanges;
         
-        // Ensure discount is between 0 and 90%
-        const clampedDiscount = Math.max(0, Math.min(90, roundedDiscount));
-        
-        // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
-        const updatedRanges = prevRanges[serviceId].map(weightRange => {
-          const baseRate = weightRange.basePrice; // Prezzo di vendita pieno
-          const margin = weightRange.actualMargin; // Margine originale
-          
-          // Calcola la riduzione del prezzo dovuta allo sconto sul margine
-          const marginDiscount = margin * (clampedDiscount / 100);
-          
-          // Calcola il nuovo prezzo finale
-          const newFinalPrice = baseRate - marginDiscount;
-          
-          return {
-            ...weightRange,
-            userDiscount: clampedDiscount,
-            finalPrice: newFinalPrice,
-            adjustedMargin: margin - marginDiscount
-          };
-        });
-        
-        // Restituisci l'oggetto aggiornato
         return {
-          ...prevRanges,
-          [serviceId]: updatedRanges
+          ...rate,
+          userDiscount: clampedDiscount,
+          finalPrice,
+          adjustedMargin: rate.actualMargin - discountAmount
         };
-      });
-    }
-  }, []);
+      }
+      return rate;
+    }));
+  };
 
   // Aggiungi questa funzione di utilità direttamente nel componente
   const formatCurrency = (value: number | undefined): string => {
@@ -1146,6 +1129,43 @@ export default function RateComparisonCard() {
       </div>
     );
   };
+
+  // Aggiungi un effect per ricalcolare i prezzi quando il toggle cambia
+  useEffect(() => {
+    if (rates.length > 0) {
+      // Ricrea le tariffe con il nuovo calcolo del fuel surcharge
+      setRates(prevRates => prevRates.map(rate => {
+        // Calcola il prezzo senza fuel surcharge (se è già incluso, lo rimuoviamo)
+        const priceWithoutFuel = rate.carrierName && rate.fuelSurcharge > 0 
+          ? rate.finalPrice / (1 + (rate.fuelSurcharge / 100))
+          : rate.finalPrice;
+        
+        // Applica il fuel surcharge se richiesto
+        const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+          ? priceWithoutFuel * (1 + (rate.fuelSurcharge / 100))
+          : priceWithoutFuel;
+        
+        // Aggiorna le fasce di peso con lo stesso calcolo
+        const updatedWeightRanges = rate.weightRanges?.map(range => {
+          const rangeWithoutFuel = range.finalPrice / (1 + ((rate.fuelSurcharge || 0) / 100));
+          const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+            ? rangeWithoutFuel * (1 + (rate.fuelSurcharge / 100))
+            : rangeWithoutFuel;
+          
+          return {
+            ...range,
+            finalPrice: rangeFinalPrice
+          };
+        });
+        
+        return {
+          ...rate,
+          finalPrice,
+          weightRanges: updatedWeightRanges || rate.weightRanges
+        };
+      }));
+    }
+  }, [includeFuelSurcharge]);
 
   return (
     <Card className="w-full shadow-lg">
@@ -1635,10 +1655,28 @@ export default function RateComparisonCard() {
               <Button variant="outline">{Object.values(selectedRows).filter(Boolean).length} rows selected</Button>
             )}
           </div>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex items-center space-x-2">
+            {/* Aggiungi il toggle per il fuel surcharge qui, accanto al pulsante columns */}
+            <div className="flex items-center space-x-2 mr-4">
+              <Switch
+                checked={includeFuelSurcharge}
+                onCheckedChange={setIncludeFuelSurcharge}
+                id="fuel-surcharge-toggle"
+              />
+              <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
+                Include Fuel
+              </Label>
+            </div>
+            
+            <Button variant="outline" onClick={() => setColumnsDialogOpen(true)}>
+              <Columns className="mr-2 h-4 w-4" />
+              Columns
+            </Button>
+            <Button variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+          </div>
         </div>
       </CardContent>
 
@@ -1887,18 +1925,6 @@ export default function RateComparisonCard() {
           </div>
         </div>
       )}
-      
-      {/* Aggiungi il toggle per il fuel surcharge vicino agli altri filtri */}
-      <div className="flex items-center space-x-2 mb-4">
-        <Switch
-          checked={includeFuelSurcharge}
-          onCheckedChange={setIncludeFuelSurcharge}
-          id="fuel-surcharge-toggle"
-        />
-        <Label htmlFor="fuel-surcharge-toggle">
-          {includeFuelSurcharge ? "Includi Fuel Surcharge" : "Escludi Fuel Surcharge"}
-        </Label>
-      </div>
     </Card>
   )
 }
