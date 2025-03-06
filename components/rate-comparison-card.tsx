@@ -817,6 +817,9 @@ export default function RateComparisonCard() {
     setRates(prevRates => {
       return prevRates.map(rate => {
         if (rate.id === rateId) {
+          // Ensure discount is between 0 and 90%
+          const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+          
           // Base rate = prezzo di vendita pieno
           // Margine = valore già calcolato (vendita - acquisto)
           // Lo sconto si applica al margine
@@ -826,7 +829,7 @@ export default function RateComparisonCard() {
           const margin = rate.actualMargin; // Margine originale
           
           // Calcola la riduzione del prezzo dovuta allo sconto sul margine
-          const marginDiscount = margin * (newDiscount / 100);
+          const marginDiscount = margin * (clampedDiscount / 100);
           
           // Calcola il nuovo prezzo finale
           const newFinalPrice = baseRate - marginDiscount;
@@ -836,9 +839,9 @@ export default function RateComparisonCard() {
           
           return {
             ...rate,
-            userDiscount: newDiscount,
+            userDiscount: clampedDiscount,
             finalPrice: newFinalPrice,
-            actualMargin: newMargin
+            adjustedMargin: newMargin
           };
         }
         return rate;
@@ -851,25 +854,25 @@ export default function RateComparisonCard() {
         // Se non ci sono fasce di peso per questo servizio, non fare nulla
         if (!prevRanges[serviceId]) return prevRanges;
         
+        // Ensure discount is between 0 and 90%
+        const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+        
         // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
         const updatedRanges = prevRanges[serviceId].map(weightRange => {
           const baseRate = weightRange.basePrice; // Prezzo di vendita pieno
           const margin = weightRange.actualMargin; // Margine originale
           
           // Calcola la riduzione del prezzo dovuta allo sconto sul margine
-          const marginDiscount = margin * (newDiscount / 100);
+          const marginDiscount = margin * (clampedDiscount / 100);
           
           // Calcola il nuovo prezzo finale
           const newFinalPrice = baseRate - marginDiscount;
           
-          // Calcola il nuovo margine dopo lo sconto
-          const newMargin = margin - marginDiscount;
-          
           return {
             ...weightRange,
-            userDiscount: newDiscount,
+            userDiscount: clampedDiscount,
             finalPrice: newFinalPrice,
-            actualMargin: newMargin
+            adjustedMargin: margin - marginDiscount
           };
         });
         
