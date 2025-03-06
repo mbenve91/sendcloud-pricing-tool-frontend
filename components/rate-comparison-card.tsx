@@ -32,7 +32,7 @@ import {
 import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
-import { useCart } from "@/hooks/use-cart"
+import { useCart, showCartNotification } from "@/hooks/use-cart"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import Image from 'next/image'
@@ -1036,90 +1036,63 @@ export default function RateComparisonCard() {
   };
 
   // Modifica la funzione addSelectedToCart per gestire anche le fasce di peso selezionate
-  const addSelectedToCart = () => {
-    // Array che conterrà tutti gli elementi da aggiungere al carrello
-    const itemsToAdd: Rate[] = [];
-    
-    // Ottieni tutte le righe principali selezionate
-    const selectedMainItems = Object.entries(selectedRows)
-      .filter(([id, isSelected]) => isSelected && !id.includes("-"))
-      .map(([id]) => rates.find(rate => rate.id === id))
-      .filter(Boolean) as Rate[];
-    
-    // Ottieni tutte le fasce di peso selezionate
-    const selectedWeightRanges = Object.entries(selectedRows)
-      .filter(([id, isSelected]) => isSelected && id.includes("-"))
+  const addSelectedToCart = useCallback(() => {
+    // Converti selectedRows in un array di rate selezionati
+    const selectedRatesToAdd = Object.entries(selectedRows)
+      .filter(([_, isSelected]) => isSelected)
       .map(([id]) => {
-        // Formato dell'ID: "rateId-weightRangeId"
-        const [rateId, ...weightRangeParts] = id.split("-");
-        const weightRangeId = weightRangeParts.join("-"); // In caso il weightRangeId contenga altri trattini
-        
-        // Trova il rate principale
-        const parentRate = rates.find(rate => rate.id === rateId);
-        if (!parentRate || !parentRate.service?._id) return null;
-        
-        // Trova la fascia di peso nel serviceWeightRanges
-        const weightRange = serviceWeightRanges[parentRate.service._id]?.find(wr => wr.id === weightRangeId);
-        if (!weightRange) return null;
-        
-        // Crea un nuovo oggetto Rate basato sul rate principale, ma con i dettagli della fascia di peso
-        return {
-          ...parentRate,
-          id: id, // Usiamo l'ID combinato come identificatore unico
-          weightMin: weightRange.min,
-          weightMax: weightRange.max,
-          basePrice: weightRange.basePrice,
-          finalPrice: weightRange.finalPrice,
-          actualMargin: weightRange.actualMargin,
-          userDiscount: weightRange.userDiscount || parentRate.userDiscount,
-          isWeightRange: true, // Flag per identificare che questo è una fascia di peso
-          parentRateId: rateId, // Riferimento al rate principale
-          currentWeightRange: {
-            min: weightRange.min,
-            max: weightRange.max,
-            label: weightRange.label
+        // Gestione separata per le fasce di peso
+        if (id.includes('-')) {
+          const [parentId, weightRangeId] = id.split('-');
+          const parentRate = rates.find(rate => rate.id === parentId);
+          
+          if (parentRate) {
+            // Trova la fascia di peso corretta nel servizio
+            const serviceId = parentRate.service?._id || '';
+            const weightRanges = serviceWeightRanges[serviceId] || [];
+            const weightRange = weightRanges.find(wr => wr.id === weightRangeId);
+            
+            if (weightRange) {
+              // Crea una versione modificata del rate padre con i dati della fascia di peso
+              return {
+                ...parentRate,
+                id: id, // Usa l'ID combinato
+                currentWeightRange: {
+                  min: weightRange.min,
+                  max: weightRange.max,
+                  label: weightRange.label
+                },
+                basePrice: weightRange.basePrice,
+                finalPrice: weightRange.finalPrice,
+                actualMargin: weightRange.actualMargin,
+                isWeightRange: true,
+                parentRateId: parentId
+              };
+            }
           }
-        };
+          
+          return null;
+        } else {
+          // Per i rate normali, restituisci il rate come è
+          return rates.find(rate => rate.id === id);
+        }
       })
-      .filter(Boolean) as Rate[];
+      .filter(rate => rate !== null) as Rate[];
+
+    // Aggiungi ogni rate selezionato al carrello
+    selectedRatesToAdd.forEach(rate => {
+      addToCart(rate);
+    });
     
-    // Per ogni rate principale selezionato...
-    for (const mainItem of selectedMainItems) {
-      // Verifica se ci sono fasce di peso selezionate per questo rate
-      const hasSelectedWeightRanges = selectedWeightRanges.some(
-        wr => wr.parentRateId === mainItem.id
-      );
-      
-      // Se non ci sono fasce di peso selezionate, aggiungi il rate principale
-      // Se ci sono fasce selezionate, NON aggiungere il rate principale per evitare duplicazioni
-      if (!hasSelectedWeightRanges) {
-        itemsToAdd.push(mainItem);
-      }
+    // Mostra la notifica solo se almeno un elemento è stato aggiunto
+    if (selectedRatesToAdd.length > 0) {
+      showCartNotification(toast);
     }
     
-    // Aggiungi tutte le fasce di peso selezionate
-    itemsToAdd.push(...selectedWeightRanges);
-    
-    // Aggiungi tutto al carrello
-    itemsToAdd.forEach(item => {
-      if (item) {
-        addToCart(item);
-      }
-    });
-    
-    // Rimuovi il redirect automatico al carrello
-    // router.push("/cart");
-    
-    // Clear selections after adding to cart
+    // Resetta la selezione
     setSelectedRows({});
     
-    // Mostra una notifica di conferma
-    toast({
-      title: "Added to cart",
-      description: `${itemsToAdd.length} item(s) added to your cart`,
-      variant: "success",
-    });
-  };
+  }, [selectedRows, rates, serviceWeightRanges, addToCart, toast]);
   
   // Controlla se ci sono elementi selezionati
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);

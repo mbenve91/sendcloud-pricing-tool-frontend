@@ -2,7 +2,8 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { toast } from "react-toastify"
+import Link from "next/link"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Rate {
   id: string;
@@ -48,6 +49,24 @@ interface CartStore {
   isInCart: (id: string) => boolean;
 }
 
+// Funzione che può essere utilizzata dal componente per mostrare il toast
+export function showCartNotification(toast: any) {
+  toast({
+    title: "Rate added to cart!",
+    description: (
+      <div className="mt-2">
+        <span>Shipping rate successfully added to your cart</span>
+        <div className="mt-2">
+          <Link href="/cart" className="text-blue-500 hover:text-blue-700 underline">
+            Go to cart
+          </Link>
+        </div>
+      </div>
+    ),
+    duration: 5000,
+  });
+}
+
 export const useCart = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -59,23 +78,7 @@ export const useCart = create<CartStore>()(
         
         if (!isItemInCart) {
           set({ cartItems: [...currentCart, item] });
-          
-          toast.success(
-            <div>
-              <span>Rate added to cart!</span>
-              <br />
-              <a href="/cart" className="text-blue-500 underline">Go to cart</a>
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 5000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              progress: undefined,
-            }
-          );
+          // Non mostriamo più il toast qui, ma lo esponiamo come funzione separata
         }
       },
       
