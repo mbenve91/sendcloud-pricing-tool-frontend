@@ -1126,7 +1126,7 @@ export default function RateComparisonCard() {
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-3 relative bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
+      <CardHeader className="pb-3 relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image 
@@ -1134,16 +1134,18 @@ export default function RateComparisonCard() {
               alt="Sendcloud Logo" 
               width={40} 
               height={40} 
-              className="rounded-md bg-white p-1"
+              className="rounded-md p-1"
             />
-            <CardTitle>SendQuote</CardTitle>
+            <CardTitle className="bg-gradient-to-r from-blue-500 to-blue-600 text-transparent bg-clip-text">
+              SendQuote
+            </CardTitle>
           </div>
           
           {/* Cart Icon with Item Count */}
           <Button 
             variant="outline"
             size="icon" 
-            className="relative bg-white text-blue-600 hover:bg-blue-50"
+            className="relative"
             onClick={() => router.push("/cart")}
           >
             <ShoppingCart className="h-5 w-5" />
@@ -1157,7 +1159,7 @@ export default function RateComparisonCard() {
             )}
           </Button>
         </div>
-        <CardDescription className="text-blue-100">
+        <CardDescription>
           Compare shipping rates across different carriers
         </CardDescription>
       </CardHeader>
@@ -1476,7 +1478,7 @@ export default function RateComparisonCard() {
                           <TableRow>
                             <TableCell colSpan={visibleColumns.filter(col => col.isVisible).length + 2}>
                               <div className="bg-muted/20 p-4 rounded-md">
-                                <h4 className="font-medium mb-3">Fasce di peso per {rate.serviceName}</h4>
+                                <h4 className="font-medium mb-3">Weight ranges for {rate.serviceName}</h4>
                                 
                                 {/* Mostra un indicatore di caricamento se le fasce di peso non sono ancora state caricate */}
                                 {!serviceWeightRanges[rate.service?._id || ''] ? (
