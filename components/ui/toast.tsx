@@ -137,8 +137,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts([...toasts, { ...props, id }])
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 3000)
+    }, 5000)
   }
+
+  const handleToastClick = (variant?: string) => {
+    if (variant === 'success') {
+      window.location.href = '/cart';
+    }
+  };
 
   return (
     <ToastContext.Provider value={{ toast }}>
@@ -147,7 +153,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`bg-white border p-4 rounded shadow-lg ${
+            onClick={() => handleToastClick(t.variant)}
+            className={`bg-white border p-4 rounded shadow-lg cursor-pointer transition-all hover:shadow-xl ${
               t.variant === "success"
                 ? "border-green-500"
                 : t.variant === "error"
@@ -159,6 +166,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <h3 className="font-semibold">{t.title}</h3>
             <p className="text-sm">{t.description}</p>
+            {t.variant === "success" && (
+              <p className="text-xs text-blue-500 mt-1 underline">Click to view cart</p>
+            )}
           </div>
         ))}
       </div>

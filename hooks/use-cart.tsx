@@ -53,17 +53,8 @@ interface CartStore {
 export function showCartNotification(toast: any) {
   toast({
     title: "Rate added to cart!",
-    description: (
-      <div className="mt-2">
-        <span>Shipping rate successfully added to your cart</span>
-        <div className="mt-2">
-          <Link href="/cart" className="text-blue-500 hover:text-blue-700 underline">
-            Go to cart
-          </Link>
-        </div>
-      </div>
-    ),
-    duration: 5000,
+    description: "Shipping rate successfully added to your cart. Click here to view your cart.",
+    variant: "success",
   });
 }
 

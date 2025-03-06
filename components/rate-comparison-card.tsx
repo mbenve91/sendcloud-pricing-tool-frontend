@@ -875,12 +875,15 @@ export default function RateComparisonCard() {
 
   // Correggi la funzione per applicare lo sconto al margine e aggiornare il prezzo finale
   const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
+    // Arrotonda lo sconto a massimo 2 decimali
+    const roundedDiscount = Math.round(newDiscount * 100) / 100;
+    
     // Aggiorna lo sconto per la riga principale
     setRates(prevRates => {
       return prevRates.map(rate => {
         if (rate.id === rateId) {
           // Ensure discount is between 0 and 90%
-          const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+          const clampedDiscount = Math.max(0, Math.min(90, roundedDiscount));
           
           // Base rate = prezzo di vendita pieno
           // Margine = valore già calcolato (vendita - acquisto)
@@ -917,7 +920,7 @@ export default function RateComparisonCard() {
         if (!prevRanges[serviceId]) return prevRanges;
         
         // Ensure discount is between 0 and 90%
-        const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+        const clampedDiscount = Math.max(0, Math.min(90, roundedDiscount));
         
         // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
         const updatedRanges = prevRanges[serviceId].map(weightRange => {
@@ -977,8 +980,9 @@ export default function RateComparisonCard() {
       
       // Calcola lo sconto necessario per raggiungere il prezzo massimo
       // Lo sconto può essere applicato solo sul margine
+      // MODIFICA: Arrotonda a massimo 2 decimali
       const requiredDiscount = Math.min(90, Math.max(0, 
-        ((rate.basePrice - maxPrice) / rate.actualMargin) * 100
+        Math.round(((rate.basePrice - maxPrice) / rate.actualMargin) * 100 * 100) / 100
       ));
       
       // Se anche applicando lo sconto massimo non si raggiunge il prezzo desiderato,
@@ -996,8 +1000,9 @@ export default function RateComparisonCard() {
       // Aggiorna anche tutte le fasce di peso
       if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
         discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
+          // MODIFICA: Arrotonda a massimo 2 decimali
           const rangeDiscount = Math.min(90, Math.max(0, 
-            ((weightRange.basePrice - maxPrice) / weightRange.actualMargin) * 100
+            Math.round(((weightRange.basePrice - maxPrice) / weightRange.actualMargin) * 100 * 100) / 100
           ));
           const rangeAchievablePrice = weightRange.basePrice - (weightRange.actualMargin * (rangeDiscount / 100));
           
@@ -1394,7 +1399,8 @@ export default function RateComparisonCard() {
                               <Input
                                 type="number"
                                 min="0"
-                                max="100"
+                                max="90"
+                                step="0.01"
                                 value={rate.userDiscount || 0}
                                 onChange={e => handleDiscountChange(
                                   rate.id,
@@ -1814,9 +1820,9 @@ export default function RateComparisonCard() {
         </DialogContent>
       </Dialog>
 
-      {/* Modify the "Add to Cart" banner to show counts correctly */}
+      {/* Modify the "Add to Cart" banner to show counts correctly and make it more transparent */}
       {hasSelectedItems && (
-        <div className="fixed bottom-0 left-0 right-0 bg-primary bg-opacity-85 backdrop-blur-sm text-white p-4 shadow-lg z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-primary bg-opacity-70 backdrop-blur-sm text-white p-4 shadow-lg z-50">
           <div className="container mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <ShoppingCart className="h-5 w-5" />
