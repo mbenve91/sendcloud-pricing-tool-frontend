@@ -4,6 +4,7 @@ import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
+import { createContext, useContext, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -115,6 +116,63 @@ ToastDescription.displayName = ToastPrimitives.Description.displayName
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
+
+type ToastType = {
+  title: string
+  description: string
+  variant?: "default" | "success" | "error" | "warning"
+}
+
+const ToastContext = createContext<{
+  toast: (props: ToastType) => void
+}>({
+  toast: () => {},
+})
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [toasts, setToasts] = useState<(ToastType & { id: number })[]>([])
+
+  const toast = (props: ToastType) => {
+    const id = Math.random()
+    setToasts([...toasts, { ...props, id }])
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, 3000)
+  }
+
+  return (
+    <ToastContext.Provider value={{ toast }}>
+      {children}
+      <div className="fixed bottom-0 right-0 p-4 space-y-2 z-50">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`bg-white border p-4 rounded shadow-lg ${
+              t.variant === "success"
+                ? "border-green-500"
+                : t.variant === "error"
+                ? "border-red-500"
+                : t.variant === "warning"
+                ? "border-yellow-500"
+                : "border-gray-200"
+            }`}
+          >
+            <h3 className="font-semibold">{t.title}</h3>
+            <p className="text-sm">{t.description}</p>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  )
+}
+
+export const useToast = () => {
+  const context = useContext(ToastContext)
+  if (!context) {
+    throw new Error("useToast must be used within a ToastProvider")
+  }
+  return context
+}
 
 export {
   type ToastProps,

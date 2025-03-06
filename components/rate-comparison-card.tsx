@@ -34,6 +34,7 @@ import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
 import { useCart } from "@/hooks/use-cart"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -208,7 +209,8 @@ export default function RateComparisonCard() {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
   const router = useRouter()
-  const { addToCart, isInCart } = useCart()
+  const { addToCart, isInCart, cartItems } = useCart()
+  const { toast } = useToast()
 
   // Modifica della funzione loadServiceWeightRanges per aggiungere un fallback con dati simulati
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
@@ -1104,36 +1106,50 @@ export default function RateComparisonCard() {
       }
     });
     
-    // Reindirizza al carrello dopo l'aggiunta
-    router.push("/cart");
+    // Rimuovi il redirect automatico al carrello
+    // router.push("/cart");
+    
+    // Clear selections after adding to cart
+    setSelectedRows({});
+    
+    // Mostra una notifica di conferma
+    toast({
+      title: "Added to cart",
+      description: `${itemsToAdd.length} item(s) added to your cart`,
+      variant: "success",
+    });
   };
   
   // Controlla se ci sono elementi selezionati
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
 
   return (
-    <Card className="w-full shadow-md">
-      <CardHeader>
+    <Card className="w-full shadow-lg">
+      <CardHeader className="pb-3 relative">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0">
-              <img 
-                src="/sendcloud_logo.png" 
-                alt="SendCloud" 
-                className="h-12 w-auto"
-              />
-            </div>
-            <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
-                SendQuote - Shipping Rate Comparison
-              </CardTitle>
-              <CardDescription>Compare carrier rates and get personalized suggestions</CardDescription>
-            </div>
-          </div>
-          <Button variant="ghost" size="icon">
-            <MoreVertical className="h-5 w-5" />
+          <CardTitle>Rate Comparison</CardTitle>
+          
+          {/* Cart Icon with Item Count */}
+          <Button 
+            variant="outline"
+            size="icon" 
+            className="relative"
+            onClick={() => router.push("/cart")}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartItems.length > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              >
+                {cartItems.length}
+              </Badge>
+            )}
           </Button>
         </div>
+        <CardDescription>
+          Compare shipping rates across different carriers
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
