@@ -36,6 +36,8 @@ import { useCart, showCartNotification } from "@/hooks/use-cart"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import Image from 'next/image'
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -208,6 +210,9 @@ export default function RateComparisonCard() {
 
   // Aggiungi uno stato per tenere traccia delle righe espanse
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+
+  // Aggiungi uno stato per tracciare l'inclusione del fuel surcharge
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true);
 
   const router = useRouter()
   const { addToCart, isInCart, cartItems } = useCart()
@@ -694,6 +699,12 @@ export default function RateComparisonCard() {
           }
         }
         
+        // Usa la funzione per calcolare il prezzo finale considerando il fuel surcharge
+        const finalPrice = calculateFinalPrice(rate.retailPrice || 0, carrier.fuelSurcharge || 0, {
+          actualMargin: rate.margin || (rate.retailPrice - (rate.purchasePrice || 0)),
+          userDiscount: 0
+        });
+        
         // Crea l'oggetto Rate con tutti i campi richiesti dall'interfaccia
         const formattedRate: Rate = {
           id: rate._id || uuidv4(),
@@ -706,7 +717,7 @@ export default function RateComparisonCard() {
           countryName: countryName,
           basePrice: rate.retailPrice || 0,
           userDiscount: 0,
-          finalPrice: rate.retailPrice || 0,
+          finalPrice: finalPrice,
           actualMargin: rate.margin || (rate.retailPrice - (rate.purchasePrice || 0)),
           marginPercentage: rate.marginPercentage || (rate.retailPrice ? ((rate.retailPrice - (rate.purchasePrice || 0)) / rate.retailPrice) * 100 : 0) || 0,
           deliveryTimeMin: service.deliveryTimeMin || rate.deliveryTimeMin,
@@ -750,7 +761,7 @@ export default function RateComparisonCard() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length]);
+  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length, includeFuelSurcharge]);
 
   useEffect(() => {
     loadRates()
@@ -973,21 +984,24 @@ export default function RateComparisonCard() {
     const maxPrice = parseFloat(filters.maxPrice);
     
     return rates.map(rate => {
+      // Calcola il prezzo base considerando il fuel surcharge
+      const basePriceWithFuel = includeFuelSurcharge 
+        ? rate.basePrice + (rate.basePrice * (rate.fuelSurcharge / 100))
+        : rate.basePrice;
+      
       // Se il prezzo base è già inferiore al prezzo massimo, non serve applicare sconti
-      if (rate.basePrice <= maxPrice) {
+      if (basePriceWithFuel <= maxPrice) {
         return rate;
       }
       
       // Calcola lo sconto necessario per raggiungere il prezzo massimo
-      // Lo sconto può essere applicato solo sul margine
-      // MODIFICA: Arrotonda a massimo 2 decimali
       const requiredDiscount = Math.min(90, Math.max(0, 
-        Math.round(((rate.basePrice - maxPrice) / rate.actualMargin) * 100 * 100) / 100
+        Math.round(((basePriceWithFuel - maxPrice) / rate.actualMargin) * 100 * 100) / 100
       ));
       
       // Se anche applicando lo sconto massimo non si raggiunge il prezzo desiderato,
       // conserviamo lo sconto massimo del 90%
-      const achievablePrice = rate.basePrice - (rate.actualMargin * (requiredDiscount / 100));
+      const achievablePrice = basePriceWithFuel - (rate.actualMargin * (requiredDiscount / 100));
       
       // Aggiorna la tariffa con lo sconto calcolato
       const discountedRate = {
@@ -1101,6 +1115,37 @@ export default function RateComparisonCard() {
   
   // Controlla se ci sono elementi selezionati
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
+
+  // Aggiungi una funzione per calcolare il prezzo finale considerando il fuel surcharge
+  const calculateFinalPrice = (basePrice: number, fuelSurcharge: number, discounts: any) => {
+    let finalPrice = basePrice;
+    
+    // Applica il fuel surcharge solo se attivato
+    if (includeFuelSurcharge && fuelSurcharge > 0) {
+      finalPrice += basePrice * (fuelSurcharge / 100);
+    }
+    
+    // Applica gli sconti
+    if (discounts.userDiscount) {
+      finalPrice -= discounts.actualMargin * (discounts.userDiscount / 100);
+    }
+    
+    return finalPrice;
+  };
+
+  // Aggiungi questa funzione di utilità
+  const getFuelSurchargeText = (rate: Rate) => {
+    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
+      return null;
+    }
+    
+    return (
+      <div className="text-sm text-muted-foreground">
+        Fuel Surcharge: {rate.fuelSurcharge}% 
+        ({formatCurrency(rate.basePrice * (rate.fuelSurcharge / 100))})
+      </div>
+    );
+  };
 
   return (
     <Card className="w-full shadow-lg">
@@ -1842,6 +1887,18 @@ export default function RateComparisonCard() {
           </div>
         </div>
       )}
+      
+      {/* Aggiungi il toggle per il fuel surcharge vicino agli altri filtri */}
+      <div className="flex items-center space-x-2 mb-4">
+        <Switch
+          checked={includeFuelSurcharge}
+          onCheckedChange={setIncludeFuelSurcharge}
+          id="fuel-surcharge-toggle"
+        />
+        <Label htmlFor="fuel-surcharge-toggle">
+          {includeFuelSurcharge ? "Includi Fuel Surcharge" : "Escludi Fuel Surcharge"}
+        </Label>
+      </div>
     </Card>
   )
 }
