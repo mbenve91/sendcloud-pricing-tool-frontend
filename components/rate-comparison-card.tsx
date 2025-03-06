@@ -1187,7 +1187,7 @@ export default function RateComparisonCard() {
                     <span>Columns</span>
                   </Button>
                 </div>
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader className="bg-muted">
                     <TableRow>
                       <TableHead className="w-[50px]">
@@ -1199,30 +1199,30 @@ export default function RateComparisonCard() {
                       </TableHead>
                       {/* Aggiungi una colonna per l'espansione */}
                       <TableHead className="w-[50px]"></TableHead>
-                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead>Carrier</TableHead>}
-                      {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead>Service</TableHead>}
+                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead className="w-[150px]">Carrier</TableHead>}
+                      {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead className="w-[150px]">Service</TableHead>}
                       {(activeTab === "eu" || activeTab === "extra_eu") &&
-                        visibleColumns.find((col) => col.id === "country")?.isVisible && <TableHead>Country</TableHead>}
+                        visibleColumns.find((col) => col.id === "country")?.isVisible && <TableHead className="w-[120px]">Country</TableHead>}
                       {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                        <TableHead>Weight Range</TableHead>
+                        <TableHead className="w-[120px]">Weight Range</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                        <TableHead className="text-right">Base Rate</TableHead>
+                        <TableHead className="text-right w-[100px]">Base Rate</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="text-right">Discount (%)</TableHead>
+                        <TableHead className="text-right w-[120px]">Discount (%)</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                        <TableHead className="text-right">Final Price</TableHead>
+                        <TableHead className="text-right w-[100px]">Final Price</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                        <TableHead className="text-center">Margin</TableHead>
+                        <TableHead className="text-center w-[150px]">Margin</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                        <TableHead className="text-center">Delivery</TableHead>
+                        <TableHead className="text-center w-[100px]">Delivery</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                        <TableHead className="text-center">Details</TableHead>
+                        <TableHead className="text-center w-[80px]">Details</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
@@ -1287,7 +1287,7 @@ export default function RateComparisonCard() {
                                   rate.service?._id || '',
                                   parseFloat(e.target.value) || 0
                                 )}
-                                className="w-16 h-8"
+                                className="w-24 h-8 text-right"
                               />
                             </TableCell>
                           )}
@@ -1347,19 +1347,19 @@ export default function RateComparisonCard() {
                                 ) : serviceWeightRanges[rate.service?._id || ''].length === 0 ? (
                                   <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
                                 ) : (
-                                  <Table>
+                                  <Table className="table-fixed">
                                     <TableHeader className="bg-muted">
                                       <TableRow>
-                                        <TableHead>Select</TableHead>
-                                        <TableHead>Carrier</TableHead>
-                                        <TableHead>Service</TableHead>
-                                        <TableHead>Weight Range</TableHead>
-                                        <TableHead>Base Rate</TableHead>
-                                        <TableHead>Discount (%)</TableHead>
-                                        <TableHead>Final Price</TableHead>
-                                        <TableHead>Margin</TableHead>
-                                        <TableHead>Delivery</TableHead>
-                                        <TableHead>Details</TableHead>
+                                        <TableHead className="w-[60px]">Select</TableHead>
+                                        <TableHead className="w-[150px]">Carrier</TableHead>
+                                        <TableHead className="w-[150px]">Service</TableHead>
+                                        <TableHead className="w-[120px]">Weight Range</TableHead>
+                                        <TableHead className="w-[100px] text-right">Base Rate</TableHead>
+                                        <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
+                                        <TableHead className="w-[100px] text-right">Final Price</TableHead>
+                                        <TableHead className="w-[150px] text-center">Margin</TableHead>
+                                        <TableHead className="w-[100px] text-center">Delivery</TableHead>
+                                        <TableHead className="w-[80px] text-center">Details</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -1403,9 +1403,9 @@ export default function RateComparisonCard() {
                                           <TableCell>{formatCurrency(weightRange.basePrice || 0)}</TableCell>
                                           
                                           {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
-                                          <TableCell>
-                                            <div className="flex items-center">
-                                              <span className="text-center min-w-16">{rate.userDiscount || 0}%</span>
+                                          <TableCell className="text-right">
+                                            <div className="flex items-center justify-end">
+                                              <span className="text-center min-w-[60px]">{rate.userDiscount || 0}%</span>
                                             </div>
                                           </TableCell>
                                           
