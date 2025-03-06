@@ -509,7 +509,7 @@ export default function RateComparisonCard() {
 
   // Get margin color based on monetary value
   const getMarginColor = (margin: number) => {
-    if (margin >= 0.8) return "default" // verde
+    if (margin >= 0.8) return "success" // verde
     if (margin >= 0.2) return "secondary" // neutro/medio
     return "destructive" // rosso
   }
@@ -1150,7 +1150,7 @@ export default function RateComparisonCard() {
                   <TableBody>
                     {displayedRates.map((rate, index) => (
                       <>
-                        <TableRow key={rate.id} className="hover:bg-muted/50">
+                        <TableRow key={rate.id} className="even:bg-muted/50 hover:bg-muted/60">
                           <TableCell>
                             <Checkbox
                               checked={!!selectedRows[rate.id]}
@@ -1285,7 +1285,7 @@ export default function RateComparisonCard() {
                                     </TableHeader>
                                     <TableBody>
                                       {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
-                                        <TableRow key={weightRange.id}>
+                                        <TableRow key={weightRange.id} className="even:bg-muted/50 hover:bg-muted/60">
                                           {/* Checkbox per la fascia di peso */}
                                           <TableCell>
                                             <Checkbox
