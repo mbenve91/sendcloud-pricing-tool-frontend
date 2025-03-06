@@ -207,7 +207,7 @@ const generateSimplePDF = async (
     });
     
     // Configurazione colori
-    const primaryColor = [0, 123, 255]; // RGB per #007bff
+    const primaryColor = [18, 40, 87]; // RGB per #122857
     const secondaryColor = [33, 37, 41]; // RGB per #212529
     
     // Aggiungiamo il logo SendCloud 

@@ -1136,7 +1136,7 @@ export default function RateComparisonCard() {
               height={40} 
               className="rounded-md p-1"
             />
-            <CardTitle className="bg-gradient-to-r from-blue-500 to-blue-600 text-transparent bg-clip-text">
+            <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
               SendQuote
             </CardTitle>
           </div>

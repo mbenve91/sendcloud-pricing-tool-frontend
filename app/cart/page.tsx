@@ -20,6 +20,7 @@ import { X, FileText, ArrowLeft, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
 import { downloadQuotePDF } from "@/services/pdf-service"
+import Image from "next/image"
 
 interface Rate {
   id: string;
@@ -71,9 +72,20 @@ export default function CartPage() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-slate-100 to-slate-200">
         <Card className="w-full max-w-2xl">
-          <CardHeader className="bg-gradient-to-r from-primary/80 to-primary">
-            <CardTitle className="text-2xl font-bold text-white">Your Cart</CardTitle>
-            <CardDescription className="text-white/90">Your cart is empty</CardDescription>
+          <CardHeader className="pb-3 relative">
+            <div className="flex items-center gap-2">
+              <Image 
+                src="/sendcloud_logo.png" 
+                alt="Sendcloud Logo" 
+                width={40} 
+                height={40} 
+                className="rounded-md p-1"
+              />
+              <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
+                Your Shopping Cart
+              </CardTitle>
+            </div>
+            <CardDescription>Your cart is empty</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4 py-8">
             <p>Add shipping rates to your cart to continue</p>
@@ -137,17 +149,28 @@ export default function CartPage() {
     <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-slate-100 to-slate-200">
       <div className="w-full max-w-6xl">
         <Card className="w-full shadow-md">
-          <CardHeader className="bg-gradient-to-r from-primary/80 to-primary">
+          <CardHeader className="pb-3 relative">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl font-bold text-white">Your Cart</CardTitle>
-                <CardDescription className="text-white/90">Selected shipping rates ready for quote generation</CardDescription>
+              <div className="flex items-center gap-2">
+                <Image 
+                  src="/sendcloud_logo.png" 
+                  alt="Sendcloud Logo" 
+                  width={40} 
+                  height={40} 
+                  className="rounded-md p-1"
+                />
+                <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
+                  Your Shopping Cart
+                </CardTitle>
               </div>
-              <Button variant="outline" onClick={() => router.push("/")} className="bg-white text-primary hover:bg-gray-100">
+              <Button variant="outline" onClick={() => router.push("/")} className="relative">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Rates
               </Button>
             </div>
+            <CardDescription>
+              Selected shipping rates ready for quote generation
+            </CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6">
