@@ -509,15 +509,15 @@ export default function RateComparisonCard() {
 
   // Get margin color based on monetary value
   const getMarginColor = (margin: number) => {
-    if (margin >= 10) return "default"
-    if (margin >= 5) return "secondary"
-    return "destructive"
+    if (margin >= 0.8) return "default" // verde
+    if (margin >= 0.2) return "secondary" // neutro/medio
+    return "destructive" // rosso
   }
 
   // Get margin label based on monetary value
   const getMarginLabel = (margin: number) => {
-    if (margin >= 10) return "High"
-    if (margin >= 5) return "Medium"
+    if (margin >= 0.8) return "High"
+    if (margin >= 0.2) return "Medium"
     return "Low"
   }
 
@@ -761,26 +761,76 @@ export default function RateComparisonCard() {
     setDetailOpen(true)
   }
 
-  // Handle row selection
-  const handleRowSelect = (id: string, checked: boolean) => {
-    setSelectedRows((prev) => ({
-      ...prev,
-      [id]: checked,
-    }))
-  }
+  // Handle row selection with child weight ranges
+  const handleRowSelect = (id: string, checked: boolean, isWeightRange: boolean = false, parentId: string = "") => {
+    setSelectedRows((prev) => {
+      const newSelected = { ...prev };
+      
+      // Gestione della selezione della riga principale
+      if (!isWeightRange) {
+        // Aggiorna la riga principale
+        newSelected[id] = checked;
+        
+        // Se è una riga principale, seleziona/deseleziona tutte le sue fasce di peso
+        const serviceId = rates.find(r => r.id === id)?.service?._id;
+        if (serviceId && serviceWeightRanges[serviceId]) {
+          serviceWeightRanges[serviceId].forEach((weightRange) => {
+            const weightRangeId = `${id}-${weightRange.id}`;
+            newSelected[weightRangeId] = checked;
+          });
+        }
+      } 
+      // Gestione della selezione di una fascia di peso
+      else {
+        // Aggiorna solo la fascia di peso specifica
+        newSelected[id] = checked;
+        
+        // Controlla se tutte le fasce di peso sono selezionate o deselezionate
+        // per aggiornare lo stato della riga principale
+        const serviceId = rates.find(r => r.id === parentId)?.service?._id;
+        if (serviceId && serviceWeightRanges[serviceId]) {
+          const allWeightRangeIds = serviceWeightRanges[serviceId].map(wr => `${parentId}-${wr.id}`);
+          const allSelected = allWeightRangeIds.every(wrId => newSelected[wrId]);
+          const noneSelected = allWeightRangeIds.every(wrId => !newSelected[wrId]);
+          
+          // Aggiorna la riga principale in base allo stato delle fasce di peso
+          if (allSelected) {
+            newSelected[parentId] = true;
+          } else if (noneSelected) {
+            newSelected[parentId] = false;
+          }
+          // Se sono selezionate solo alcune fasce, lasciamo lo stato della riga principale invariato
+        }
+      }
+      
+      return newSelected;
+    });
+  };
 
-  // Handle select all rows
+  // Handle select all rows (update to include weight ranges)
   const handleSelectAllRows = (checked: boolean) => {
     if (checked) {
-      const newSelectedRows: Record<string, boolean> = {}
+      const newSelectedRows: Record<string, boolean> = {};
+      
+      // Seleziona tutte le righe principali visualizzate
       displayedRates.forEach((rate) => {
-        newSelectedRows[rate.id] = true
-      })
-      setSelectedRows(newSelectedRows)
+        newSelectedRows[rate.id] = true;
+        
+        // Seleziona anche tutte le fasce di peso per ogni riga
+        const serviceId = rate.service?._id;
+        if (serviceId && serviceWeightRanges[serviceId]) {
+          serviceWeightRanges[serviceId].forEach((weightRange) => {
+            const weightRangeId = `${rate.id}-${weightRange.id}`;
+            newSelectedRows[weightRangeId] = true;
+          });
+        }
+      });
+      
+      setSelectedRows(newSelectedRows);
     } else {
-      setSelectedRows({})
+      setSelectedRows({});
     }
-  }
+  };
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnId: string, isVisible: boolean) => {
@@ -1221,6 +1271,7 @@ export default function RateComparisonCard() {
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
+                                        <TableHead>Select</TableHead>
                                         <TableHead>Carrier</TableHead>
                                         <TableHead>Service</TableHead>
                                         <TableHead>Weight Range</TableHead>
@@ -1235,6 +1286,17 @@ export default function RateComparisonCard() {
                                     <TableBody>
                                       {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
                                         <TableRow key={weightRange.id}>
+                                          {/* Checkbox per la fascia di peso */}
+                                          <TableCell>
+                                            <Checkbox
+                                              checked={!!selectedRows[`${rate.id}-${weightRange.id}`]}
+                                              onCheckedChange={(checked) => 
+                                                handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
+                                              }
+                                              aria-label={`Select weight range ${weightRange.label}`}
+                                            />
+                                          </TableCell>
+                                          
                                           {/* Carrier - mostra stesso carrier del servizio principale */}
                                           <TableCell>
                                             <div className="flex items-center gap-2">
