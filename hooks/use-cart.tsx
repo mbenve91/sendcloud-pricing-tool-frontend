@@ -35,6 +35,8 @@ interface Rate {
     _id?: string;
     name?: string;
   };
+  isWeightRange?: boolean;
+  parentRateId?: string;
 }
 
 interface CartStore {

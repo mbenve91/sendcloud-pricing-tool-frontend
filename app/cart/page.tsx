@@ -53,6 +53,8 @@ interface Rate {
     _id?: string;
     name?: string;
   };
+  isWeightRange?: boolean;
+  parentRateId?: string;
 }
 
 export default function CartPage() {
@@ -163,11 +165,17 @@ export default function CartPage() {
               </TableHeader>
               <TableBody>
                 {cartItems.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className={item.isWeightRange ? "bg-muted/20" : ""}>
                     <TableCell>
-                      <div className="font-medium">{item.carrierName}</div>
+                      <div className="font-medium">
+                        {item.isWeightRange && <span className="text-muted-foreground ml-4">└ </span>}
+                        {item.carrierName}
+                      </div>
                     </TableCell>
-                    <TableCell>{item.serviceName}</TableCell>
+                    <TableCell>
+                      {item.isWeightRange && <span className="text-muted-foreground">Range: </span>}
+                      {item.serviceName}
+                    </TableCell>
                     <TableCell>
                       {item.currentWeightRange ? 
                         `${item.currentWeightRange.min}-${item.currentWeightRange.max} kg` : 
