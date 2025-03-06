@@ -819,6 +819,58 @@ export default function RateComparisonCard() {
     });
   }, [loadServiceWeightRanges]);
 
+  // Aggiungi una funzione per gestire la modifica dello sconto
+  const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
+    // Aggiorna lo sconto per la riga principale
+    setRates(prevRates => {
+      return prevRates.map(rate => {
+        if (rate.id === rateId) {
+          // Calcola il nuovo prezzo finale e il margine dopo lo sconto
+          const discountAmount = (rate.basePrice * newDiscount) / 100;
+          const newFinalPrice = rate.basePrice - discountAmount;
+          const newMargin = rate.actualMargin - discountAmount;
+          
+          return {
+            ...rate,
+            userDiscount: newDiscount,
+            finalPrice: newFinalPrice,
+            actualMargin: newMargin
+          };
+        }
+        return rate;
+      });
+    });
+    
+    // Aggiorna lo sconto per tutte le fasce di peso associate
+    if (serviceId) {
+      setServiceWeightRanges(prevRanges => {
+        // Se non ci sono fasce di peso per questo servizio, non fare nulla
+        if (!prevRanges[serviceId]) return prevRanges;
+        
+        // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
+        const updatedRanges = prevRanges[serviceId].map(weightRange => {
+          // Calcola il nuovo prezzo finale e il margine dopo lo sconto
+          const discountAmount = (weightRange.basePrice * newDiscount) / 100;
+          const newFinalPrice = weightRange.basePrice - discountAmount;
+          const newMargin = weightRange.actualMargin - discountAmount;
+          
+          return {
+            ...weightRange,
+            userDiscount: newDiscount,
+            finalPrice: newFinalPrice,
+            actualMargin: newMargin
+          };
+        });
+        
+        // Restituisci l'oggetto aggiornato
+        return {
+          ...prevRanges,
+          [serviceId]: updatedRanges
+        };
+      });
+    }
+  }, []);
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
@@ -1067,23 +1119,18 @@ export default function RateComparisonCard() {
                           )}
                           {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end">
-                                <Input
-                                  type="number"
-                                  value={rate.userDiscount || 0}
-                                  onChange={(e) => {
-                                    const value = Number.parseInt(e.target.value, 10)
-                                    if (!isNaN(value)) {
-                                      updateUserDiscount(rate.id, value)
-                                    }
-                                  }}
-                                  className="h-8 w-16 text-right"
-                                  min="0"
-                                  max="90"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span className="ml-1">%</span>
-                              </div>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={rate.userDiscount || 0}
+                                onChange={e => handleDiscountChange(
+                                  rate.id,
+                                  rate.service?._id || '',
+                                  parseFloat(e.target.value) || 0
+                                )}
+                                className="w-16 h-8"
+                              />
                             </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
@@ -1132,7 +1179,7 @@ export default function RateComparisonCard() {
                           <TableRow>
                             <TableCell colSpan={visibleColumns.filter(col => col.isVisible).length + 2}>
                               <div className="bg-muted/20 p-4 rounded-md">
-                                <h4 className="font-medium mb-3">Tutte le fasce di peso per {rate.serviceName}</h4>
+                                <h4 className="font-medium mb-3">Fasce di peso per {rate.serviceName}</h4>
                                 
                                 {/* Mostra un indicatore di caricamento se le fasce di peso non sono ancora state caricate */}
                                 {!serviceWeightRanges[rate.service?._id || ''] ? (
@@ -1142,49 +1189,40 @@ export default function RateComparisonCard() {
                                 ) : serviceWeightRanges[rate.service?._id || ''].length === 0 ? (
                                   <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
                                 ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
-                                      <Card key={weightRange.id} className="bg-background">
-                                        <CardHeader className="py-3 px-4">
-                                          <CardTitle className="text-base">Fascia {weightRange.label}</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="py-2 px-4">
-                                          <dl className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <dt>Prezzo Base:</dt>
-                                              <dd className="font-medium">{formatCurrency(weightRange.basePrice || 0)}</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <dt>Prezzo Finale:</dt>
-                                              <dd className="font-medium">{formatCurrency(weightRange.finalPrice || 0)}</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <dt>Margine:</dt>
-                                              <dd className="font-medium">
-                                                {weightRange.actualMargin !== undefined ? (
-                                                  <RateMarginIndicator margin={weightRange.actualMargin} />
-                                                ) : (
-                                                  "N/D"
-                                                )}
-                                              </dd>
-                                            </div>
-                                            {(weightRange.volumeDiscount || 0) > 0 && (
-                                              <div className="flex justify-between">
-                                                <dt>Sconto Volume:</dt>
-                                                <dd className="font-medium text-primary">{weightRange.volumeDiscount || 0}%</dd>
-                                              </div>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Fascia di Peso</TableHead>
+                                        <TableHead>Prezzo Base</TableHead>
+                                        <TableHead>Prezzo Finale</TableHead>
+                                        <TableHead>Margine</TableHead>
+                                        <TableHead>Sconto Volume</TableHead>
+                                        <TableHead>Sconto Promo</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
+                                        <TableRow key={weightRange.id}>
+                                          <TableCell className="font-medium">{weightRange.label}</TableCell>
+                                          <TableCell>{formatCurrency(weightRange.basePrice || 0)}</TableCell>
+                                          <TableCell>{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
+                                          <TableCell>
+                                            {weightRange.actualMargin !== undefined ? (
+                                              <RateMarginIndicator margin={weightRange.actualMargin} />
+                                            ) : (
+                                              "N/D"
                                             )}
-                                            {(weightRange.promotionDiscount || 0) > 0 && (
-                                              <div className="flex justify-between">
-                                                <dt>Sconto Promo:</dt>
-                                                <dd className="font-medium text-primary">{weightRange.promotionDiscount || 0}%</dd>
-                                              </div>
-                                            )}
-                                          </dl>
-                                        </CardContent>
-                                      </Card>
-                                    ))}
-                                  </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            {(weightRange.volumeDiscount || 0) > 0 ? `${weightRange.volumeDiscount}%` : "-"}
+                                          </TableCell>
+                                          <TableCell>
+                                            {(weightRange.promotionDiscount || 0) > 0 ? `${weightRange.promotionDiscount}%` : "-"}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
                                 )}
                               </div>
                             </TableCell>
