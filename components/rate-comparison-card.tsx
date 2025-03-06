@@ -819,21 +819,21 @@ export default function RateComparisonCard() {
     });
   }, [loadServiceWeightRanges]);
 
-  // Aggiungi una funzione per gestire la modifica dello sconto
+  // Correggi la funzione per applicare lo sconto al margine anziché al prezzo base
   const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
     // Aggiorna lo sconto per la riga principale
     setRates(prevRates => {
       return prevRates.map(rate => {
         if (rate.id === rateId) {
-          // Calcola il nuovo prezzo finale e il margine dopo lo sconto
-          const discountAmount = (rate.basePrice * newDiscount) / 100;
-          const newFinalPrice = rate.basePrice - discountAmount;
-          const newMargin = rate.actualMargin - discountAmount;
+          // Lo sconto si applica al margine, non al prezzo
+          // Calcola la percentuale di riduzione del margine
+          const marginReduction = (rate.actualMargin * newDiscount) / 100;
+          const newMargin = rate.actualMargin - marginReduction;
+          // Il prezzo finale resta invariato
           
           return {
             ...rate,
             userDiscount: newDiscount,
-            finalPrice: newFinalPrice,
             actualMargin: newMargin
           };
         }
@@ -849,15 +849,14 @@ export default function RateComparisonCard() {
         
         // Crea una nuova copia delle fasce di peso con lo sconto aggiornato
         const updatedRanges = prevRanges[serviceId].map(weightRange => {
-          // Calcola il nuovo prezzo finale e il margine dopo lo sconto
-          const discountAmount = (weightRange.basePrice * newDiscount) / 100;
-          const newFinalPrice = weightRange.basePrice - discountAmount;
-          const newMargin = weightRange.actualMargin - discountAmount;
+          // Lo sconto si applica al margine, non al prezzo
+          const marginReduction = (weightRange.actualMargin * newDiscount) / 100;
+          const newMargin = weightRange.actualMargin - marginReduction;
+          // Il prezzo finale resta invariato
           
           return {
             ...weightRange,
             userDiscount: newDiscount,
-            finalPrice: newFinalPrice,
             actualMargin: newMargin
           };
         });
@@ -1192,20 +1191,58 @@ export default function RateComparisonCard() {
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead>Fascia di Peso</TableHead>
-                                        <TableHead>Prezzo Base</TableHead>
-                                        <TableHead>Prezzo Finale</TableHead>
-                                        <TableHead>Margine</TableHead>
-                                        <TableHead>Sconto Volume</TableHead>
-                                        <TableHead>Sconto Promo</TableHead>
+                                        <TableHead>Carrier</TableHead>
+                                        <TableHead>Service</TableHead>
+                                        <TableHead>Weight Range</TableHead>
+                                        <TableHead>Base Rate</TableHead>
+                                        <TableHead>Discount (%)</TableHead>
+                                        <TableHead>Final Price</TableHead>
+                                        <TableHead>Margin</TableHead>
+                                        <TableHead>Delivery</TableHead>
+                                        <TableHead>Details</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                       {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
                                         <TableRow key={weightRange.id}>
+                                          {/* Carrier - mostra stesso carrier del servizio principale */}
+                                          <TableCell>
+                                            <div className="flex items-center gap-2">
+                                              <img
+                                                src={rate.carrierLogo || '/placeholder.svg'}
+                                                alt={rate.carrierName}
+                                                className="w-8 h-8 object-contain"
+                                              />
+                                              <span>{rate.carrierName}</span>
+                                            </div>
+                                          </TableCell>
+                                          
+                                          {/* Service - mostra stesso service del servizio principale */}
+                                          <TableCell>
+                                            <div className="flex flex-col">
+                                              <span className="font-medium">{rate.serviceName}</span>
+                                              <span className="text-xs text-muted-foreground">{rate.serviceCode}</span>
+                                            </div>
+                                          </TableCell>
+                                          
+                                          {/* Weight Range */}
                                           <TableCell className="font-medium">{weightRange.label}</TableCell>
+                                          
+                                          {/* Base Rate */}
                                           <TableCell>{formatCurrency(weightRange.basePrice || 0)}</TableCell>
+                                          
+                                          {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
+                                          <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="text-center min-w-16">{rate.userDiscount || 0}%</span>
+                                              <Badge variant="outline" className="ml-1">Sincronizzato</Badge>
+                                            </div>
+                                          </TableCell>
+                                          
+                                          {/* Final Price */}
                                           <TableCell>{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
+                                          
+                                          {/* Margin */}
                                           <TableCell>
                                             {weightRange.actualMargin !== undefined ? (
                                               <RateMarginIndicator margin={weightRange.actualMargin} />
@@ -1213,11 +1250,32 @@ export default function RateComparisonCard() {
                                               "N/D"
                                             )}
                                           </TableCell>
+                                          
+                                          {/* Delivery - stessi tempi di consegna del servizio principale */}
                                           <TableCell>
-                                            {(weightRange.volumeDiscount || 0) > 0 ? `${weightRange.volumeDiscount}%` : "-"}
+                                            {rate.deliveryTimeMin && rate.deliveryTimeMax ? (
+                                              `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} giorni`
+                                            ) : (
+                                              "N/D"
+                                            )}
                                           </TableCell>
+                                          
+                                          {/* Details - pulsante dettagli come nella riga principale */}
                                           <TableCell>
-                                            {(weightRange.promotionDiscount || 0) > 0 ? `${weightRange.promotionDiscount}%` : "-"}
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8"
+                                              onClick={() => {
+                                                setSelectedRate({
+                                                  ...rate,
+                                                  currentWeightRange: weightRange
+                                                });
+                                                setDetailOpen(true);
+                                              }}
+                                            >
+                                              <Info className="h-4 w-4" />
+                                            </Button>
                                           </TableCell>
                                         </TableRow>
                                       ))}
@@ -1488,30 +1546,4 @@ export default function RateComparisonCard() {
             {visibleColumns.map((column) => (
               <div key={column.id} className="flex items-center space-x-2">
                 <Checkbox
-                  id={`column-${column.id}`}
-                  checked={column.isVisible}
-                  onCheckedChange={(checked) => toggleColumnVisibility(column.id, !!checked)}
-                  disabled={column.id === "carrier"} // Make carrier column always visible
-                />
-                <label
-                  htmlFor={`column-${column.id}`}
-                  className={`text-sm font-medium ${column.id === "carrier" ? "opacity-50" : ""}`}
-                >
-                  {column.name}
-                  {column.id === "carrier" && " (required)"}
-                </label>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setColumnsDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  )
-}
-
+                  id={`
