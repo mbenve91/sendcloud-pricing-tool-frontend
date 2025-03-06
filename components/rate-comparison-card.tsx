@@ -32,7 +32,6 @@ import {
 import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
-import { formatCurrency } from "@/lib/utils"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -862,6 +861,19 @@ export default function RateComparisonCard() {
       });
     }
   }, []);
+
+  // Aggiungi questa funzione di utilità direttamente nel componente
+  const formatCurrency = (value: number | undefined): string => {
+    if (value === undefined || isNaN(value)) {
+      return "€0,00";
+    }
+    return new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
 
   return (
     <Card className="w-full shadow-md">
