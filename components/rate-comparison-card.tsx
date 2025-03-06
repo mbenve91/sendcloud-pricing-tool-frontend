@@ -1152,28 +1152,32 @@ export default function RateComparisonCard() {
                                           <dl className="space-y-1 text-sm">
                                             <div className="flex justify-between">
                                               <dt>Prezzo Base:</dt>
-                                              <dd className="font-medium">{formatCurrency(weightRange.basePrice)}</dd>
+                                              <dd className="font-medium">{formatCurrency(weightRange.basePrice || 0)}</dd>
                                             </div>
                                             <div className="flex justify-between">
                                               <dt>Prezzo Finale:</dt>
-                                              <dd className="font-medium">{formatCurrency(weightRange.finalPrice)}</dd>
+                                              <dd className="font-medium">{formatCurrency(weightRange.finalPrice || 0)}</dd>
                                             </div>
                                             <div className="flex justify-between">
                                               <dt>Margine:</dt>
                                               <dd className="font-medium">
-                                                <RateMarginIndicator margin={weightRange.actualMargin} />
+                                                {weightRange.actualMargin !== undefined ? (
+                                                  <RateMarginIndicator margin={weightRange.actualMargin} />
+                                                ) : (
+                                                  "N/D"
+                                                )}
                                               </dd>
                                             </div>
-                                            {weightRange.volumeDiscount > 0 && (
+                                            {(weightRange.volumeDiscount || 0) > 0 && (
                                               <div className="flex justify-between">
                                                 <dt>Sconto Volume:</dt>
-                                                <dd className="font-medium text-primary">{weightRange.volumeDiscount}%</dd>
+                                                <dd className="font-medium text-primary">{weightRange.volumeDiscount || 0}%</dd>
                                               </div>
                                             )}
-                                            {weightRange.promotionDiscount > 0 && (
+                                            {(weightRange.promotionDiscount || 0) > 0 && (
                                               <div className="flex justify-between">
                                                 <dt>Sconto Promo:</dt>
-                                                <dd className="font-medium text-primary">{weightRange.promotionDiscount}%</dd>
+                                                <dd className="font-medium text-primary">{weightRange.promotionDiscount || 0}%</dd>
                                               </div>
                                             )}
                                           </dl>
