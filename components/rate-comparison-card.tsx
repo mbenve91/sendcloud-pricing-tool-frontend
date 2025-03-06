@@ -201,6 +201,9 @@ export default function RateComparisonCard() {
   // Stato per memorizzare le fasce di peso complete per servizio
   const [serviceWeightRanges, setServiceWeightRanges] = useState<{ [serviceId: string]: WeightRange[] }>({});
 
+  // Aggiungi uno stato per tenere traccia delle righe espanse
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+
   // Modifica della funzione loadServiceWeightRanges per aggiungere un fallback con dati simulati
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
     if (!serviceId) {
@@ -799,6 +802,23 @@ export default function RateComparisonCard() {
   // Check if all displayed rows are selected
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
 
+  // Funzione per gestire l'espansione/collasso di una riga
+  const toggleRowExpansion = useCallback(async (serviceId: string) => {
+    setExpandedRows(prev => {
+      const newState = { ...prev };
+      
+      // Se la riga non è già espansa, carica le fasce di peso
+      if (!newState[serviceId]) {
+        // Carica le fasce di peso per questo servizio se non sono già caricate
+        loadServiceWeightRanges(serviceId);
+      }
+      
+      // Inverti lo stato di espansione
+      newState[serviceId] = !newState[serviceId];
+      return newState;
+    });
+  }, [loadServiceWeightRanges]);
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
@@ -969,6 +989,8 @@ export default function RateComparisonCard() {
                           aria-label="Select all rows"
                         />
                       </TableHead>
+                      {/* Aggiungi una colonna per l'espansione */}
+                      <TableHead className="w-[50px]"></TableHead>
                       {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead>Carrier</TableHead>}
                       {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead>Service</TableHead>}
                       {(activeTab === "eu" || activeTab === "extra_eu") &&
@@ -998,95 +1020,173 @@ export default function RateComparisonCard() {
                   </TableHeader>
                   <TableBody>
                     {displayedRates.map((rate, index) => (
-                      <TableRow key={rate.id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <Checkbox
-                            checked={!!selectedRows[rate.id]}
-                            onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
-                            aria-label={`Select row ${index + 1}`}
-                          />
-                        </TableCell>
-                        {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
-                          <TableCell>{rate.carrierName}</TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                          <TableCell>{rate.serviceName}</TableCell>
-                        )}
-                        {(activeTab === "eu" || activeTab === "extra_eu") &&
-                          visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                            <TableCell>{rate.countryName}</TableCell>
-                          )}
-                        {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                          <TableCell className="font-medium">
-                            {rate.weightMin !== undefined && rate.weightMax !== undefined 
-                              ? `${rate.weightMin}-${rate.weightMax} kg` 
-                              : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
+                      <>
+                        <TableRow key={rate.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <Checkbox
+                              checked={!!selectedRows[rate.id]}
+                              onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
+                              aria-label={`Select row ${index + 1}`}
+                            />
                           </TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                          <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end">
-                              <Input
-                                type="number"
-                                value={rate.userDiscount || 0}
-                                onChange={(e) => {
-                                  const value = Number.parseInt(e.target.value, 10)
-                                  if (!isNaN(value)) {
-                                    updateUserDiscount(rate.id, value)
-                                  }
-                                }}
-                                className="h-8 w-16 text-right"
-                                min="0"
-                                max="90"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <span className="ml-1">%</span>
-                            </div>
-                          </TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                          <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={getMarginColor(
-                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                              )}
+                          {/* Aggiungi una cella con il pulsante di espansione */}
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRowExpansion(rate.service?._id || '');
+                              }}
+                              className="h-8 w-8 p-0"
                             >
-                              {formatCurrency(
-                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                              )}{" "}
-                              (
-                              {getMarginLabel(
-                                rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                              )}
-                              )
-                            </Badge>
-                          </TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                          <TableCell className="text-center">
-                            {rate.deliveryTimeMin === rate.deliveryTimeMax
-                              ? `${rate.deliveryTimeMin}h`
-                              : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
-                          </TableCell>
-                        )}
-                        {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                          <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDetail(rate)}
-                            >
-                              <Info className="h-4 w-4" />
+                              {expandedRows[rate.service?._id || ''] ? 
+                                <ChevronDown className="h-4 w-4" /> : 
+                                <ChevronRight className="h-4 w-4" />}
                             </Button>
                           </TableCell>
+                          {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
+                            <TableCell>{rate.carrierName}</TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "service")?.isVisible && (
+                            <TableCell>{rate.serviceName}</TableCell>
+                          )}
+                          {(activeTab === "eu" || activeTab === "extra_eu") &&
+                            visibleColumns.find((col) => col.id === "country")?.isVisible && (
+                              <TableCell>{rate.countryName}</TableCell>
+                            )}
+                          {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
+                            <TableCell className="font-medium">
+                              {rate.weightMin !== undefined && rate.weightMax !== undefined 
+                                ? `${rate.weightMin}-${rate.weightMax} kg` 
+                                : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
+                            </TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
+                            <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end">
+                                <Input
+                                  type="number"
+                                  value={rate.userDiscount || 0}
+                                  onChange={(e) => {
+                                    const value = Number.parseInt(e.target.value, 10)
+                                    if (!isNaN(value)) {
+                                      updateUserDiscount(rate.id, value)
+                                    }
+                                  }}
+                                  className="h-8 w-16 text-right"
+                                  min="0"
+                                  max="90"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className="ml-1">%</span>
+                              </div>
+                            </TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
+                            <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
+                            <TableCell className="text-center">
+                              <Badge
+                                variant={getMarginColor(
+                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                                )}
+                              >
+                                {formatCurrency(
+                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                                )}{" "}
+                                (
+                                {getMarginLabel(
+                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
+                                )}
+                                )
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
+                            <TableCell className="text-center">
+                              {rate.deliveryTimeMin === rate.deliveryTimeMax
+                                ? `${rate.deliveryTimeMin}h`
+                                : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
+                            </TableCell>
+                          )}
+                          {visibleColumns.find((col) => col.id === "details")?.isVisible && (
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDetail(rate)}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                        
+                        {/* Riga espansa con tutte le fasce di peso */}
+                        {expandedRows[rate.service?._id || ''] && (
+                          <TableRow>
+                            <TableCell colSpan={visibleColumns.filter(col => col.isVisible).length + 2}>
+                              <div className="bg-muted/20 p-4 rounded-md">
+                                <h4 className="font-medium mb-3">Tutte le fasce di peso per {rate.serviceName}</h4>
+                                
+                                {/* Mostra un indicatore di caricamento se le fasce di peso non sono ancora state caricate */}
+                                {!serviceWeightRanges[rate.service?._id || ''] ? (
+                                  <div className="flex justify-center py-4">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                                  </div>
+                                ) : serviceWeightRanges[rate.service?._id || ''].length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
+                                ) : (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
+                                      <Card key={weightRange.id} className="bg-background">
+                                        <CardHeader className="py-3 px-4">
+                                          <CardTitle className="text-base">Fascia {weightRange.label}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="py-2 px-4">
+                                          <dl className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <dt>Prezzo Base:</dt>
+                                              <dd className="font-medium">{formatCurrency(weightRange.basePrice)}</dd>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <dt>Prezzo Finale:</dt>
+                                              <dd className="font-medium">{formatCurrency(weightRange.finalPrice)}</dd>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <dt>Margine:</dt>
+                                              <dd className="font-medium">
+                                                <RateMarginIndicator margin={weightRange.actualMargin} />
+                                              </dd>
+                                            </div>
+                                            {weightRange.volumeDiscount > 0 && (
+                                              <div className="flex justify-between">
+                                                <dt>Sconto Volume:</dt>
+                                                <dd className="font-medium text-primary">{weightRange.volumeDiscount}%</dd>
+                                              </div>
+                                            )}
+                                            {weightRange.promotionDiscount > 0 && (
+                                              <div className="flex justify-between">
+                                                <dt>Sconto Promo:</dt>
+                                                <dd className="font-medium text-primary">{weightRange.promotionDiscount}%</dd>
+                                              </div>
+                                            )}
+                                          </dl>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableRow>
+                      </>
                     ))}
                   </TableBody>
                 </Table>
