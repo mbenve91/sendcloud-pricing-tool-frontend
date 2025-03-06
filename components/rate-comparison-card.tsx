@@ -1027,9 +1027,20 @@ export default function RateComparisonCard() {
         {/* Filters Section */}
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center mb-4">
-              <Filter className="mr-2 h-5 w-5" />
-              <h3 className="font-medium">Filters</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <Filter className="mr-2 h-5 w-5" />
+                <h3 className="font-medium">Filters</h3>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setColumnsDialogOpen(true)}
+                className="flex items-center gap-1"
+              >
+                <Columns className="h-4 w-4" />
+                <span>Columns</span>
+              </Button>
             </div>
 
             <Separator className="mb-4" />
@@ -1176,17 +1187,6 @@ export default function RateComparisonCard() {
               </Alert>
             ) : (
               <div className="rounded-md border">
-                <div className="flex justify-end p-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setColumnsDialogOpen(true)}
-                    className="flex items-center gap-1"
-                  >
-                    <Columns className="h-4 w-4" />
-                    <span>Columns</span>
-                  </Button>
-                </div>
                 <Table className="table-fixed">
                   <TableHeader className="bg-muted">
                     <TableRow>
