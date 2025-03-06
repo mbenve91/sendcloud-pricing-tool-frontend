@@ -196,6 +196,7 @@ export default function RateComparisonCard() {
     weight: "1",
     volume: "100",
     country: "",
+    maxPrice: "", // Nuovo campo per il prezzo massimo desiderato
   })
 
   // Stato per memorizzare le fasce di peso complete per servizio
@@ -722,7 +723,9 @@ export default function RateComparisonCard() {
         return formattedRate;
       });
       
-      setRates(formattedRates);
+      // Applica il filtro del prezzo massimo
+      const filteredRates = applyMaxPriceFilter(formattedRates);
+      setRates(filteredRates);
       
       // Per ora continuiamo a usare suggerimenti simulati
       const newSuggestions = generateMockSuggestions(activeTab, filters);
@@ -731,7 +734,8 @@ export default function RateComparisonCard() {
       console.error('Errore durante il caricamento delle tariffe:', error);
       // In caso di errore, mostriamo tariffe simulate
       const newRates = generateMockRates(activeTab, filters);
-      setRates(newRates);
+      const filteredRates = applyMaxPriceFilter(newRates);
+      setRates(filteredRates);
       
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
@@ -948,6 +952,63 @@ export default function RateComparisonCard() {
     }).format(value);
   };
 
+  // Nella funzione loadRates, dopo il caricamento delle tariffe originali
+  // aggiungi questo codice per calcolare automaticamente gli sconti necessari
+  const applyMaxPriceFilter = (rates: Rate[]): Rate[] => {
+    if (!filters.maxPrice || parseFloat(filters.maxPrice) <= 0) {
+      return rates; // Se non è specificato un prezzo massimo, restituisci tutte le tariffe
+    }
+    
+    const maxPrice = parseFloat(filters.maxPrice);
+    
+    return rates.map(rate => {
+      // Se il prezzo base è già inferiore al prezzo massimo, non serve applicare sconti
+      if (rate.basePrice <= maxPrice) {
+        return rate;
+      }
+      
+      // Calcola lo sconto necessario per raggiungere il prezzo massimo
+      // Lo sconto può essere applicato solo sul margine
+      const requiredDiscount = Math.min(90, Math.max(0, 
+        ((rate.basePrice - maxPrice) / rate.actualMargin) * 100
+      ));
+      
+      // Se anche applicando lo sconto massimo non si raggiunge il prezzo desiderato,
+      // conserviamo lo sconto massimo del 90%
+      const achievablePrice = rate.basePrice - (rate.actualMargin * (requiredDiscount / 100));
+      
+      // Aggiorna la tariffa con lo sconto calcolato
+      const discountedRate = {
+        ...rate,
+        userDiscount: requiredDiscount,
+        finalPrice: achievablePrice,
+        adjustedMargin: rate.actualMargin - (rate.actualMargin * (requiredDiscount / 100))
+      };
+      
+      // Aggiorna anche tutte le fasce di peso
+      if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
+        discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
+          const rangeDiscount = Math.min(90, Math.max(0, 
+            ((weightRange.basePrice - maxPrice) / weightRange.actualMargin) * 100
+          ));
+          const rangeAchievablePrice = weightRange.basePrice - (weightRange.actualMargin * (rangeDiscount / 100));
+          
+          return {
+            ...weightRange,
+            userDiscount: rangeDiscount,
+            finalPrice: rangeAchievablePrice,
+            adjustedMargin: weightRange.actualMargin - (weightRange.actualMargin * (rangeDiscount / 100))
+          };
+        });
+      }
+      
+      return discountedRate;
+    }).filter(rate => {
+      // Filtra le tariffe: mostra solo quelle che possono effettivamente raggiungere il prezzo massimo
+      return rate.finalPrice <= maxPrice || Math.abs(rate.finalPrice - maxPrice) < 0.01;
+    });
+  };
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
@@ -1064,6 +1125,24 @@ export default function RateComparisonCard() {
                     min="1"
                   />
                   <span className="text-sm text-muted-foreground">pcs</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="maxPrice" className="text-sm font-medium">
+                  Max Price (Optional)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="maxPrice"
+                    type="number"
+                    value={filters.maxPrice}
+                    onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
+                    min="0.1"
+                    step="0.1"
+                    placeholder="Any price"
+                  />
+                  <span className="text-sm text-muted-foreground">€</span>
                 </div>
               </div>
 
