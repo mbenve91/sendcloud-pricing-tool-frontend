@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
+import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart } from "lucide-react"
 import {
   Pagination,
   PaginationContent as UPaginationContent,
@@ -32,6 +32,8 @@ import {
 import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
+import { useCart } from "@/hooks/use-cart"
+import { useRouter } from "next/navigation"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -204,6 +206,9 @@ export default function RateComparisonCard() {
 
   // Aggiungi uno stato per tenere traccia delle righe espanse
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+
+  const router = useRouter()
+  const { addToCart, isInCart } = useCart()
 
   // Modifica della funzione loadServiceWeightRanges per aggiungere un fallback con dati simulati
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
@@ -1009,6 +1014,31 @@ export default function RateComparisonCard() {
     });
   };
 
+  // Funzione per aggiungere gli elementi selezionati al carrello
+  const addSelectedToCart = () => {
+    const selectedItems = Object.entries(selectedRows)
+      .filter(([id, isSelected]) => isSelected && !id.includes("-"))
+      .map(([id]) => rates.find(rate => rate.id === id))
+      .filter(Boolean);
+    
+    selectedItems.forEach(item => {
+      if (item) {
+        addToCart(item);
+      }
+    });
+    
+    // Opzionale: reindirizza al carrello dopo l'aggiunta
+    router.push("/cart");
+  };
+  
+  // Controlla se ci sono elementi selezionati
+  const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
+  
+  // Conteggio degli elementi selezionati (solo righe principali, non fasce di peso)
+  const selectedItemsCount = Object.entries(selectedRows)
+    .filter(([id, isSelected]) => isSelected && !id.includes("-"))
+    .length;
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
@@ -1749,6 +1779,27 @@ export default function RateComparisonCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Aggiungi il banner "Add to Cart" quando ci sono elementi selezionati */}
+      {hasSelectedItems && (
+        <div className="fixed bottom-0 left-0 right-0 bg-primary text-white p-4 shadow-lg z-50">
+          <div className="container mx-auto flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <ShoppingCart className="h-5 w-5" />
+              <span>
+                {selectedItemsCount} shipping rate{selectedItemsCount !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <Button 
+              variant="secondary" 
+              onClick={addSelectedToCart}
+              className="bg-white text-primary hover:bg-gray-100"
+            >
+              Add to Cart
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
