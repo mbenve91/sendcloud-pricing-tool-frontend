@@ -71,13 +71,13 @@ export default function CartPage() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-slate-100 to-slate-200">
         <Card className="w-full max-w-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Your Cart</CardTitle>
-            <CardDescription>Your cart is empty</CardDescription>
+          <CardHeader className="bg-gradient-to-r from-primary/80 to-primary">
+            <CardTitle className="text-2xl font-bold text-white">Your Cart</CardTitle>
+            <CardDescription className="text-white/90">Your cart is empty</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
+          <CardContent className="flex flex-col items-center space-y-4 py-8">
             <p>Add shipping rates to your cart to continue</p>
-            <Button onClick={() => router.push("/")}>
+            <Button onClick={() => router.push("/")} className="bg-primary text-white hover:bg-primary/90">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Return to Rates
             </Button>
@@ -137,13 +137,13 @@ export default function CartPage() {
     <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-slate-100 to-slate-200">
       <div className="w-full max-w-6xl">
         <Card className="w-full shadow-md">
-          <CardHeader>
+          <CardHeader className="bg-gradient-to-r from-primary/80 to-primary">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl font-bold">Your Cart</CardTitle>
-                <CardDescription>Selected shipping rates ready for quote generation</CardDescription>
+                <CardTitle className="text-2xl font-bold text-white">Your Cart</CardTitle>
+                <CardDescription className="text-white/90">Selected shipping rates ready for quote generation</CardDescription>
               </div>
-              <Button variant="outline" onClick={() => router.push("/")}>
+              <Button variant="outline" onClick={() => router.push("/")} className="bg-white text-primary hover:bg-gray-100">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Rates
               </Button>

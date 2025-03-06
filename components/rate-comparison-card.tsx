@@ -1034,12 +1034,15 @@ export default function RateComparisonCard() {
 
   // Modifica la funzione addSelectedToCart per gestire anche le fasce di peso selezionate
   const addSelectedToCart = () => {
+    // Array che conterrà tutti gli elementi da aggiungere al carrello
+    const itemsToAdd: Rate[] = [];
+    
     // Ottieni tutte le righe principali selezionate
     const selectedMainItems = Object.entries(selectedRows)
       .filter(([id, isSelected]) => isSelected && !id.includes("-"))
       .map(([id]) => rates.find(rate => rate.id === id))
       .filter(Boolean) as Rate[];
-  
+    
     // Ottieni tutte le fasce di peso selezionate
     const selectedWeightRanges = Object.entries(selectedRows)
       .filter(([id, isSelected]) => isSelected && id.includes("-"))
@@ -1077,8 +1080,25 @@ export default function RateComparisonCard() {
       })
       .filter(Boolean) as Rate[];
     
-    // Aggiungi al carrello sia i servizi principali che le fasce di peso
-    [...selectedMainItems, ...selectedWeightRanges].forEach(item => {
+    // Per ogni rate principale selezionato...
+    for (const mainItem of selectedMainItems) {
+      // Verifica se ci sono fasce di peso selezionate per questo rate
+      const hasSelectedWeightRanges = selectedWeightRanges.some(
+        wr => wr.parentRateId === mainItem.id
+      );
+      
+      // Se non ci sono fasce di peso selezionate, aggiungi il rate principale
+      // Se ci sono fasce selezionate, NON aggiungere il rate principale per evitare duplicazioni
+      if (!hasSelectedWeightRanges) {
+        itemsToAdd.push(mainItem);
+      }
+    }
+    
+    // Aggiungi tutte le fasce di peso selezionate
+    itemsToAdd.push(...selectedWeightRanges);
+    
+    // Aggiungi tutto al carrello
+    itemsToAdd.forEach(item => {
       if (item) {
         addToCart(item);
       }
@@ -1793,16 +1813,16 @@ export default function RateComparisonCard() {
         </DialogContent>
       </Dialog>
 
-      {/* Modifica il banner "Add to Cart" per mostrare correttamente i conteggi */}
+      {/* Modify the "Add to Cart" banner to show counts correctly */}
       {hasSelectedItems && (
         <div className="fixed bottom-0 left-0 right-0 bg-primary text-white p-4 shadow-lg z-50">
           <div className="container mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <ShoppingCart className="h-5 w-5" />
               <span>
-                {selectedItemsCount} servizio/i selezionato/i
+                {selectedItemsCount} service(s) selected
                 {getSelectedWeightRangesCount() > 0 && 
-                  ` (con ${getSelectedWeightRangesCount()} fasce di peso)`}
+                  ` (with ${getSelectedWeightRangesCount()} weight ranges)`}
               </span>
             </div>
             <Button 
@@ -1810,7 +1830,7 @@ export default function RateComparisonCard() {
               onClick={addSelectedToCart}
               className="bg-white text-primary hover:bg-gray-100"
             >
-              Aggiungi al Carrello
+              Add to Cart
             </Button>
           </div>
         </div>

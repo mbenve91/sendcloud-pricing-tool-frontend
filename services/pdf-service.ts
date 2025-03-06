@@ -158,6 +158,34 @@ const getLocale = (language: string) => {
   }
 };
 
+// Funzione per ottenere e aggiungere l'immagine con proporzioni corrette
+const getDataUrl = (url: string) => {
+  return new Promise<{dataUrl: string, aspectRatio: number}>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      // Calcola l'aspect ratio dell'immagine
+      const aspectRatio = img.width / img.height;
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          aspectRatio: aspectRatio
+        });
+      } else {
+        reject(new Error('Could not get canvas context'));
+      }
+    };
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+};
+
 // Funzione alternativa per generare il PDF senza autoTable
 const generateSimplePDF = async (
   rates: Rate[],
@@ -197,39 +225,27 @@ const generateSimplePDF = async (
     const img = new Image();
     img.src = logoUrl;
     
-    // Funzione per convertire una URL in una data URL
-    const getDataUrl = (url: string) => {
-      return new Promise<string>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          } else {
-            reject(new Error('Could not get canvas context'));
-          }
-        };
-        img.onerror = (e) => reject(e);
-        img.src = url;
-      });
-    };
-    
     try {
       // Prova a caricare il logo se siamo in un ambiente browser
       if (typeof window !== 'undefined') {
-        const dataUrl = await getDataUrl('/sendcloud_logo.png');
+        // Ottieni dataUrl e aspect ratio dell'immagine
+        const {dataUrl, aspectRatio} = await getDataUrl('/sendcloud_logo.png');
+        
+        // Calcola la larghezza in base all'altezza per mantenere le proporzioni
+        const logoHeight = 15;  // Altezza fissa in mm
+        const logoWidth = logoHeight * aspectRatio;  // Larghezza proporzionata
+        
+        const logoX = 14;
+        const logoY = 15;
+        
+        // Aggiungi l'immagine con le dimensioni corrette
         doc.addImage(dataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
       }
     } catch (e) {
       console.warn("Could not load logo image, using placeholder text", e);
       // Se non riesce a caricare l'immagine, usa il placeholder
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(logoX, logoY, logoWidth, logoHeight, 'F');
+      doc.rect(logoX, logoY, 50, 15, 'F');  // Dimensioni originali come fallback
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
