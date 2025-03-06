@@ -108,7 +108,13 @@ export default function CartPage() {
       } catch (error) {
         console.error("Error generating PDF:", error);
         setIsGenerating(false);
-        alert("An error occurred while generating the quote. Please try again.");
+        
+        // Mostra un messaggio di errore più dettagliato
+        if (error instanceof Error) {
+          alert(`An error occurred while generating the quote: ${error.message}`);
+        } else {
+          alert("An error occurred while generating the quote. Please try again.");
+        }
       }
     }, 1000);
   };
