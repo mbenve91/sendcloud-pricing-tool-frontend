@@ -1,6 +1,3 @@
-import { jsPDF } from 'jspdf';
-// Importa la libreria jspdf-autotable come side-effect
-import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { it, de, es, enUS } from 'date-fns/locale';
 
@@ -161,15 +158,20 @@ const getLocale = (language: string) => {
   }
 };
 
-// Funzione principale per generare il PDF
-export const generateQuotePDF = (
+// Funzione alternativa per generare il PDF senza autoTable
+const generateSimplePDF = async (
   rates: Rate[],
   options: QuoteOptions
-): jsPDF => {
-  const { language, accountExecutive } = options;
-  
+): Promise<any> => {
   try {
-    // Crea una nuova istanza di jsPDF
+    const { language, accountExecutive } = options;
+    
+    // Importiamo dinamicamente jsPDF
+    const jsPDFModule = await import('jspdf');
+    // In base alla struttura del modulo, prendiamo jsPDF dal default o direttamente
+    const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
+    
+    // Creiamo un'istanza di jsPDF
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -180,9 +182,7 @@ export const generateQuotePDF = (
     const primaryColor = [0, 123, 255]; // RGB per #007bff
     const secondaryColor = [33, 37, 41]; // RGB per #212529
     
-    // Aggiungi logo SendCloud
-    // Nota: in un'implementazione reale dovresti caricare un'immagine vera
-    // Per ora utilizziamo un placeholder testuale
+    // Aggiungi logo SendCloud (placeholder)
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(14, 15, 50, 15, 'F');
     doc.setTextColor(255, 255, 255);
@@ -212,68 +212,111 @@ export const generateQuotePDF = (
     doc.setFont('helvetica', 'normal');
     doc.text(`${accountExecutive} - SendCloud`, 14, 75);
     
-    // Preparato per (nel caso reale, qui andrebbe il nome del cliente)
+    // Preparato per
     doc.setFont('helvetica', 'bold');
     doc.text(getTranslation('prepared_for', language), 120, 70);
     doc.setFont('helvetica', 'normal');
     doc.text('Your Customer', 120, 75);
     
-    // Costruisco il corpo della tabella
-    const tableBody = rates.map(rate => [
-      rate.carrierName,
-      rate.serviceName,
-      ...(rates.some(r => r.countryName) ? [rate.countryName || ''] : []),
-      rate.currentWeightRange ? 
+    // Poiché autoTable non funziona, creiamo una tabella semplice
+    // Intestazioni
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    
+    // Definizione delle colonne
+    const startY = 85;
+    const rowHeight = 10;
+    const margin = 14;
+    const cols = rates.some(r => r.countryName) ? 6 : 5;
+    const colWidth = (210 - (margin * 2)) / cols;
+    
+    // Riga di intestazione
+    doc.rect(margin, startY, 210 - (margin * 2), rowHeight, 'F');
+    
+    // Testi delle intestazioni
+    let currentX = margin + 3;
+    
+    // Carrier
+    doc.text(getTranslation('carrier', language), currentX, startY + 6);
+    currentX += colWidth;
+    
+    // Service
+    doc.text(getTranslation('service', language), currentX, startY + 6);
+    currentX += colWidth;
+    
+    // Country (opzionale)
+    if (rates.some(r => r.countryName)) {
+      doc.text(getTranslation('destination', language), currentX, startY + 6);
+      currentX += colWidth;
+    }
+    
+    // Weight
+    doc.text(getTranslation('weight', language), currentX, startY + 6);
+    currentX += colWidth;
+    
+    // Delivery Time
+    doc.text(getTranslation('delivery_time', language), currentX, startY + 6);
+    currentX += colWidth;
+    
+    // Price
+    doc.text(getTranslation('price', language), currentX, startY + 6);
+    
+    // Dati delle righe
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.setFont('helvetica', 'normal');
+    
+    let currentY = startY + rowHeight;
+    let isAlternateRow = false;
+    
+    rates.forEach((rate, index) => {
+      if (isAlternateRow) {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(margin, currentY, 210 - (margin * 2), rowHeight, 'F');
+      }
+      
+      currentX = margin + 3;
+      
+      // Carrier
+      doc.text(rate.carrierName.substring(0, 16), currentX, currentY + 6);
+      currentX += colWidth;
+      
+      // Service
+      doc.text(rate.serviceName.substring(0, 16), currentX, currentY + 6);
+      currentX += colWidth;
+      
+      // Country (opzionale)
+      if (rates.some(r => r.countryName)) {
+        doc.text(rate.countryName?.substring(0, 16) || "", currentX, currentY + 6);
+        currentX += colWidth;
+      }
+      
+      // Weight
+      const weightText = rate.currentWeightRange ? 
         `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : 
         (rate.weightMin !== undefined && rate.weightMax !== undefined ? 
-          `${rate.weightMin}-${rate.weightMax} kg` : ""),
-      rate.deliveryTimeMin && rate.deliveryTimeMax
+          `${rate.weightMin}-${rate.weightMax} kg` : "");
+      doc.text(weightText, currentX, currentY + 6);
+      currentX += colWidth;
+      
+      // Delivery Time
+      const deliveryText = rate.deliveryTimeMin && rate.deliveryTimeMax
         ? `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} ${getTranslation('days', language)}`
-        : "",
-      formatCurrency(rate.finalPrice, language)
-    ]);
-    
-    // Costruisco le intestazioni della tabella
-    const tableHeader = [
-      getTranslation('carrier', language),
-      getTranslation('service', language),
-      ...(rates.some(r => r.countryName) ? [getTranslation('destination', language)] : []),
-      getTranslation('weight', language),
-      getTranslation('delivery_time', language),
-      getTranslation('price', language)
-    ];
-    
-    // Utilizzo il metodo autoTable esteso a jsPDF tramite il plugin
-    (doc as any).autoTable({
-      startY: 85,
-      head: [tableHeader],
-      body: tableBody,
-      styles: {
-        halign: 'left',
-        fontSize: 10,
-        overflow: 'linebreak',
-        cellPadding: 5
-      },
-      headStyles: {
-        fillColor: primaryColor,
-        fontStyle: 'bold',
-        textColor: [255, 255, 255]
-      },
-      alternateRowStyles: {
-        fillColor: [240, 240, 240]
-      },
-      columnStyles: {
-        5: { // Colonna del prezzo (può variare se c'è la colonna paese)
-          halign: 'right'
-        }
-      },
-      margin: { top: 85 }
+        : "";
+      doc.text(deliveryText, currentX, currentY + 6);
+      currentX += colWidth;
+      
+      // Price
+      const priceText = formatCurrency(rate.finalPrice, language);
+      doc.text(priceText, currentX, currentY + 6);
+      
+      currentY += rowHeight;
+      isAlternateRow = !isAlternateRow;
     });
     
     // Nota finale e ringraziamento
-    // Accedo a lastAutoTable con un cast per evitare errori TypeScript
-    const docAny = doc as any;
-    const finalY = docAny.lastAutoTable?.finalY + 20 || 200;
+    const finalY = currentY + 20;
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
@@ -284,7 +327,7 @@ export const generateQuotePDF = (
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     
-    // Split del testo a piè di pagina per gestire l'andare a capo
+    // Split del testo a piè di pagina
     const footerText = getTranslation('footer_text', language);
     const splitFooter = doc.splitTextToSize(footerText, 180);
     doc.text(splitFooter, 14, finalY + 10);
@@ -297,18 +340,21 @@ export const generateQuotePDF = (
     
     return doc;
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    console.error('Error generating simple PDF:', error);
     throw error;
   }
 };
 
 // Funzione di utilità per scaricare il PDF
-export const downloadQuotePDF = (rates: Rate[], options: QuoteOptions): void => {
+export const downloadQuotePDF = async (rates: Rate[], options: QuoteOptions): Promise<void> => {
   try {
-    const doc = generateQuotePDF(rates, options);
+    const doc = await generateSimplePDF(rates, options);
     doc.save(`SendCloud_Quote_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   } catch (error) {
     console.error('Error downloading PDF:', error);
     throw error;
   }
-}; 
+};
+
+// Esportiamo la funzione di generazione per completezza
+export const generateQuotePDF = generateSimplePDF; 

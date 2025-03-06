@@ -86,13 +86,13 @@ export default function CartPage() {
   }
 
   const handleGenerateQuote = () => {
-    setIsGenerating(true)
+    setIsGenerating(true);
     
-    // Simuliamo un breve ritardo per mostrare lo stato di caricamento
-    setTimeout(() => {
+    // Utilizziamo una funzione asincrona interna
+    const generatePDF = async () => {
       try {
-        // Genera il PDF
-        downloadQuotePDF(cartItems as Rate[], {
+        // Genera il PDF (ora è asincrona)
+        await downloadQuotePDF(cartItems as Rate[], {
           language,
           accountExecutive
         });
@@ -116,7 +116,10 @@ export default function CartPage() {
           alert("An error occurred while generating the quote. Please try again.");
         }
       }
-    }, 1000);
+    };
+    
+    // Esegui la funzione asincrona
+    generatePDF();
   };
 
   // Funzione per formattare i valori monetari
