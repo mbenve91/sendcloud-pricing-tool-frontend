@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -32,6 +32,7 @@ import {
 import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
+import { formatCurrency } from "@/lib/utils"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -505,14 +506,6 @@ export default function RateComparisonCard() {
     if (activeTab === "eu") return EU_COUNTRIES
     if (activeTab === "extra_eu") return EXTRA_EU_COUNTRIES
     return []
-  }
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount)
   }
 
   // Get margin color based on monetary value
@@ -1546,4 +1539,22 @@ export default function RateComparisonCard() {
             {visibleColumns.map((column) => (
               <div key={column.id} className="flex items-center space-x-2">
                 <Checkbox
-                  id={`
+                  id={`${column.id}-visible`}
+                  checked={column.isVisible}
+                  onCheckedChange={(checked) => toggleColumnVisibility(column.id, checked)}
+                />
+                <label htmlFor={`${column.id}-visible`}>{column.name}</label>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setColumnsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
