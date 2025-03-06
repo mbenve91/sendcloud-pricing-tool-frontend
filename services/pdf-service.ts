@@ -182,13 +182,59 @@ const generateSimplePDF = async (
     const primaryColor = [0, 123, 255]; // RGB per #007bff
     const secondaryColor = [33, 37, 41]; // RGB per #212529
     
-    // Aggiungi logo SendCloud (placeholder)
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(14, 15, 50, 15, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SendCloud', 20, 25);
+    // Aggiungiamo il logo SendCloud 
+    // Importa dinamicamente il modulo per convertire immagine in data URL
+    const logoUrl = '/sendcloud_logo.png';
+    
+    // Riserviamo uno spazio per il logo e lo aggiungeremo quando è caricato
+    // Nel frattempo, aggiungiamo uno spazio vuoto
+    const logoHeight = 15;  // mm
+    const logoWidth = 50;   // mm
+    const logoX = 14;
+    const logoY = 15;
+    
+    // Creiamo un'immagine per caricare il logo
+    const img = new Image();
+    img.src = logoUrl;
+    
+    // Funzione per convertire una URL in una data URL
+    const getDataUrl = (url: string) => {
+      return new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } else {
+            reject(new Error('Could not get canvas context'));
+          }
+        };
+        img.onerror = (e) => reject(e);
+        img.src = url;
+      });
+    };
+    
+    try {
+      // Prova a caricare il logo se siamo in un ambiente browser
+      if (typeof window !== 'undefined') {
+        const dataUrl = await getDataUrl('/sendcloud_logo.png');
+        doc.addImage(dataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      }
+    } catch (e) {
+      console.warn("Could not load logo image, using placeholder text", e);
+      // Se non riesce a caricare l'immagine, usa il placeholder
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(logoX, logoY, logoWidth, logoHeight, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SendCloud', logoX + 6, logoY + 10);
+    }
     
     // Titolo del preventivo
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
@@ -271,10 +317,17 @@ const generateSimplePDF = async (
     let isAlternateRow = false;
     
     rates.forEach((rate, index) => {
+      // Aggiungiamo un bordo sottile attorno alla cella
+      doc.setDrawColor(220, 220, 220); // Colore grigio chiaro per i bordi
+      
       if (isAlternateRow) {
         doc.setFillColor(240, 240, 240);
-        doc.rect(margin, currentY, 210 - (margin * 2), rowHeight, 'F');
+      } else {
+        doc.setFillColor(255, 255, 255);
       }
+      
+      // Disegniamo il rettangolo di background con bordo
+      doc.rect(margin, currentY, 210 - (margin * 2), rowHeight, 'FD'); // 'FD' significa fill e draw
       
       currentX = margin + 3;
       
@@ -307,21 +360,34 @@ const generateSimplePDF = async (
       doc.text(deliveryText, currentX, currentY + 6);
       currentX += colWidth;
       
-      // Price
+      // Price - utilizziamo il grassetto per il prezzo
       const priceText = formatCurrency(rate.finalPrice, language);
+      doc.setFont('helvetica', 'bold');
       doc.text(priceText, currentX, currentY + 6);
+      doc.setFont('helvetica', 'normal'); // Ripristina il font normale per le righe successive
       
       currentY += rowHeight;
       isAlternateRow = !isAlternateRow;
     });
     
+    // Aggiungiamo una linea di separazione alla fine della tabella
+    doc.setDrawColor(0, 123, 255); // Colore blu primario
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY, 210 - margin, currentY);
+    
     // Nota finale e ringraziamento
     const finalY = currentY + 20;
+    
+    // Aggiungiamo un box colorato per il messaggio di ringraziamento
+    doc.setFillColor(240, 248, 255); // Colore azzurro chiaro
+    doc.setDrawColor(0, 123, 255);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(14, finalY - 5, 210 - (margin * 2), 15, 3, 3, 'FD');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(getTranslation('thank_you', language), 14, finalY);
+    doc.text(getTranslation('thank_you', language), 20, finalY + 5);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -330,13 +396,23 @@ const generateSimplePDF = async (
     // Split del testo a piè di pagina
     const footerText = getTranslation('footer_text', language);
     const splitFooter = doc.splitTextToSize(footerText, 180);
-    doc.text(splitFooter, 14, finalY + 10);
+    doc.text(splitFooter, 14, finalY + 20);
     
     // Footer con informazioni aziendali
     const pageHeight = doc.internal.pageSize.height;
+    
+    // Aggiungiamo una linea sopra il footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(14, pageHeight - 15, 210 - 14, pageHeight - 15);
+    
+    // Aggiungiamo il testo del footer
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text('SendCloud B.V. | www.sendcloud.com', 14, pageHeight - 10);
+    doc.text('SendCloud B.V. | www.sendcloud.com | ' + new Date().getFullYear(), 14, pageHeight - 10);
+    
+    // Aggiungiamo il numero di pagina a destra
+    doc.text('Page 1/1', 210 - 14 - 20, pageHeight - 10, { align: 'right' });
     
     return doc;
   } catch (error) {

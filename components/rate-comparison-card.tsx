@@ -1014,14 +1014,34 @@ export default function RateComparisonCard() {
     });
   };
 
-  // Funzione per aggiungere gli elementi selezionati al carrello
+  // Modifica la funzione di conteggio per distinguere tra servizi e fasce di peso
+  const selectedItemsCount = Object.entries(selectedRows)
+    .filter(([id, isSelected]) => {
+      // Contiamo solo le righe principali che non sono fasce di peso
+      return isSelected && !id.includes("-");
+    })
+    .length;
+
+  // Aggiungi questa nuova funzione per ottenere il numero totale di fasce di peso selezionate
+  const getSelectedWeightRangesCount = () => {
+    return Object.entries(selectedRows)
+      .filter(([id, isSelected]) => {
+        // Contiamo solo le fasce di peso
+        return isSelected && id.includes("-");
+      })
+      .length;
+  };
+
+  // Modifica la funzione addSelectedToCart per gestire correttamente le fasce di peso
   const addSelectedToCart = () => {
-    const selectedItems = Object.entries(selectedRows)
+    // Ottieni tutte le righe principali selezionate
+    const selectedMainItems = Object.entries(selectedRows)
       .filter(([id, isSelected]) => isSelected && !id.includes("-"))
       .map(([id]) => rates.find(rate => rate.id === id))
       .filter(Boolean);
     
-    selectedItems.forEach(item => {
+    // Per ogni riga principale, aggiungi l'elemento appropriato al carrello
+    selectedMainItems.forEach(item => {
       if (item) {
         addToCart(item);
       }
@@ -1033,19 +1053,25 @@ export default function RateComparisonCard() {
   
   // Controlla se ci sono elementi selezionati
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
-  
-  // Conteggio degli elementi selezionati (solo righe principali, non fasce di peso)
-  const selectedItemsCount = Object.entries(selectedRows)
-    .filter(([id, isSelected]) => isSelected && !id.includes("-"))
-    .length;
 
   return (
     <Card className="w-full shadow-md">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-2xl font-bold">SendQuote - Shipping Rate Comparison</CardTitle>
-            <CardDescription>Compare carrier rates and get personalized suggestions</CardDescription>
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0">
+              <img 
+                src="/sendcloud_logo.png" 
+                alt="SendCloud" 
+                className="h-12 w-auto"
+              />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
+                SendQuote - Shipping Rate Comparison
+              </CardTitle>
+              <CardDescription>Compare carrier rates and get personalized suggestions</CardDescription>
+            </div>
           </div>
           <Button variant="ghost" size="icon">
             <MoreVertical className="h-5 w-5" />
@@ -1381,15 +1407,12 @@ export default function RateComparisonCard() {
                                     <TableHeader className="bg-muted">
                                       <TableRow>
                                         <TableHead className="w-[60px]">Select</TableHead>
-                                        <TableHead className="w-[150px]">Carrier</TableHead>
-                                        <TableHead className="w-[150px]">Service</TableHead>
+                                        {/* Rimuovi colonne duplicate e mostra solo le informazioni essenziali */}
                                         <TableHead className="w-[120px]">Weight Range</TableHead>
                                         <TableHead className="w-[100px] text-right">Base Rate</TableHead>
                                         <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
                                         <TableHead className="w-[100px] text-right">Final Price</TableHead>
                                         <TableHead className="w-[150px] text-center">Margin</TableHead>
-                                        <TableHead className="w-[100px] text-center">Delivery</TableHead>
-                                        <TableHead className="w-[80px] text-center">Details</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -1406,31 +1429,11 @@ export default function RateComparisonCard() {
                                             />
                                           </TableCell>
                                           
-                                          {/* Carrier - mostra stesso carrier del servizio principale */}
-                                          <TableCell>
-                                            <div className="flex items-center gap-2">
-                                              <img
-                                                src={rate.carrierLogo || '/placeholder.svg'}
-                                                alt={rate.carrierName}
-                                                className="w-8 h-8 object-contain"
-                                              />
-                                              <span>{rate.carrierName}</span>
-                                            </div>
-                                          </TableCell>
-                                          
-                                          {/* Service - mostra stesso service del servizio principale */}
-                                          <TableCell>
-                                            <div className="flex flex-col">
-                                              <span className="font-medium">{rate.serviceName}</span>
-                                              <span className="text-xs text-muted-foreground">{rate.serviceCode}</span>
-                                            </div>
-                                          </TableCell>
-                                          
                                           {/* Weight Range */}
                                           <TableCell className="font-medium">{weightRange.label}</TableCell>
                                           
                                           {/* Base Rate */}
-                                          <TableCell>{formatCurrency(weightRange.basePrice || 0)}</TableCell>
+                                          <TableCell className="text-right">{formatCurrency(weightRange.basePrice || 0)}</TableCell>
                                           
                                           {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
                                           <TableCell className="text-right">
@@ -1440,10 +1443,10 @@ export default function RateComparisonCard() {
                                           </TableCell>
                                           
                                           {/* Final Price */}
-                                          <TableCell>{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
+                                          <TableCell className="text-right font-medium">{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
                                           
                                           {/* Margin */}
-                                          <TableCell>
+                                          <TableCell className="text-center">
                                             {weightRange.actualMargin !== undefined ? (
                                               <Badge
                                                 variant={getMarginColor(
@@ -1466,33 +1469,6 @@ export default function RateComparisonCard() {
                                             ) : (
                                               "N/D"
                                             )}
-                                          </TableCell>
-                                          
-                                          {/* Delivery - stessi tempi di consegna del servizio principale */}
-                                          <TableCell>
-                                            {rate.deliveryTimeMin && rate.deliveryTimeMax ? (
-                                              `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} giorni`
-                                            ) : (
-                                              "N/D"
-                                            )}
-                                          </TableCell>
-                                          
-                                          {/* Details - pulsante dettagli come nella riga principale */}
-                                          <TableCell>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-8 w-8"
-                                              onClick={() => {
-                                                setSelectedRate({
-                                                  ...rate,
-                                                  currentWeightRange: weightRange
-                                                });
-                                                setDetailOpen(true);
-                                              }}
-                                            >
-                                              <Info className="h-4 w-4" />
-                                            </Button>
                                           </TableCell>
                                         </TableRow>
                                       ))}
@@ -1780,14 +1756,16 @@ export default function RateComparisonCard() {
         </DialogContent>
       </Dialog>
 
-      {/* Aggiungi il banner "Add to Cart" quando ci sono elementi selezionati */}
+      {/* Modifica il banner "Add to Cart" per mostrare correttamente i conteggi */}
       {hasSelectedItems && (
         <div className="fixed bottom-0 left-0 right-0 bg-primary text-white p-4 shadow-lg z-50">
           <div className="container mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <ShoppingCart className="h-5 w-5" />
               <span>
-                {selectedItemsCount} shipping rate{selectedItemsCount !== 1 ? 's' : ''} selected
+                {selectedItemsCount} servizio/i selezionato/i
+                {getSelectedWeightRangesCount() > 0 && 
+                  ` (con ${getSelectedWeightRangesCount()} fasce di peso)`}
               </span>
             </div>
             <Button 
@@ -1795,7 +1773,7 @@ export default function RateComparisonCard() {
               onClick={addSelectedToCart}
               className="bg-white text-primary hover:bg-gray-100"
             >
-              Add to Cart
+              Aggiungi al Carrello
             </Button>
           </div>
         </div>
