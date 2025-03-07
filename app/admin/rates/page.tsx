@@ -571,8 +571,8 @@ function RatesTable({
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [selectedService, setSelectedService] = useState<string>("_all")
-  const [isLoading, setIsLoading] = useState(true)
+  const [selectedService, setSelectedService] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(false)
   const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
   const [editingRate, setEditingRate] = useState<Rate | null>(null)
@@ -704,30 +704,30 @@ export default function RatesPage() {
     }
   };
 
-  // Modifico useEffect per gestire l'inizializzazione
+  // Modifica l'useEffect per l'inizializzazione
   useEffect(() => {
-    // Carica solo i corrieri e i servizi all'avvio, non le tariffe
+    // Carica solo i servizi all'avvio, non le tariffe
     const initializeData = async () => {
       await loadServices();
-      // Non carichiamo i servizi finché non viene selezionato un corriere
-      if (selectedService && selectedService !== "_all") {
-        await loadRates(selectedService);
-      }
+      // Non carichiamo più le tariffe qui
     };
     
     initializeData();
-  }, [selectedService]);
+  }, []); // Rimuovi selectedService dalle dipendenze
 
-  // Carica le tariffe quando cambia il servizio selezionato
+  // Carica le tariffe solo quando cambia il servizio selezionato
+  // e solo se è stato selezionato un servizio valido
   useEffect(() => {
-    loadRates(selectedService || undefined)
-  }, [selectedService])
+    if (selectedService && selectedService !== "_all" && selectedService !== "") {
+      loadRates(selectedService);
+    }
+  }, [selectedService]);
 
   // Gestisce il cambio del servizio selezionato
   const handleServiceChange = (serviceId: string) => {
     setSelectedService(serviceId);
     // Carica le tariffe solo se viene selezionato un servizio valido
-    if (serviceId && serviceId !== "none" && serviceId !== "loading") {
+    if (serviceId && serviceId !== "none" && serviceId !== "loading" && serviceId !== "") {
       loadRates(serviceId);
     } else {
       // Se non è selezionato nessun servizio valido, svuota la lista delle tariffe
