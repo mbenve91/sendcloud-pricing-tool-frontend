@@ -123,9 +123,10 @@ interface RatesTableProps {
   onEdit: (rate: any) => void;
   onDelete: (rate: any) => void;
   isLoading: boolean;
+  services: Service[];
 }
 
-// Componente per il filtro del servizio
+// Componente per il filtro dei servizi
 const ServiceFilter = ({ 
   services, 
   selectedService, 
@@ -140,24 +141,23 @@ const ServiceFilter = ({
   return (
     <div className="mb-6">
       <div className="flex flex-col space-y-2">
-        <label className="text-sm font-medium">Filter by Service</label>
+        <label className="text-sm font-medium">Filtra per Servizio</label>
         <Select
           value={selectedService}
           onValueChange={onServiceChange}
         >
           <SelectTrigger>
-            <SelectValue placeholder="All Services" />
+            <SelectValue placeholder="Seleziona un Servizio" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="_all">All Services</SelectItem>
             {isLoadingServices ? (
-              <SelectItem value="loading" disabled>Loading services...</SelectItem>
+              <SelectItem value="loading" disabled>Caricamento servizi...</SelectItem>
             ) : services.length === 0 ? (
-              <SelectItem value="none" disabled>No services available</SelectItem>
+              <SelectItem value="none" disabled>Nessun servizio disponibile</SelectItem>
             ) : (
               services.map((service) => (
                 <SelectItem key={service._id} value={service._id}>
-                  {service.carrier.name} - {service.name}
+                  {service.name}
                 </SelectItem>
               ))
             )}
@@ -449,18 +449,36 @@ const RateForm = ({
   );
 };
 
-function RatesTable({ rates, onEdit, onDelete, isLoading }: RatesTableProps) {
+function RatesTable({ 
+  rates, 
+  isLoading, 
+  onEdit, 
+  onDelete,
+  services
+}: { 
+  rates: Rate[], 
+  isLoading: boolean, 
+  onEdit: (rate: Rate) => void, 
+  onDelete: (rate: Rate) => void,
+  services: Service[]
+}) {
+  // Funzione helper per ottenere il nome del servizio dall'ID
+  const getServiceName = (serviceId: string) => {
+    const service = services.find(s => s._id === serviceId);
+    return service ? service.name : `Servizio (ID: ${serviceId.substring(0, 8)}...)`;
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Service</TableHead>
-            <TableHead>Carrier</TableHead>
-            <TableHead>Weight Range</TableHead>
-            <TableHead>Purchase Price</TableHead>
-            <TableHead>Retail Price</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead>Servizio</TableHead>
+            <TableHead>Corriere</TableHead>
+            <TableHead>Range di Peso</TableHead>
+            <TableHead>Prezzo d'Acquisto</TableHead>
+            <TableHead>Prezzo al Dettaglio</TableHead>
+            <TableHead>Azioni</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -486,15 +504,13 @@ function RatesTable({ rates, onEdit, onDelete, isLoading }: RatesTableProps) {
                   {rate.service && rate.service.name 
                     ? rate.service.name 
                     : rate.service && rate.service._id 
-                      ? `Service ID: ${rate.service._id.substring(0, 8)}...` 
-                      : "Unknown Service"}
+                      ? getServiceName(rate.service._id)  // Usa la funzione helper
+                      : "Servizio sconosciuto"}
                 </TableCell>
                 <TableCell>
                   {rate.service && rate.service.carrier && rate.service.carrier.name 
                     ? rate.service.carrier.name 
-                    : rate.service && rate.service.carrier && rate.service.carrier._id 
-                      ? `Carrier ID: ${rate.service.carrier._id.substring(0, 8)}...` 
-                      : "Unknown Carrier"}
+                    : "Corriere sconosciuto"}
                 </TableCell>
                 <TableCell>
                   {rate.weightMin !== undefined && rate.weightMax !== undefined 
@@ -642,292 +658,55 @@ export default function RatesPage() {
   const loadRates = async (serviceId?: string) => {
     setIsLoading(true);
     try {
-      console.log(`Caricamento tariffe per il servizio: ${serviceId || 'tutti'}`);
+      // Richiedi il servizio ID - non permettiamo più di caricare tutte le tariffe
+      if (!serviceId) {
+        setRates([]);
+        setIsLoading(false);
+        return;
+      }
       
-      // Se serviceId è "_all", significa "tutti i servizi", quindi lo impostiamo a undefined
-      const actualServiceId = serviceId === "_all" ? undefined : serviceId;
-      
-      // Costruiamo l'URL principale
-      const url = actualServiceId 
-        ? `/api/rates?service=${actualServiceId}` 
-        : '/api/rates';
-      
-      console.log(`URL richiesta tariffe: ${url}`);
+      const url = `/api/rates?service=${serviceId}`;
+      console.log(`Caricamento tariffe: ${url}`);
       
       const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Errore server: ${response.status}`);
-      }
-      
       const data = await response.json();
-      console.log(`Risposta API tariffe:`, data);
       
       if (data.success) {
-        // Assicuriamoci che i dati siano un array
-        if (Array.isArray(data.data) && data.data.length > 0) {
-          console.log(`Tariffe caricate: ${data.data.length}`);
-          
-          // Tentiamo di identificare se i dati sono validi
-          const areRatesValid = data.data.every((rate: any) => 
-            rate.service && 
-            rate.service._id && 
-            rate.service._id !== "unknown-service" &&
-            rate.weightMin !== undefined && 
-            rate.weightMax !== undefined &&
-            (rate.purchasePrice > 0 || rate.retailPrice > 0)
-          );
-          
-          if (areRatesValid) {
-            console.log('I dati sono validati e sembrano corretti');
-            
-            // Validazione extra per garantire la presenza di carrier
-            const validatedRates = data.data.map((rate: any) => {
-              // Verifica che rate.service esista
-              if (!rate.service) {
-                console.warn('Tariffa senza servizio:', rate);
-                // Se abbiamo il serviceId, possiamo trovare il servizio corrispondente
-                const associatedService = actualServiceId
-                  ? services.find(s => s._id === actualServiceId)
-                  : services[0];
-                  
-                if (associatedService) {
-                  rate.service = {
-                    _id: associatedService._id,
-                    name: associatedService.name,
-                    carrier: { ...associatedService.carrier }
-                  };
-                } else {
-                  // Fallback di emergenza
-                  rate.service = {
-                    _id: "unknown-service",
-                    name: "Servizio Sconosciuto",
-                    carrier: {
-                      _id: "unknown-carrier",
-                      name: "Corriere Sconosciuto"
-                    }
-                  };
-                }
-              } 
-              // Verifica che rate.service.carrier esista
-              else if (!rate.service.carrier) {
-                console.warn('Servizio senza corriere:', rate.service);
-                
-                // Cerca il servizio nei servizi caricati
-                const associatedService = services.find(s => s._id === rate.service._id);
-                
-                if (associatedService && associatedService.carrier) {
-                  rate.service.carrier = { ...associatedService.carrier };
-                } else {
-                  // Fallback di emergenza
-                  rate.service.carrier = {
-                    _id: "unknown-carrier",
-                    name: "Corriere Sconosciuto"
-                  };
-                }
-              }
-              
-              return rate;
-            });
-            
-            setRates(validatedRates);
-          } else {
-            console.warn('I dati ricevuti non sembrano validi, proviamo un approccio alternativo');
-            
-            // Se i dati non sembrano validi, proviamo un'altra strategia
-            if (actualServiceId) {
-              // Tentativo diretto al backend
-              try {
-                console.log('Tentativo diretto con il backend usando il percorso del componente principale');
-                
-                const directUrl = `/api/services/${actualServiceId}/rates`;
-                const directResponse = await fetch(directUrl);
-                
-                if (directResponse.ok) {
-                  const directData = await directResponse.json();
-                  
-                  if (directData.success && Array.isArray(directData.data) && directData.data.length > 0) {
-                    console.log('Ottenuti dati validi dal percorso diretto:', directData.data.length);
-                    setRates(directData.data);
-                    setIsLoading(false);
-                    return;
-                  }
-                }
-              } catch (directError) {
-                console.error('Errore nel tentativo diretto:', directError);
-              }
-            }
-            
-            // Se siamo qui, proviamo con i dati di fallback
-            if (services.length > 0) {
-              console.log('Generazione tariffe simulate come fallback');
-              const fallbackRates = generateFallbackRates(actualServiceId);
-              if (fallbackRates.length > 0) {
-                setRates(fallbackRates);
-                toast({
-                  title: "Information",
-                  description: "Showing simulated rates because valid data is not available from the server",
-                  variant: "default"
-                });
-                setIsLoading(false);
-                return;
-              }
-            }
-            
-            // Altrimenti, usiamo i dati così come sono
-            console.log('Utilizzo dei dati così come sono, anche se non sembrano validi');
-            setRates(data.data);
-          }
-        } else {
-          console.warn('Nessuna tariffa trovata o formato dati non valido');
-          
-          // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
-          if (services.length > 0) {
-            console.log('Generazione tariffe simulate come fallback');
-            const fallbackRates = generateFallbackRates(actualServiceId);
-            if (fallbackRates.length > 0) {
-              setRates(fallbackRates);
-              toast({
-                title: "Information",
-                description: "Showing simulated rates as no data was found on the server",
-                variant: "default"
-              });
-              // Non mostriamo altro toast, abbiamo dei dati simulati
-              setIsLoading(false);
-              return;
-            }
-          }
-          
-          // Se non possiamo generare dati fallback, mostriamo un array vuoto
-          setRates([]);
-          toast({
-            title: "Notice",
-            description: "No rates found for the selected criteria",
-            variant: "default"
-          });
-        }
+        setRates(data.data);
       } else {
-        console.error('Errore API:', data.message);
-        
-        // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
-        if (services.length > 0) {
-          console.log('Generazione tariffe simulate come fallback dopo errore API');
-          const fallbackRates = generateFallbackRates(actualServiceId);
-          if (fallbackRates.length > 0) {
-            setRates(fallbackRates);
-            toast({
-              title: "Information",
-              description: "Showing simulated rates due to an API error",
-              variant: "default"
-            });
-            // Non mostriamo altro toast, abbiamo dei dati simulati
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        setRates([]);
         toast({
-          title: "Error",
-          description: data.message || "Unable to load rates",
+          title: "Errore",
+          description: data.message || "Impossibile caricare le tariffe",
           variant: "destructive"
         });
+        setRates([]);
       }
     } catch (error) {
-      console.error('Errore caricamento tariffe:', error);
-      
-      // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
-      if (services.length > 0) {
-        console.log('Generazione tariffe simulate come fallback dopo eccezione');
-        const fallbackRates = generateFallbackRates(serviceId === "_all" ? undefined : serviceId);
-        if (fallbackRates.length > 0) {
-          setRates(fallbackRates);
-          toast({
-            title: "Information",
-            description: "Showing simulated rates due to a connection error",
-            variant: "default"
-          });
-          // Non mostriamo altro toast, abbiamo dei dati simulati
-          setIsLoading(false);
-          return;
-        }
-      }
-      
-      setRates([]);
+      console.error('Errore nel caricamento delle tariffe:', error);
       toast({
         title: "Error",
-        description: "Unable to connect to the server to load rates. Try again later.",
+        description: "Failed to load rates",
         variant: "destructive"
       });
+      setRates([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Aggiungo una funzione di fallback per generare tariffe simulare in caso di problemi
-  const generateFallbackRates = (serviceId?: string): Rate[] => {
-    if (!services || services.length === 0) return [];
-    
-    // Trova il servizio corrispondente o il primo disponibile
-    const service = serviceId 
-      ? services.find(s => s._id === serviceId) 
-      : services[0];
-    
-    if (!service) return [];
-    
-    // Verifica che il servizio abbia la proprietà carrier
-    if (!service.carrier) {
-      console.error('Servizio senza proprietà carrier:', service);
-      // Utilizziamo un carrier di fallback
-      service.carrier = {
-        _id: "fallback-carrier-id",
-        name: "Carrier Fallback"
-      };
-    }
-    
-    // Genera alcune fasce di peso simulate
-    const weightRanges = [
-      { min: 0, max: 1 },
-      { min: 1, max: 2 },
-      { min: 2, max: 5 },
-      { min: 5, max: 10 },
-      { min: 10, max: 20 }
-    ];
-    
-    return weightRanges.map((range, index) => ({
-      _id: `fallback-${service._id}-${index}`,
-      service: {
-        _id: service._id,
-        name: service.name,
-        carrier: service.carrier  // Questo ora è garantito che esista
-      },
-      weightMin: range.min,
-      weightMax: range.max,
-      purchasePrice: 5 + range.max * 0.5,
-      retailPrice: 10 + range.max * 0.7,
-      margin: 5 + range.max * 0.2,
-      marginPercentage: 40,
-      volumeDiscount: 0,
-      promotionalDiscount: 0,
-      minimumVolume: 0,
-      isActive: true
-    }));
-  };
-
   // Modifico useEffect per gestire l'inizializzazione
   useEffect(() => {
-    // Imposta il valore di default per il filtro
-    setSelectedService("_all");
-    
-    // Carica servizi e tariffe
+    // Carica solo i corrieri e i servizi all'avvio, non le tariffe
     const initializeData = async () => {
       await loadServices();
-      // Carica tutte le tariffe all'inizio
-      await loadRates("_all");
+      // Non carichiamo i servizi finché non viene selezionato un corriere
+      if (selectedService && selectedService !== "_all") {
+        await loadRates(selectedService);
+      }
     };
     
     initializeData();
-  }, []);
+  }, [selectedService]);
 
   // Carica le tariffe quando cambia il servizio selezionato
   useEffect(() => {
@@ -937,6 +716,13 @@ export default function RatesPage() {
   // Gestisce il cambio del servizio selezionato
   const handleServiceChange = (serviceId: string) => {
     setSelectedService(serviceId);
+    // Carica le tariffe solo se viene selezionato un servizio valido
+    if (serviceId && serviceId !== "none" && serviceId !== "loading") {
+      loadRates(serviceId);
+    } else {
+      // Se non è selezionato nessun servizio valido, svuota la lista delle tariffe
+      setRates([]);
+    }
   };
 
   // Gestisce l'apertura del dialog per la creazione
@@ -1139,6 +925,7 @@ export default function RatesPage() {
                   onEdit={handleEdit}
                   onDelete={confirmDelete}
                   isLoading={isLoading}
+                  services={services}
                 />
               )}
             </CardContent>
