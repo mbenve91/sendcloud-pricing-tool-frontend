@@ -167,89 +167,95 @@ async function fetchRatesFallback(serviceId?: string | null): Promise<any[]> {
   }
 }
 
-// GET: Ottiene tutte le tariffe o filtra per servizio
+// GET: Ottiene tutte le tariffe
 export async function GET(request: NextRequest) {
   try {
-    // Ottieni i parametri dalla query string
-    const { searchParams } = new URL(request.url);
-    const serviceId = searchParams.get('service');
-
-    // Log della richiesta per debug
-    console.log(`GET /api/rates - Parametri: service=${serviceId || 'nessuno'}`);
-
-    // Correggiamo l'URL del backend per usare lo stesso formato di altre parti dell'app
-    const backendUrl = isProduction 
-      ? 'https://sendcloud-pricing-tool-backend.onrender.com' 
-      : (process.env.BACKEND_URL || 'http://localhost:5050');
-    let apiPath = '/api/rates';
+    // Ottieni il parametro service dalla query string
+    const serviceId = new URL(request.url).searchParams.get('service');
+    console.log(`URL richiesta tariffe: ${request.url}`);
     
-    // Se è specificato un service, usiamo l'endpoint specifico del servizio
+    // Usa l'endpoint corretto in base alla presenza del serviceId
+    let apiEndpoint = `${API_URL}/rates`;
+    
     if (serviceId) {
-      apiPath = `/api/rates/service/${serviceId}/weightRanges`;
-      console.log(`Richiesta tariffe per servizio specifico: ${apiPath}`);
+      // Usando il formato corretto per l'endpoint dei weight ranges
+      apiEndpoint = `${API_URL}/rates/service/${serviceId}/weightRanges`;
     }
-
-    // Effettua la richiesta alla backend API
-    const response = await fetchWithRetry(`${backendUrl}${apiPath}`);
-    const data = await response.json();
-
-    // Verifica che i dati siano in un formato supportato
-    let rates: any[] = [];
-    if (Array.isArray(data)) {
-      console.log(`Ricevute ${data.length} tariffe (formato array)`);
-      rates = data;
-    } else if (data && Array.isArray(data.data)) {
-      console.log(`Ricevute ${data.data.length} tariffe (formato .data)`);
-      rates = data.data;
-    } else {
-      console.error('Formato dati non riconosciuto:', data);
-      
-      // Tenta il recupero con il metodo alternativo
-      console.log('Tentativo con endpoint fallback...');
-      rates = await fetchRatesFallback(serviceId);
-      
-      if (rates.length === 0) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Formato dati non riconosciuto e fallback fallito' 
-        }, { status: 500 });
-      }
-    }
-
-    // Convalida e normalizza i dati
-    const validatedRates = validateRatesData(rates);
-
-    // Restituisci i dati
-    console.log(`Restituzione di ${validatedRates.length} tariffe validate`);
-    return NextResponse.json({
-      success: true,
-      data: validatedRates
-    });
-  } catch (error) {
-    console.error('Errore durante il recupero delle tariffe:', error);
     
-    // Tenta il recupero con il metodo alternativo
-    try {
-      const serviceId = new URL(request.url).searchParams.get('service');
-      console.log('Tentativo con endpoint fallback dopo errore...');
-      const rates = await fetchRatesFallback(serviceId);
+    console.log(`Chiamata al backend: ${apiEndpoint}`);
+    
+    const response = await fetchWithRetry(apiEndpoint);
+    
+    if (!response.ok) {
+      console.error(`Errore dal backend: ${response.status} ${response.statusText}`);
+      return NextResponse.json(
+        { success: false, message: "Impossibile recuperare le tariffe dal backend" },
+        { status: 200 } // Restituiamo 200 per gestire l'errore nel frontend
+      );
+    }
+    
+    const result = await response.json();
+    console.log('Risposta API tariffe:', result);
+    
+    if (result.success) {
+      console.log(`Tariffe caricate: ${result.data?.length || 0}`);
       
-      if (rates.length > 0) {
-        const validatedRates = validateRatesData(rates);
-        console.log(`Restituzione di ${validatedRates.length} tariffe dal fallback`);
-        return NextResponse.json({
-          success: true,
-          data: validatedRates
+      // Se i dati provengono dall'endpoint weightRanges, mappiamo i dati
+      if (serviceId) {
+        return NextResponse.json({ 
+          success: true, 
+          data: result.data.map((weightRange: any) => ({
+            _id: weightRange.id,
+            service: { _id: serviceId },
+            weightMin: weightRange.min,
+            weightMax: weightRange.max,
+            purchasePrice: weightRange.basePrice - weightRange.actualMargin,
+            retailPrice: weightRange.basePrice,
+            active: true
+          }))
         });
       }
-    } catch (fallbackError) {
-      console.error('Anche il fallback è fallito:', fallbackError);
+      
+      // Gestione sicura per il caso generale
+      try {
+        // Assicuriamoci che result.data esista e sia un array
+        if (Array.isArray(result.data)) {
+          return NextResponse.json({ success: true, data: result.data });
+        } else {
+          console.error('I dati ricevuti non sono un array:', result.data);
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Formato dati non valido dal backend',
+            data: [] // Array vuoto come fallback
+          }, { status: 200 });
+        }
+      } catch (validationError) {
+        console.error('Errore nella validazione dei dati:', validationError);
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Errore nella validazione dei dati',
+          data: [] // Array vuoto come fallback
+        }, { status: 200 });
+      }
+    } else {
+      console.log('La risposta API non ha avuto successo:', result);
+      return NextResponse.json({ 
+        success: false, 
+        message: result.message || 'Errore nel recupero delle tariffe',
+        data: [] // Array vuoto come fallback
+      }, { status: 200 });
     }
-    
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Impossibile recuperare le tariffe' 
-    }, { status: 500 });
+  } catch (error) {
+    console.error('Errore nella richiesta delle tariffe:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: "Impossibile recuperare le tariffe", 
+        error: error instanceof Error ? error.message : String(error),
+        data: [] // Array vuoto come fallback
+      },
+      { status: 200 } // Restituiamo 200 per gestire l'errore nel frontend
+    );
   }
 }
 
