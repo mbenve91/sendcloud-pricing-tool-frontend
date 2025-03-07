@@ -465,7 +465,7 @@ function RatesTable({
   // Funzione helper per ottenere il nome del servizio dall'ID
   const getServiceName = (serviceId: string) => {
     const service = services.find(s => s._id === serviceId);
-    return service ? service.name : `Servizio (ID: ${serviceId.substring(0, 8)}...)`;
+    return service ? service.name : `Unknown Service (ID: ${serviceId.substring(0, 8)}...)`;
   };
 
   return (
@@ -473,12 +473,12 @@ function RatesTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Servizio</TableHead>
-            <TableHead>Corriere</TableHead>
-            <TableHead>Range di Peso</TableHead>
-            <TableHead>Prezzo d'Acquisto</TableHead>
-            <TableHead>Prezzo al Dettaglio</TableHead>
-            <TableHead>Azioni</TableHead>
+            <TableHead>Service</TableHead>
+            <TableHead>Carrier</TableHead>
+            <TableHead>Weight Range</TableHead>
+            <TableHead>Purchase Price</TableHead>
+            <TableHead>Retail Price</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -504,13 +504,13 @@ function RatesTable({
                   {rate.service && rate.service.name 
                     ? rate.service.name 
                     : rate.service && rate.service._id 
-                      ? getServiceName(rate.service._id)  // Usa la funzione helper
-                      : "Servizio sconosciuto"}
+                      ? getServiceName(rate.service._id)
+                      : "Unknown Service"}
                 </TableCell>
                 <TableCell>
                   {rate.service && rate.service.carrier && rate.service.carrier.name 
                     ? rate.service.carrier.name 
-                    : "Corriere sconosciuto"}
+                    : "Unknown Carrier"}
                 </TableCell>
                 <TableCell>
                   {rate.weightMin !== undefined && rate.weightMax !== undefined 
