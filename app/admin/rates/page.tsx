@@ -498,59 +498,69 @@ function RatesTable({
               </TableCell>
             </TableRow>
           ) : (
-            rates.map((rate) => (
-              <TableRow key={rate._id}>
-                <TableCell>
-                  {rate.service && rate.service.name 
-                    ? rate.service.name 
-                    : rate.service && rate.service._id 
-                      ? getServiceName(rate.service._id)
-                      : "Unknown Service"}
-                </TableCell>
-                <TableCell>
-                  {rate.service && rate.service.carrier && rate.service.carrier.name 
-                    ? rate.service.carrier.name 
-                    : "Unknown Carrier"}
-                </TableCell>
-                <TableCell>
-                  {rate.weightMin !== undefined && rate.weightMax !== undefined 
-                    ? `${rate.weightMin} - ${rate.weightMax} kg` 
-                    : "N/A"}
-                </TableCell>
-                <TableCell>
-                  {rate.purchasePrice !== undefined 
-                    ? `€${rate.purchasePrice.toFixed(2)}` 
-                    : "N/A"}
-                </TableCell>
-                <TableCell>
-                  {rate.retailPrice !== undefined 
-                    ? `€${rate.retailPrice.toFixed(2)}` 
-                    : "N/A"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => onEdit(rate)} 
-                      disabled={isLoading}
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => onDelete(rate)} 
-                      disabled={isLoading}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+            rates.map((rate) => {
+              // Find the corresponding service for this rate to get carrier info
+              const service = services.find(s => 
+                s._id === (rate.service._id || rate.service)
+              );
+              
+              return (
+                <TableRow key={rate._id}>
+                  <TableCell>
+                    {rate.service && rate.service.name 
+                      ? rate.service.name 
+                      : rate.service && rate.service._id 
+                        ? getServiceName(rate.service._id)
+                        : "Unknown Service"}
+                  </TableCell>
+                  <TableCell>
+                    {/* Use carrier info from the found service if available */}
+                    {service && service.carrier && service.carrier.name
+                      ? service.carrier.name
+                      : rate.service && rate.service.carrier && rate.service.carrier.name 
+                        ? rate.service.carrier.name 
+                        : "Unknown Carrier"}
+                  </TableCell>
+                  <TableCell>
+                    {rate.weightMin !== undefined && rate.weightMax !== undefined 
+                      ? `${rate.weightMin} - ${rate.weightMax} kg` 
+                      : "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    {rate.purchasePrice !== undefined 
+                      ? `€${rate.purchasePrice.toFixed(2)}` 
+                      : "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    {rate.retailPrice !== undefined 
+                      ? `€${rate.retailPrice.toFixed(2)}` 
+                      : "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => onEdit(rate)} 
+                        disabled={isLoading}
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => onDelete(rate)} 
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
