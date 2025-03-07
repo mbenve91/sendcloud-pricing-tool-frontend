@@ -182,7 +182,10 @@ export default function CartPage() {
                   <TableHead>Weight Range</TableHead>
                   {cartItems[0]?.countryName && <TableHead>Country</TableHead>}
                   <TableHead>Delivery Time</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Base Price</TableHead>
+                  <TableHead className="text-right">Discount</TableHead>
+                  <TableHead className="text-right">Fuel Surcharge</TableHead>
+                  <TableHead className="text-right">Final Price</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -210,6 +213,27 @@ export default function CartPage() {
                       {item.deliveryTimeMin && item.deliveryTimeMax
                         ? `${item.deliveryTimeMin}-${item.deliveryTimeMax} days`
                         : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.basePrice)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.userDiscount > 0 ? (
+                        <>
+                          {item.userDiscount}% <span className="text-success">(-{formatCurrency(item.actualMargin * (item.userDiscount / 100))})</span>
+                        </>
+                      ) : (
+                        "0%"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.fuelSurcharge > 0 ? (
+                        <>
+                          {item.fuelSurcharge}% <span className="text-muted-foreground">({formatCurrency(item.basePrice * (item.fuelSurcharge / 100))})</span>
+                        </>
+                      ) : (
+                        "0%"
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(item.finalPrice)}
@@ -312,6 +336,11 @@ export default function CartPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Aggiungiamo una nota sul prezzo IVA esclusa */}
+      <div className="mt-4 text-sm text-muted-foreground text-right italic">
+        * Tutti i prezzi sono da intendersi IVA esclusa
+      </div>
     </main>
   )
 } 

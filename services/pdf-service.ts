@@ -141,6 +141,30 @@ const getTranslation = (key: string, language: string): string => {
       'italian': 'Questo preventivo è valido per 30 giorni dalla data sopra indicata. I prezzi possono variare in base alle dimensioni e al peso effettivi del pacco.',
       'german': 'Dieses Angebot ist 30 Tage ab dem obigen Datum gültig. Die Preise können je nach tatsächlichen Paketabmessungen und Gewicht variieren.',
       'spanish': 'Este presupuesto es válido por 30 días a partir de la fecha indicada. Los precios pueden variar según las dimensiones reales del paquete y el peso.'
+    },
+    'base_price': {
+      'english': 'Base Price',
+      'italian': 'Prezzo Base',
+      'german': 'Grundpreis',
+      'spanish': 'Precio Base'
+    },
+    'discount': {
+      'english': 'Discount',
+      'italian': 'Sconto',
+      'german': 'Rabatt',
+      'spanish': 'Descuento'
+    },
+    'fuel_surcharge': {
+      'english': 'Fuel Surcharge',
+      'italian': 'Sovrapprezzo Carburante',
+      'german': 'Kraftstoffzuschlag',
+      'spanish': 'Recargo por Combustible'
+    },
+    'vat_excluded': {
+      'english': 'All prices exclude VAT',
+      'italian': 'Tutti i prezzi sono IVA esclusa',
+      'german': 'Alle Preise verstehen sich zuzüglich MwSt',
+      'spanish': 'Todos los precios no incluyen IVA'
     }
   };
   
@@ -292,7 +316,7 @@ const generateSimplePDF = async (
     const rowHeight = 10;
     const margin = 14;
     const hasCountry = rates.some(r => r.countryName);
-    const cols = hasCountry ? 6 : 5;
+    const cols = hasCountry ? 8 : 7;
     
     // MODIFICA: Adatta le larghezze delle colonne in base alla lingua
     // Assegna più spazio alla colonna del tempo di consegna in italiano
@@ -300,30 +324,30 @@ const generateSimplePDF = async (
     if (language === 'italian') {
       // Larghezze personalizzate per italiano (più spazio per "Tempo di Consegna")
       if (hasCountry) {
-        colWidths = [0.19, 0.19, 0.15, 0.15, 0.22, 0.10].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
       } else {
-        colWidths = [0.22, 0.22, 0.17, 0.25, 0.14].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
       }
     } else if (language === 'german') {
       // Larghezze personalizzate per tedesco
       if (hasCountry) {
-        colWidths = [0.19, 0.19, 0.15, 0.15, 0.17, 0.15].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
       } else {
-        colWidths = [0.22, 0.22, 0.17, 0.20, 0.19].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
       }
     } else if (language === 'spanish') {
       // Larghezze personalizzate per spagnolo
       if (hasCountry) {
-        colWidths = [0.19, 0.19, 0.15, 0.15, 0.19, 0.13].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
       } else {
-        colWidths = [0.22, 0.22, 0.17, 0.22, 0.17].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
       }
     } else {
       // Larghezze predefinite per inglese e altre lingue
       if (hasCountry) {
-        colWidths = [0.19, 0.19, 0.15, 0.15, 0.17, 0.15].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
       } else {
-        colWidths = [0.22, 0.22, 0.17, 0.20, 0.19].map(w => (210 - (margin * 2)) * w);
+        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
       }
     }
     
@@ -371,7 +395,25 @@ const generateSimplePDF = async (
     doc.text(deliveryText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 4 : 3];
     
-    // Price
+    // Base Price
+    const basePriceText = getTranslation('base_price', language);
+    doc.setFontSize(getHeaderFontSize(basePriceText));
+    doc.text(basePriceText, currentX, startY + 6);
+    currentX += colWidths[hasCountry ? 4 : 3];
+    
+    // Discount
+    const discountText = getTranslation('discount', language);
+    doc.setFontSize(getHeaderFontSize(discountText));
+    doc.text(discountText, currentX, startY + 6);
+    currentX += colWidths[hasCountry ? 5 : 4];
+    
+    // Fuel Surcharge
+    const fuelText = getTranslation('fuel_surcharge', language);
+    doc.setFontSize(getHeaderFontSize(fuelText));
+    doc.text(fuelText, currentX, startY + 6);
+    currentX += colWidths[hasCountry ? 6 : 5];
+    
+    // Final Price
     const priceText = getTranslation('price', language);
     doc.setFontSize(getHeaderFontSize(priceText));
     doc.text(priceText, currentX, startY + 6);
@@ -428,7 +470,25 @@ const generateSimplePDF = async (
       doc.text(deliveryText, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 4 : 3];
       
-      // Price - utilizziamo il grassetto per il prezzo
+      // Base Price
+      doc.text(formatCurrency(rate.basePrice, language), currentX, currentY + 6);
+      currentX += colWidths[hasCountry ? 4 : 3];
+      
+      // Discount
+      const discountValue = rate.userDiscount > 0 
+        ? `${rate.userDiscount}%` 
+        : "0%";
+      doc.text(discountValue, currentX, currentY + 6);
+      currentX += colWidths[hasCountry ? 5 : 4];
+      
+      // Fuel Surcharge
+      const fuelValue = rate.fuelSurcharge > 0 
+        ? `${rate.fuelSurcharge}%` 
+        : "0%";
+      doc.text(fuelValue, currentX, currentY + 6);
+      currentX += colWidths[hasCountry ? 6 : 5];
+      
+      // Final Price - utilizziamo il grassetto per il prezzo finale
       const priceText = formatCurrency(rate.finalPrice, language);
       doc.setFont('helvetica', 'bold');
       doc.text(priceText, currentX, currentY + 6);
@@ -465,6 +525,13 @@ const generateSimplePDF = async (
     const footerText = getTranslation('footer_text', language);
     const splitFooter = doc.splitTextToSize(footerText, 180);
     doc.text(splitFooter, 14, finalY + 20);
+    
+    // Aggiungiamo la nota sui prezzi IVA esclusa
+    const vatNoteY = finalY + 30; // Posizionamento dopo il footer text
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`* ${getTranslation('vat_excluded', language)}`, 14, vatNoteY);
     
     // Footer con informazioni aziendali
     const pageHeight = doc.internal.pageSize.height;
