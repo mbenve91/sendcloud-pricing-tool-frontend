@@ -277,14 +277,14 @@ const ServiceForm = ({
                 <FormLabel>Destination Country</FormLabel>
                 <Select
                   onValueChange={(value) => {
-                    field.onChange(value);
+                    field.onChange(value === "none" ? "" : value);
                     // Imposta automaticamente isEU in base al paese selezionato
                     const selectedCountry = COUNTRIES.find(country => country.code === value);
                     if (selectedCountry) {
                       form.setValue("isEU", selectedCountry.isEU);
                     }
                   }}
-                  value={field.value || ""}
+                  value={field.value || "none"}
                   disabled={form.watch("destinationType") === "national"}
                 >
                   <FormControl>
@@ -293,7 +293,7 @@ const ServiceForm = ({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="">No specific country</SelectItem>
+                    <SelectItem value="none">No specific country</SelectItem>
                     <SelectGroup>
                       <SelectLabel>European Union</SelectLabel>
                       {COUNTRIES.filter(c => c.isEU).map((country) => (

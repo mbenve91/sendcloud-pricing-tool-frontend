@@ -141,7 +141,7 @@ const ServiceFilter = ({
             <SelectValue placeholder="All Services" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Services</SelectItem>
+            <SelectItem value="_all">All Services</SelectItem>
             {isLoadingServices ? (
               <SelectItem value="loading" disabled>Loading services...</SelectItem>
             ) : services.length === 0 ? (
@@ -444,7 +444,7 @@ const RateForm = ({
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [selectedService, setSelectedService] = useState<string>("")
+  const [selectedService, setSelectedService] = useState<string>("_all")
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
@@ -520,51 +520,50 @@ export default function RatesPage() {
 
   // Carica le tariffe
   const loadRates = async (serviceId?: string) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const url = serviceId ? `/api/rates?service=${serviceId}` : '/api/rates'
-      const response = await fetch(url)
+      // Se serviceId è "_all", significa "tutti i servizi", quindi lo impostiamo a undefined
+      const actualServiceId = serviceId === "_all" ? undefined : serviceId;
       
-      // Verifica lo stato della risposta prima di procedere
+      const url = actualServiceId ? `/api/rates?service=${actualServiceId}` : '/api/rates';
+      const response = await fetch(url);
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error (${response.status}): ${errorText}`);
         throw new Error(`Server error: ${response.status}`);
       }
       
-      const data = await response.json()
+      const data = await response.json();
       if (data.success) {
-        // Verifica che i dati siano validi prima di impostare lo stato
-        if (Array.isArray(data.data)) {
-          setRates(data.data)
-        } else {
-          console.error('Invalid rates data format:', data);
-          setRates([])
-          toast({
-            title: "Warning",
-            description: "Received invalid data format from server",
-            variant: "destructive"
-          })
-        }
+        setRates(data.data);
       } else {
+        console.error('API response error:', data.message);
         toast({
           title: "Error",
           description: data.message || "Failed to load rates",
           variant: "destructive"
-        })
+        });
+        
+        // Usa dati di fallback nel caso di errore
+        if (rates.length === 0) {
+          setRates([]);
+        }
       }
     } catch (error) {
-      console.error('Error loading rates:', error)
-      setRates([]) // Imposta un array vuoto per evitare errori di rendering
+      console.error('Error loading rates:', error);
       toast({
         title: "Error",
-        description: "Failed to load rates. Please check server logs.",
+        description: "Could not connect to the server. Please try again later.",
         variant: "destructive"
-      })
+      });
+      
+      // Mantieni i dati esistenti o usa un array vuoto
+      if (rates.length === 0) {
+        setRates([]);
+      }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Carica i dati all'avvio
   useEffect(() => {
@@ -579,13 +578,13 @@ export default function RatesPage() {
 
   // Gestisce il cambio del servizio selezionato
   const handleServiceChange = (serviceId: string) => {
-    setSelectedService(serviceId)
-  }
+    setSelectedService(serviceId);
+  };
 
   // Gestisce l'apertura del dialog per la creazione
   const handleCreate = () => {
     form.reset({
-      service: selectedService || "",
+      service: selectedService === "_all" ? "" : selectedService,
       weightMin: 0,
       weightMax: 0,
       purchasePrice: 0,
@@ -596,10 +595,10 @@ export default function RatesPage() {
       promotionalDiscount: 0,
       minimumVolume: 0,
       isActive: true
-    })
-    setEditingRate(null)
-    setIsOpen(true)
-  }
+    });
+    setEditingRate(null);
+    setIsOpen(true);
+  };
 
   // Gestisce l'apertura del dialog per la modifica
   const handleEdit = (rate: Rate) => {
