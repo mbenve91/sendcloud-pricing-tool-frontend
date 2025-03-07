@@ -59,7 +59,7 @@ const serviceFormSchema = z.object({
     required_error: "Please select a carrier.",
   }),
   destinationType: z.enum(["national", "international", "both"]),
-  destinationCountry: z.string().optional(),
+  destinationCountry: z.array(z.string()).default([]),
   isEU: z.boolean().default(false),
   deliveryTimeMin: z.coerce.number().int().min(0).optional().nullable(),
   deliveryTimeMax: z.coerce.number().int().min(0).optional().nullable(),
@@ -79,7 +79,7 @@ interface Service {
     name: string
   }
   destinationType: "national" | "international" | "both"
-  destinationCountry: string | null
+  destinationCountry: string[]
   isEU: boolean
   deliveryTimeMin: number | null
   deliveryTimeMax: number | null
@@ -96,45 +96,45 @@ interface Carrier {
 const COUNTRIES = [
   // Paesi UE
   { code: 'AT', name: 'Austria', isEU: true },
-  { code: 'BE', name: 'Belgio', isEU: true },
+  { code: 'BE', name: 'Belgium', isEU: true },
   { code: 'BG', name: 'Bulgaria', isEU: true },
-  { code: 'HR', name: 'Croazia', isEU: true },
-  { code: 'CY', name: 'Cipro', isEU: true },
-  { code: 'CZ', name: 'Repubblica Ceca', isEU: true },
-  { code: 'DK', name: 'Danimarca', isEU: true },
+  { code: 'HR', name: 'Croatia', isEU: true },
+  { code: 'CY', name: 'Cyprus', isEU: true },
+  { code: 'CZ', name: 'Czech Republic', isEU: true },
+  { code: 'DK', name: 'Denmark', isEU: true },
   { code: 'EE', name: 'Estonia', isEU: true },
-  { code: 'FI', name: 'Finlandia', isEU: true },
-  { code: 'FR', name: 'Francia', isEU: true },
-  { code: 'DE', name: 'Germania', isEU: true },
-  { code: 'GR', name: 'Grecia', isEU: true },
-  { code: 'HU', name: 'Ungheria', isEU: true },
-  { code: 'IE', name: 'Irlanda', isEU: true },
-  { code: 'IT', name: 'Italia', isEU: true },
-  { code: 'LV', name: 'Lettonia', isEU: true },
-  { code: 'LT', name: 'Lituania', isEU: true },
-  { code: 'LU', name: 'Lussemburgo', isEU: true },
+  { code: 'FI', name: 'Finland', isEU: true },
+  { code: 'FR', name: 'France', isEU: true },
+  { code: 'DE', name: 'Germany', isEU: true },
+  { code: 'GR', name: 'Greece', isEU: true },
+  { code: 'HU', name: 'Hungary', isEU: true },
+  { code: 'IE', name: 'Ireland', isEU: true },
+  { code: 'IT', name: 'Italy', isEU: true },
+  { code: 'LV', name: 'Latvia', isEU: true },
+  { code: 'LT', name: 'Lithuania', isEU: true },
+  { code: 'LU', name: 'Luxembourg', isEU: true },
   { code: 'MT', name: 'Malta', isEU: true },
-  { code: 'NL', name: 'Paesi Bassi', isEU: true },
-  { code: 'PL', name: 'Polonia', isEU: true },
-  { code: 'PT', name: 'Portogallo', isEU: true },
+  { code: 'NL', name: 'Netherlands', isEU: true },
+  { code: 'PL', name: 'Poland', isEU: true },
+  { code: 'PT', name: 'Portugal', isEU: true },
   { code: 'RO', name: 'Romania', isEU: true },
-  { code: 'SK', name: 'Slovacchia', isEU: true },
+  { code: 'SK', name: 'Slovakia', isEU: true },
   { code: 'SI', name: 'Slovenia', isEU: true },
-  { code: 'ES', name: 'Spagna', isEU: true },
-  { code: 'SE', name: 'Svezia', isEU: true },
+  { code: 'ES', name: 'Spain', isEU: true },
+  { code: 'SE', name: 'Sweden', isEU: true },
   // Paesi non UE più comuni
-  { code: 'GB', name: 'Regno Unito', isEU: false },
-  { code: 'US', name: 'Stati Uniti', isEU: false },
+  { code: 'GB', name: 'United Kingdom', isEU: false },
+  { code: 'US', name: 'United States', isEU: false },
   { code: 'CA', name: 'Canada', isEU: false },
   { code: 'AU', name: 'Australia', isEU: false },
-  { code: 'NZ', name: 'Nuova Zelanda', isEU: false },
-  { code: 'JP', name: 'Giappone', isEU: false },
-  { code: 'CN', name: 'Cina', isEU: false },
+  { code: 'NZ', name: 'New Zealand', isEU: false },
+  { code: 'JP', name: 'Japan', isEU: false },
+  { code: 'CN', name: 'China', isEU: false },
   { code: 'IN', name: 'India', isEU: false },
-  { code: 'BR', name: 'Brasile', isEU: false },
+  { code: 'BR', name: 'Brazil', isEU: false },
   { code: 'RU', name: 'Russia', isEU: false },
-  { code: 'CH', name: 'Svizzera', isEU: false },
-  { code: 'NO', name: 'Norvegia', isEU: false },
+  { code: 'CH', name: 'Switzerland', isEU: false },
+  { code: 'NO', name: 'Norway', isEU: false },
   // Aggiungi altri paesi secondo necessità
 ];
 
@@ -317,46 +317,49 @@ const ServiceForm = ({
             name="destinationCountry"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Destination Country</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(value === "none" ? "" : value);
-                    // Imposta automaticamente isEU in base al paese selezionato
-                    const selectedCountry = COUNTRIES.find(country => country.code === value);
-                    if (selectedCountry) {
-                      form.setValue("isEU", selectedCountry.isEU);
-                    }
-                  }}
-                  value={field.value || "none"}
-                  disabled={form.watch("destinationType") === "national"}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select destination country" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent className="max-h-[300px]">
-                    <SelectItem value="none">No specific country</SelectItem>
-                    <SelectGroup>
-                      <SelectLabel>European Union</SelectLabel>
-                      {COUNTRIES.filter(c => c.isEU).map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.name} ({country.code})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Non-EU Countries</SelectLabel>
-                      {COUNTRIES.filter(c => !c.isEU).map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.name} ({country.code})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <FormLabel>Destination Countries</FormLabel>
+                <div className="relative">
+                  <Select
+                    multiple
+                    onValueChange={(values) => {
+                      field.onChange(values);
+                      // Se è selezionato almeno un paese, controlla se tutti i paesi selezionati sono EU
+                      if (values.length > 0) {
+                        const selectedCountries = COUNTRIES.filter(c => values.includes(c.code));
+                        const allEU = selectedCountries.every(c => c.isEU);
+                        form.setValue("isEU", allEU);
+                      }
+                    }}
+                    value={field.value}
+                    disabled={form.watch("destinationType") === "national"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select destination countries" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectGroup>
+                        <SelectLabel>European Union</SelectLabel>
+                        {COUNTRIES.filter(c => c.isEU).map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            {country.name} ({country.code})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>Non-EU Countries</SelectLabel>
+                        {COUNTRIES.filter(c => !c.isEU).map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            {country.name} ({country.code})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <FormDescription>
-                  Required for specific international destinations
+                  Select countries for international destinations
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -489,7 +492,7 @@ export default function ServicesPage() {
       code: "",
       description: "",
       destinationType: "national",
-      destinationCountry: "",
+      destinationCountry: [],
       isEU: false,
       deliveryTimeMin: null,
       deliveryTimeMax: null,
@@ -607,7 +610,7 @@ export default function ServicesPage() {
       description: "",
       carrier: "",
       destinationType: "national",
-      destinationCountry: "",
+      destinationCountry: [],
       isEU: false,
       deliveryTimeMin: null,
       deliveryTimeMax: null,
@@ -626,7 +629,9 @@ export default function ServicesPage() {
       description: service.description || "",
       carrier: service.carrier._id,
       destinationType: service.destinationType,
-      destinationCountry: service.destinationCountry || "",
+      destinationCountry: Array.isArray(service.destinationCountry) 
+        ? service.destinationCountry 
+        : service.destinationCountry ? [service.destinationCountry] : [],
       isEU: service.isEU,
       deliveryTimeMin: service.deliveryTimeMin,
       deliveryTimeMax: service.deliveryTimeMax,
@@ -794,7 +799,11 @@ export default function ServicesPage() {
                           <TableCell>
                             {service.destinationType === "national" 
                               ? "Domestic" 
-                              : service.destinationCountry || (service.destinationType === "both" ? "Multiple" : "All International")}
+                              : service.destinationCountry && service.destinationCountry.length > 0
+                                ? service.destinationCountry.length === 1
+                                  ? COUNTRIES.find(c => c.code === service.destinationCountry[0])?.name || service.destinationCountry[0]
+                                  : `${service.destinationCountry.length} countries selected`
+                                : (service.destinationType === "both" ? "Multiple" : "All International")}
                             {service.isEU && service.destinationType !== "national" && " (EU)"}
                           </TableCell>
                           <TableCell>

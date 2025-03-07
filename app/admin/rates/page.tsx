@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { PlusCircle, Edit, Trash2, ChevronLeft, Info } from "lucide-react"
+import { PlusCircle, Edit, Trash2, ChevronLeft, Info, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
@@ -115,6 +115,14 @@ interface Service {
     _id: string
     name: string
   }
+}
+
+// Definizione interfacce
+interface RatesTableProps {
+  rates: any[]; // O il tipo specifico se disponibile
+  onEdit: (rate: any) => void;
+  onDelete: (rate: any) => void;
+  isLoading: boolean;
 }
 
 // Componente per il filtro del servizio
@@ -441,6 +449,99 @@ const RateForm = ({
   );
 };
 
+function RatesTable({ rates, onEdit, onDelete, isLoading }: RatesTableProps) {
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Service</TableHead>
+            <TableHead>Carrier</TableHead>
+            <TableHead>Weight Range</TableHead>
+            <TableHead>Purchase Price</TableHead>
+            <TableHead>Retail Price</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-10">
+                <div className="flex justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading rates...</p>
+              </TableCell>
+            </TableRow>
+          ) : rates.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-10">
+                <p className="text-muted-foreground">No rates found</p>
+              </TableCell>
+            </TableRow>
+          ) : (
+            rates.map((rate) => (
+              <TableRow key={rate._id}>
+                <TableCell>
+                  {rate.service && rate.service.name 
+                    ? rate.service.name 
+                    : rate.service && rate.service._id 
+                      ? `Service ID: ${rate.service._id.substring(0, 8)}...` 
+                      : "Unknown Service"}
+                </TableCell>
+                <TableCell>
+                  {rate.service && rate.service.carrier && rate.service.carrier.name 
+                    ? rate.service.carrier.name 
+                    : rate.service && rate.service.carrier && rate.service.carrier._id 
+                      ? `Carrier ID: ${rate.service.carrier._id.substring(0, 8)}...` 
+                      : "Unknown Carrier"}
+                </TableCell>
+                <TableCell>
+                  {rate.weightMin !== undefined && rate.weightMax !== undefined 
+                    ? `${rate.weightMin} - ${rate.weightMax} kg` 
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {rate.purchasePrice !== undefined 
+                    ? `€${rate.purchasePrice.toFixed(2)}` 
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {rate.retailPrice !== undefined 
+                    ? `€${rate.retailPrice.toFixed(2)}` 
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => onEdit(rate)} 
+                      disabled={isLoading}
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="sr-only">Edit</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => onDelete(rate)} 
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -546,6 +647,7 @@ export default function RatesPage() {
       // Se serviceId è "_all", significa "tutti i servizi", quindi lo impostiamo a undefined
       const actualServiceId = serviceId === "_all" ? undefined : serviceId;
       
+      // Costruiamo l'URL principale
       const url = actualServiceId 
         ? `/api/rates?service=${actualServiceId}` 
         : '/api/rates';
@@ -566,56 +668,116 @@ export default function RatesPage() {
         if (Array.isArray(data.data) && data.data.length > 0) {
           console.log(`Tariffe caricate: ${data.data.length}`);
           
-          // Verifica la struttura dei dati e correggi eventuali oggetti mancanti
-          const validatedRates = data.data.map((rate: any) => {
-            // Verifica che rate.service esista
-            if (!rate.service) {
-              console.warn('Tariffa senza servizio:', rate);
-              // Se abbiamo il serviceId, possiamo trovare il servizio corrispondente
-              const associatedService = actualServiceId
-                ? services.find(s => s._id === actualServiceId)
-                : services[0];
+          // Tentiamo di identificare se i dati sono validi
+          const areRatesValid = data.data.every((rate: any) => 
+            rate.service && 
+            rate.service._id && 
+            rate.service._id !== "unknown-service" &&
+            rate.weightMin !== undefined && 
+            rate.weightMax !== undefined &&
+            (rate.purchasePrice > 0 || rate.retailPrice > 0)
+          );
+          
+          if (areRatesValid) {
+            console.log('I dati sono validati e sembrano corretti');
+            
+            // Validazione extra per garantire la presenza di carrier
+            const validatedRates = data.data.map((rate: any) => {
+              // Verifica che rate.service esista
+              if (!rate.service) {
+                console.warn('Tariffa senza servizio:', rate);
+                // Se abbiamo il serviceId, possiamo trovare il servizio corrispondente
+                const associatedService = actualServiceId
+                  ? services.find(s => s._id === actualServiceId)
+                  : services[0];
+                  
+                if (associatedService) {
+                  rate.service = {
+                    _id: associatedService._id,
+                    name: associatedService.name,
+                    carrier: { ...associatedService.carrier }
+                  };
+                } else {
+                  // Fallback di emergenza
+                  rate.service = {
+                    _id: "unknown-service",
+                    name: "Servizio Sconosciuto",
+                    carrier: {
+                      _id: "unknown-carrier",
+                      name: "Corriere Sconosciuto"
+                    }
+                  };
+                }
+              } 
+              // Verifica che rate.service.carrier esista
+              else if (!rate.service.carrier) {
+                console.warn('Servizio senza corriere:', rate.service);
                 
-              if (associatedService) {
-                rate.service = {
-                  _id: associatedService._id,
-                  name: associatedService.name,
-                  carrier: { ...associatedService.carrier }
-                };
-              } else {
-                // Fallback di emergenza
-                rate.service = {
-                  _id: "unknown-service",
-                  name: "Servizio Sconosciuto",
-                  carrier: {
+                // Cerca il servizio nei servizi caricati
+                const associatedService = services.find(s => s._id === rate.service._id);
+                
+                if (associatedService && associatedService.carrier) {
+                  rate.service.carrier = { ...associatedService.carrier };
+                } else {
+                  // Fallback di emergenza
+                  rate.service.carrier = {
                     _id: "unknown-carrier",
                     name: "Corriere Sconosciuto"
-                  }
-                };
+                  };
+                }
               }
-            } 
-            // Verifica che rate.service.carrier esista
-            else if (!rate.service.carrier) {
-              console.warn('Servizio senza corriere:', rate.service);
               
-              // Cerca il servizio nei servizi caricati
-              const associatedService = services.find(s => s._id === rate.service._id);
-              
-              if (associatedService && associatedService.carrier) {
-                rate.service.carrier = { ...associatedService.carrier };
-              } else {
-                // Fallback di emergenza
-                rate.service.carrier = {
-                  _id: "unknown-carrier",
-                  name: "Corriere Sconosciuto"
-                };
+              return rate;
+            });
+            
+            setRates(validatedRates);
+          } else {
+            console.warn('I dati ricevuti non sembrano validi, proviamo un approccio alternativo');
+            
+            // Se i dati non sembrano validi, proviamo un'altra strategia
+            if (actualServiceId) {
+              // Tentativo diretto al backend
+              try {
+                console.log('Tentativo diretto con il backend usando il percorso del componente principale');
+                
+                const directUrl = `/api/services/${actualServiceId}/rates`;
+                const directResponse = await fetch(directUrl);
+                
+                if (directResponse.ok) {
+                  const directData = await directResponse.json();
+                  
+                  if (directData.success && Array.isArray(directData.data) && directData.data.length > 0) {
+                    console.log('Ottenuti dati validi dal percorso diretto:', directData.data.length);
+                    setRates(directData.data);
+                    setIsLoading(false);
+                    return;
+                  }
+                }
+              } catch (directError) {
+                console.error('Errore nel tentativo diretto:', directError);
               }
             }
             
-            return rate;
-          });
-          
-          setRates(validatedRates);
+            // Se siamo qui, proviamo con i dati di fallback
+            if (services.length > 0) {
+              console.log('Generazione tariffe simulate come fallback');
+              const fallbackRates = generateFallbackRates(actualServiceId);
+              if (fallbackRates.length > 0) {
+                setRates(fallbackRates);
+                toast({
+                  title: "Information",
+                  description: "Showing simulated rates because valid data is not available from the server",
+                  variant: "default"
+                });
+                setIsLoading(false);
+                return;
+              }
+            }
+            
+            // Altrimenti, usiamo i dati così come sono
+            console.log('Utilizzo dei dati così come sono, anche se non sembrano validi');
+            setRates(data.data);
+          }
         } else {
           console.warn('Nessuna tariffa trovata o formato dati non valido');
           
@@ -626,8 +788,8 @@ export default function RatesPage() {
             if (fallbackRates.length > 0) {
               setRates(fallbackRates);
               toast({
-                title: "Informazione",
-                description: "Mostrate tariffe simulate poiché non sono disponibili dati dal server",
+                title: "Information",
+                description: "Showing simulated rates as no data was found on the server",
                 variant: "default"
               });
               // Non mostriamo altro toast, abbiamo dei dati simulati
@@ -639,8 +801,8 @@ export default function RatesPage() {
           // Se non possiamo generare dati fallback, mostriamo un array vuoto
           setRates([]);
           toast({
-            title: "Avviso",
-            description: "Nessuna tariffa trovata per i criteri selezionati",
+            title: "Notice",
+            description: "No rates found for the selected criteria",
             variant: "default"
           });
         }
@@ -654,8 +816,8 @@ export default function RatesPage() {
           if (fallbackRates.length > 0) {
             setRates(fallbackRates);
             toast({
-              title: "Informazione",
-              description: "Mostrate tariffe simulate a causa di un errore API",
+              title: "Information",
+              description: "Showing simulated rates due to an API error",
               variant: "default"
             });
             // Non mostriamo altro toast, abbiamo dei dati simulati
@@ -666,8 +828,8 @@ export default function RatesPage() {
         
         setRates([]);
         toast({
-          title: "Errore",
-          description: data.message || "Impossibile caricare le tariffe",
+          title: "Error",
+          description: data.message || "Unable to load rates",
           variant: "destructive"
         });
       }
@@ -681,8 +843,8 @@ export default function RatesPage() {
         if (fallbackRates.length > 0) {
           setRates(fallbackRates);
           toast({
-            title: "Informazione",
-            description: "Mostrate tariffe simulate a causa di un errore di connessione",
+            title: "Information",
+            description: "Showing simulated rates due to a connection error",
             variant: "default"
           });
           // Non mostriamo altro toast, abbiamo dei dati simulati
@@ -693,8 +855,8 @@ export default function RatesPage() {
       
       setRates([]);
       toast({
-        title: "Errore",
-        description: "Impossibile connettersi al server per caricare le tariffe. Riprova più tardi.",
+        title: "Error",
+        description: "Unable to connect to the server to load rates. Try again later.",
         variant: "destructive"
       });
     } finally {
@@ -972,88 +1134,12 @@ export default function RatesPage() {
                   <p>Loading rates...</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Carrier</TableHead>
-                      <TableHead>Service</TableHead>
-                      <TableHead>Weight Range (kg)</TableHead>
-                      <TableHead>Purchase Price</TableHead>
-                      <TableHead>Retail Price</TableHead>
-                      <TableHead>Margin</TableHead>
-                      <TableHead>Discounts</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rates.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center">
-                          {selectedService 
-                            ? "No rates found for this service. Add a rate by clicking the 'Add Rate' button." 
-                            : "No rates found. Add your first rate by clicking the 'Add Rate' button."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rates.map((rate) => (
-                        <TableRow key={rate._id}>
-                          <TableCell>{rate.service.carrier.name}</TableCell>
-                          <TableCell>{rate.service.name}</TableCell>
-                          <TableCell>{rate.weightMin} - {rate.weightMax}</TableCell>
-                          <TableCell>{formatCurrency(rate.purchasePrice)}</TableCell>
-                          <TableCell>{formatCurrency(rate.retailPrice)}</TableCell>
-                          <TableCell>{formatMargin(rate.margin, rate.marginPercentage)}</TableCell>
-                          <TableCell>
-                            {(rate.volumeDiscount > 0 || rate.promotionalDiscount > 0) ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                      <Info className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Volume Discount: {rate.volumeDiscount}%</p>
-                                    <p>Promotional: {rate.promotionalDiscount}%</p>
-                                    <p>Min. Volume: {rate.minimumVolume}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : "None"}
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              rate.isActive 
-                                ? "bg-green-100 text-green-800" 
-                                : "bg-gray-100 text-gray-800"
-                            }`}>
-                              {rate.isActive ? "Active" : "Inactive"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(rate)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => confirmDelete(rate)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                <RatesTable 
+                  rates={rates}
+                  onEdit={handleEdit}
+                  onDelete={confirmDelete}
+                  isLoading={isLoading}
+                />
               )}
             </CardContent>
           </Card>

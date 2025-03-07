@@ -7,255 +7,247 @@ const API_URL = isProduction
   ? 'https://sendcloud-pricing-tool-backend.onrender.com/api' 
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api');
 
-// Funzione per gestire meglio gli errori e i tentativi multipli
-async function fetchWithRetry(url: string, options?: RequestInit, retries = 2) {
-  let lastError;
-  
-  for (let i = 0; i <= retries; i++) {
+// Funzione per effettuare richieste con retry
+async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 2) {
+  let retries = 0;
+  while (retries <= maxRetries) {
     try {
-      console.log(`Tentativo ${i+1} per ${url}`);
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
-        cache: 'no-store'
-      });
-      
-      // Se la risposta è OK, restituiamo direttamente la risposta
+      const response = await fetch(url, options);
       if (response.ok) {
-        const data = await response.json();
-        console.log(`Risposta OK da ${url}`, data);
-        return data;
+        return response;
       }
-      
-      // Altrimenti gestiamo l'errore
-      const errorText = await response.text().catch(() => "Couldn't read error response");
-      console.error(`Fetch fallito per URL ${url}: ${response.status} - ${errorText}`);
-      lastError = new Error(`API request failed with status: ${response.status} - ${errorText}`);
-      
-      // Se abbiamo altri tentativi, aspettiamo un po' prima di riprovare
-      if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-      }
+      console.error(`Tentativo ${retries + 1} fallito: status ${response.status}`);
     } catch (error) {
-      console.error(`Errore di rete per URL ${url}:`, error);
-      lastError = error;
-      // Se abbiamo altri tentativi, aspettiamo un po' prima di riprovare
-      if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-      }
+      console.error(`Tentativo ${retries + 1} fallito con errore:`, error);
     }
+    
+    // Attesa esponenziale prima di riprovare
+    if (retries < maxRetries) {
+      const waitTime = Math.pow(2, retries) * 500;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    retries++;
   }
-  
-  // Se arriviamo qui, tutti i tentativi sono falliti
-  throw lastError;
+  throw new Error(`Failed after ${maxRetries} retries`);
 }
 
-// Funzione di fallback per ottenere i dati usando l'API compareRates
-async function fetchRatesFallback(serviceId?: string | null, weight?: string | null) {
-  try {
-    console.log(`Utilizzo API fallback per ottenere tariffe (service=${serviceId}, weight=${weight})`);
-    
-    // Costruiamo i filtri per compareRates
-    const filters: any = {
-      weight: weight || "1",
-      destinationType: "national" // Default
-    };
-    
-    // Aggiungiamo l'ID del servizio se specificato
-    if (serviceId) {
-      filters.serviceId = serviceId;
-    }
-    
-    const queryParams = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, value as string);
-      }
-    });
-    
-    const url = `${API_URL}/rates/compare?${queryParams.toString()}`;
-    console.log(`API fallback URL: ${url}`);
-    
-    const response = await fetch(url, { cache: 'no-store' });
-    
-    if (!response.ok) {
-      throw new Error(`Fallback API failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log("Dati fallback ottenuti:", data);
-    
-    // Formatta i dati ricevuti nel formato atteso
-    if (data.data && Array.isArray(data.data)) {
-      return { data: data.data };
-    } else {
-      return { data: [] };
-    }
-  } catch (error) {
-    console.error("Errore nell'API fallback:", error);
-    throw error;
+// Funzione per validare i dati delle tariffe
+function validateRatesData(rates: any[]): any[] {
+  if (!Array.isArray(rates)) {
+    console.error('validateRatesData: Il parametro rates non è un array', rates);
+    return [];
   }
-}
 
-// Funzione per validare e standardizzare la struttura dei dati delle tariffe
-function validateRatesData(data: any): any[] {
-  if (!data) return [];
-  
-  // Se non è un array, tenta di trasformarlo in un array
-  const ratesArray = Array.isArray(data) ? data : (data ? [data] : []);
-  
-  // Mappiamo ogni elemento per garantire che abbia la struttura corretta
-  return ratesArray.map((rate: any) => {
-    // Crea un oggetto rate con struttura predefinita
-    const validatedRate: any = {
-      _id: rate._id || rate.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
-      weightMin: typeof rate.weightMin === 'number' ? rate.weightMin : 0,
-      weightMax: typeof rate.weightMax === 'number' ? rate.weightMax : 0,
-      purchasePrice: typeof rate.purchasePrice === 'number' ? rate.purchasePrice : 0,
-      retailPrice: typeof rate.retailPrice === 'number' ? rate.retailPrice : 0,
-      margin: typeof rate.margin === 'number' ? rate.margin : 0,
-      marginPercentage: typeof rate.marginPercentage === 'number' ? rate.marginPercentage : 0,
-      volumeDiscount: typeof rate.volumeDiscount === 'number' ? rate.volumeDiscount : 0,
-      promotionalDiscount: typeof rate.promotionalDiscount === 'number' ? rate.promotionalDiscount : 0,
-      minimumVolume: typeof rate.minimumVolume === 'number' ? rate.minimumVolume : 0,
-      isActive: typeof rate.isActive === 'boolean' ? rate.isActive : true
-    };
-    
-    // Gestione dei servizi
-    if (rate.service) {
-      validatedRate.service = {
-        _id: rate.service._id || rate.service.id || "unknown-service",
-        name: rate.service.name || "Unknown Service"
+  // Stampa i dati originali per debug
+  console.log('Dati originali prima della validazione:', JSON.stringify(rates.slice(0, 2)));
+
+  // Verifica se i dati sembrano già essere nel formato corretto
+  const allRatesValid = rates.every(rate => 
+    rate && 
+    typeof rate === 'object' && 
+    rate.service && 
+    typeof rate.service === 'object' && 
+    rate.service._id && 
+    rate.service.name &&
+    rate.service.carrier && 
+    rate.service.carrier._id && 
+    rate.service.carrier.name && 
+    typeof rate.weightMin === 'number' && 
+    typeof rate.weightMax === 'number' &&
+    (typeof rate.purchasePrice === 'number' || typeof rate.retailPrice === 'number')
+  );
+
+  if (allRatesValid) {
+    console.log('Dati già ben formattati, nessuna modifica necessaria');
+    return rates;
+  }
+
+  console.log('Normalizzazione dati tariffe necessaria');
+
+  return rates.map(rate => {
+    // Assicuriamoci che rate sia un oggetto
+    if (!rate || typeof rate !== 'object') {
+      console.warn('validateRatesData: rate non è un oggetto valido', rate);
+      return {
+        _id: 'unknown-rate-id',
+        weightMin: 0,
+        weightMax: 0,
+        purchasePrice: 0,
+        retailPrice: 0,
+        service: {
+          _id: 'unknown-service',
+          name: 'Unknown Service',
+          carrier: {
+            _id: 'unknown-carrier',
+            name: 'Unknown Carrier'
+          }
+        }
       };
-      
-      // Gestione del corriere
-      if (rate.service.carrier) {
-        validatedRate.service.carrier = {
-          _id: rate.service.carrier._id || rate.service.carrier.id || "unknown-carrier",
-          name: rate.service.carrier.name || "Unknown Carrier"
-        };
-      } else if (rate.carrierId || rate.carrierName) {
-        // Fallback se il corriere non è presente ma ci sono altre informazioni
-        validatedRate.service.carrier = {
-          _id: rate.carrierId || "unknown-carrier",
-          name: rate.carrierName || "Unknown Carrier"
+    }
+
+    // Prepara un oggetto result conservando i valori originali
+    const result = { ...rate };
+
+    // Assicuriamoci che service sia un oggetto
+    if (!rate.service || typeof rate.service !== 'object') {
+      console.warn('validateRatesData: service non è un oggetto valido', rate);
+      result.service = {
+        _id: rate.serviceId || 'unknown-service',
+        name: 'Unknown Service',
+        carrier: {
+          _id: 'unknown-carrier',
+          name: 'Unknown Carrier'
+        }
+      };
+    } else {
+      // Assicuriamoci che service abbia le proprietà necessarie
+      result.service = {
+        ...(rate.service || {}),
+        _id: rate.service._id || rate.serviceId || 'unknown-service',
+        name: rate.service.name || 'Unknown Service'
+      };
+
+      // Assicuriamoci che carrier sia un oggetto
+      if (!rate.service.carrier || typeof rate.service.carrier !== 'object') {
+        console.warn('validateRatesData: carrier non è un oggetto valido', rate.service);
+        result.service.carrier = {
+          _id: rate.service.carrierId || 'unknown-carrier',
+          name: 'Unknown Carrier'
         };
       } else {
-        // Fallback di emergenza
-        validatedRate.service.carrier = {
-          _id: "unknown-carrier",
-          name: "Unknown Carrier"
+        // Assicuriamoci che carrier abbia le proprietà necessarie
+        result.service.carrier = {
+          ...(rate.service.carrier || {}),
+          _id: rate.service.carrier._id || rate.service.carrierId || 'unknown-carrier',
+          name: rate.service.carrier.name || 'Unknown Carrier'
         };
       }
-    } else if (rate.serviceId || rate.serviceName) {
-      // Fallback se il servizio non è presente ma ci sono altre informazioni
-      validatedRate.service = {
-        _id: rate.serviceId || "unknown-service",
-        name: rate.serviceName || "Unknown Service",
-        carrier: {
-          _id: rate.carrierId || "unknown-carrier",
-          name: rate.carrierName || "Unknown Carrier"
-        }
-      };
-    } else {
-      // Fallback di emergenza
-      validatedRate.service = {
-        _id: "unknown-service",
-        name: "Unknown Service",
-        carrier: {
-          _id: "unknown-carrier",
-          name: "Unknown Carrier"
-        }
-      };
     }
-    
-    return validatedRate;
+
+    // Assicuriamoci che le proprietà numeriche siano valide
+    result.weightMin = typeof rate.weightMin === 'number' ? rate.weightMin : 0;
+    result.weightMax = typeof rate.weightMax === 'number' ? rate.weightMax : 0;
+    result.purchasePrice = typeof rate.purchasePrice === 'number' ? rate.purchasePrice : 0;
+    result.retailPrice = typeof rate.retailPrice === 'number' ? rate.retailPrice : 0;
+
+    // Assicuriamoci che _id sia presente
+    result._id = rate._id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    return result;
   });
+}
+
+// Funzione di fallback per ottenere tariffe
+async function fetchRatesFallback(serviceId?: string | null): Promise<any[]> {
+  try {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+    const apiPath = serviceId 
+      ? `/rates/service/${serviceId}/weightRanges` 
+      : '/rates';
+
+    console.log(`Tentativo di recupero tariffe da: ${backendUrl}${apiPath}`);
+
+    const response = await fetchWithRetry(`${backendUrl}${apiPath}`);
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      console.log(`Ricevute ${data.length} tariffe dal fallback`);
+      return data;
+    } else if (data && Array.isArray(data.data)) {
+      console.log(`Ricevute ${data.data.length} tariffe dal fallback (formato .data)`);
+      return data.data;
+    } else {
+      console.error('Formato dati dal fallback non riconosciuto:', data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Errore durante il recupero delle tariffe dal fallback:', error);
+    return [];
+  }
 }
 
 // GET: Ottiene tutte le tariffe o filtra per servizio
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    // Ottieni i parametri dalla query string
+    const { searchParams } = new URL(request.url);
     const serviceId = searchParams.get('service');
-    const weightParam = searchParams.get('weight');
+
+    // Log della richiesta per debug
+    console.log(`GET /api/rates - Parametri: service=${serviceId || 'nessuno'}`);
+
+    // Determina l'URL della backend API in base ai parametri
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+    let apiPath = '/rates';
     
-    let url;
-    
-    // Se abbiamo un serviceId, usiamo l'endpoint specifico per le tariffe di quel servizio
-    // Questo corrisponde al percorso usato nel componente principale
-    if (serviceId && serviceId !== "_all") {
-      url = `${API_URL}/rates/service/${serviceId}/weightRanges`;
-      
-      // Se c'è anche un peso, possiamo aggiungerlo come query parameter
-      if (weightParam) {
-        url += `?weight=${weightParam}`;
-      }
+    // Se è specificato un service, usiamo l'endpoint specifico del servizio
+    if (serviceId) {
+      apiPath = `/rates/service/${serviceId}/weightRanges`;
+      console.log(`Richiesta tariffe per servizio specifico: ${apiPath}`);
+    }
+
+    // Effettua la richiesta alla backend API
+    const response = await fetchWithRetry(`${backendUrl}${apiPath}`);
+    const data = await response.json();
+
+    // Verifica che i dati siano in un formato supportato
+    let rates: any[] = [];
+    if (Array.isArray(data)) {
+      console.log(`Ricevute ${data.length} tariffe (formato array)`);
+      rates = data;
+    } else if (data && Array.isArray(data.data)) {
+      console.log(`Ricevute ${data.data.length} tariffe (formato .data)`);
+      rates = data.data;
     } else {
-      // Altrimenti, usiamo l'endpoint generale per tutte le tariffe
-      url = `${API_URL}/rates`;
-      const queryParams = [];
+      console.error('Formato dati non riconosciuto:', data);
       
-      if (weightParam) {
-        queryParams.push(`weight=${weightParam}`);
-      }
+      // Tenta il recupero con il metodo alternativo
+      console.log('Tentativo con endpoint fallback...');
+      rates = await fetchRatesFallback(serviceId);
       
-      if (queryParams.length > 0) {
-        url += `?${queryParams.join('&')}`;
+      if (rates.length === 0) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Formato dati non riconosciuto e fallback fallito' 
+        }, { status: 500 });
       }
     }
+
+    // Convalida e normalizza i dati
+    const validatedRates = validateRatesData(rates);
+
+    // Restituisci i dati
+    console.log(`Restituzione di ${validatedRates.length} tariffe validate`);
+    return NextResponse.json({
+      success: true,
+      data: validatedRates
+    });
+  } catch (error) {
+    console.error('Errore durante il recupero delle tariffe:', error);
     
-    console.log("Chiamata API tariffe:", url);
-    
+    // Tenta il recupero con il metodo alternativo
     try {
-      // Primo tentativo: usa l'endpoint diretto
-      const data = await fetchWithRetry(url);
-      console.log("Risposta API tariffe:", data);
+      const serviceId = new URL(request.url).searchParams.get('service');
+      console.log('Tentativo con endpoint fallback dopo errore...');
+      const rates = await fetchRatesFallback(serviceId);
       
-      // Validazione e standardizzazione dei dati
-      const validatedData = validateRatesData(data.data);
-      
-      return NextResponse.json({ 
-        success: true, 
-        data: validatedData
-      });
-    } catch (directError) {
-      console.error(`Errore nell'endpoint diretto: ${directError}`);
-      
-      try {
-        // Secondo tentativo: usa l'API compare come fallback
-        const fallbackData = await fetchRatesFallback(
-          serviceId !== "_all" ? serviceId : null, 
-          weightParam
-        );
-        
-        // Validazione e standardizzazione dei dati
-        const validatedData = validateRatesData(fallbackData.data);
-        
+      if (rates.length > 0) {
+        const validatedRates = validateRatesData(rates);
+        console.log(`Restituzione di ${validatedRates.length} tariffe dal fallback`);
         return NextResponse.json({
           success: true,
-          data: validatedData,
-          message: "Dati ottenuti tramite API fallback"
-        });
-      } catch (fallbackError) {
-        console.error(`Errore nel fallback: ${fallbackError}`);
-        // Entrambi i tentativi falliti, restituiamo un array vuoto
-        return NextResponse.json({ 
-          success: true,
-          data: [],
-          message: "Nessun risultato disponibile da entrambe le API"
+          data: validatedRates
         });
       }
+    } catch (fallbackError) {
+      console.error('Anche il fallback è fallito:', fallbackError);
     }
-  } catch (error) {
-    console.error('Errore nella route API tariffe:', error);
-    return NextResponse.json(
-      { success: false, message: 'Errore nell\'elaborazione della richiesta tariffe', data: [] },
-      { status: 200 }  // Restituiamo 200 invece di 500 con un messaggio d'errore
-    );
+    
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Impossibile recuperare le tariffe' 
+    }, { status: 500 });
   }
 }
 
