@@ -177,13 +177,15 @@ export async function GET(request: NextRequest) {
     // Log della richiesta per debug
     console.log(`GET /api/rates - Parametri: service=${serviceId || 'nessuno'}`);
 
-    // Determina l'URL della backend API in base ai parametri
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
-    let apiPath = '/rates';
+    // Correggiamo l'URL del backend per usare lo stesso formato di altre parti dell'app
+    const backendUrl = isProduction 
+      ? 'https://sendcloud-pricing-tool-backend.onrender.com' 
+      : (process.env.BACKEND_URL || 'http://localhost:5050');
+    let apiPath = '/api/rates';
     
     // Se è specificato un service, usiamo l'endpoint specifico del servizio
     if (serviceId) {
-      apiPath = `/rates/service/${serviceId}/weightRanges`;
+      apiPath = `/api/rates/service/${serviceId}/weightRanges`;
       console.log(`Richiesta tariffe per servizio specifico: ${apiPath}`);
     }
 
