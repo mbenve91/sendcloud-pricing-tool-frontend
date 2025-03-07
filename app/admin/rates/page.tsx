@@ -197,21 +197,21 @@ const RateForm = ({
                 </FormControl>
                 <SelectContent>
                   {isLoadingServices ? (
-                    <SelectItem value="loading" disabled>Loading services...</SelectItem>
+                    <SelectItem value="loading_placeholder" disabled>Loading services...</SelectItem>
                   ) : services.length === 0 ? (
-                    <SelectItem value="none" disabled>No services available</SelectItem>
+                    <SelectItem value="none_placeholder" disabled>No services available</SelectItem>
                   ) : (
                     services.map((service) => (
-                      <SelectItem key={service._id} value={service._id}>
+                      <SelectItem 
+                        key={service._id} 
+                        value={service._id || `service_${Math.random()}`}
+                      >
                         {service.carrier.name} - {service.name}
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                The shipping service for this rate
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -524,9 +524,28 @@ export default function RatesPage() {
     try {
       const url = serviceId ? `/api/rates?service=${serviceId}` : '/api/rates'
       const response = await fetch(url)
+      
+      // Verifica lo stato della risposta prima di procedere
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}): ${errorText}`);
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
       const data = await response.json()
       if (data.success) {
-        setRates(data.data)
+        // Verifica che i dati siano validi prima di impostare lo stato
+        if (Array.isArray(data.data)) {
+          setRates(data.data)
+        } else {
+          console.error('Invalid rates data format:', data);
+          setRates([])
+          toast({
+            title: "Warning",
+            description: "Received invalid data format from server",
+            variant: "destructive"
+          })
+        }
       } else {
         toast({
           title: "Error",
@@ -536,9 +555,10 @@ export default function RatesPage() {
       }
     } catch (error) {
       console.error('Error loading rates:', error)
+      setRates([]) // Imposta un array vuoto per evitare errori di rendering
       toast({
         title: "Error",
-        description: "Failed to load rates",
+        description: "Failed to load rates. Please check server logs.",
         variant: "destructive"
       })
     } finally {

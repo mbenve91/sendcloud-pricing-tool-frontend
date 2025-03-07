@@ -38,7 +38,9 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  SelectGroup,
+  SelectLabel
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import { useForm } from "react-hook-form"
@@ -89,6 +91,52 @@ interface Carrier {
   _id: string
   name: string
 }
+
+// Aggiungi questa definizione dei paesi (dopo le dichiarazioni degli schemi e prima del componente ServiceForm)
+const COUNTRIES = [
+  // Paesi UE
+  { code: 'AT', name: 'Austria', isEU: true },
+  { code: 'BE', name: 'Belgio', isEU: true },
+  { code: 'BG', name: 'Bulgaria', isEU: true },
+  { code: 'HR', name: 'Croazia', isEU: true },
+  { code: 'CY', name: 'Cipro', isEU: true },
+  { code: 'CZ', name: 'Repubblica Ceca', isEU: true },
+  { code: 'DK', name: 'Danimarca', isEU: true },
+  { code: 'EE', name: 'Estonia', isEU: true },
+  { code: 'FI', name: 'Finlandia', isEU: true },
+  { code: 'FR', name: 'Francia', isEU: true },
+  { code: 'DE', name: 'Germania', isEU: true },
+  { code: 'GR', name: 'Grecia', isEU: true },
+  { code: 'HU', name: 'Ungheria', isEU: true },
+  { code: 'IE', name: 'Irlanda', isEU: true },
+  { code: 'IT', name: 'Italia', isEU: true },
+  { code: 'LV', name: 'Lettonia', isEU: true },
+  { code: 'LT', name: 'Lituania', isEU: true },
+  { code: 'LU', name: 'Lussemburgo', isEU: true },
+  { code: 'MT', name: 'Malta', isEU: true },
+  { code: 'NL', name: 'Paesi Bassi', isEU: true },
+  { code: 'PL', name: 'Polonia', isEU: true },
+  { code: 'PT', name: 'Portogallo', isEU: true },
+  { code: 'RO', name: 'Romania', isEU: true },
+  { code: 'SK', name: 'Slovacchia', isEU: true },
+  { code: 'SI', name: 'Slovenia', isEU: true },
+  { code: 'ES', name: 'Spagna', isEU: true },
+  { code: 'SE', name: 'Svezia', isEU: true },
+  // Paesi non UE più comuni
+  { code: 'GB', name: 'Regno Unito', isEU: false },
+  { code: 'US', name: 'Stati Uniti', isEU: false },
+  { code: 'CA', name: 'Canada', isEU: false },
+  { code: 'AU', name: 'Australia', isEU: false },
+  { code: 'NZ', name: 'Nuova Zelanda', isEU: false },
+  { code: 'JP', name: 'Giappone', isEU: false },
+  { code: 'CN', name: 'Cina', isEU: false },
+  { code: 'IN', name: 'India', isEU: false },
+  { code: 'BR', name: 'Brasile', isEU: false },
+  { code: 'RU', name: 'Russia', isEU: false },
+  { code: 'CH', name: 'Svizzera', isEU: false },
+  { code: 'NO', name: 'Norvegia', isEU: false },
+  // Aggiungi altri paesi secondo necessità
+];
 
 // Componente per il form di creazione/modifica
 const ServiceForm = ({
@@ -227,13 +275,43 @@ const ServiceForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Destination Country</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="Country code or name (for international)" 
-                    {...field} 
-                    disabled={form.watch("destinationType") === "national"}
-                  />
-                </FormControl>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    // Imposta automaticamente isEU in base al paese selezionato
+                    const selectedCountry = COUNTRIES.find(country => country.code === value);
+                    if (selectedCountry) {
+                      form.setValue("isEU", selectedCountry.isEU);
+                    }
+                  }}
+                  value={field.value || ""}
+                  disabled={form.watch("destinationType") === "national"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select destination country" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="">No specific country</SelectItem>
+                    <SelectGroup>
+                      <SelectLabel>European Union</SelectLabel>
+                      {COUNTRIES.filter(c => c.isEU).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Non-EU Countries</SelectLabel>
+                      {COUNTRIES.filter(c => !c.isEU).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 <FormDescription>
                   Required for specific international destinations
                 </FormDescription>
@@ -666,7 +744,7 @@ export default function ServicesPage() {
 
       {/* Dialog per creazione/modifica */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingService ? "Edit Service" : "Create Service"}
