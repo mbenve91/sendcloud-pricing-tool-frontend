@@ -451,6 +451,8 @@ export default function RatesPage() {
   const [editingRate, setEditingRate] = useState<Rate | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [rateToDelete, setRateToDelete] = useState<Rate | null>(null)
+  const [createAnotherDialogOpen, setCreateAnotherDialogOpen] = useState(false)
+  const [lastCreatedRate, setLastCreatedRate] = useState<RateFormValues | null>(null)
 
   // Form per la creazione/modifica della tariffa
   const form = useForm<RateFormValues>({
@@ -493,30 +495,47 @@ export default function RatesPage() {
 
   // Carica i servizi
   const loadServices = async () => {
-    setIsLoadingServices(true)
+    setIsLoadingServices(true);
     try {
-      const response = await fetch('/api/services')
-      const data = await response.json()
+      const response = await fetch('/api/services');
+      const data = await response.json();
+      
       if (data.success) {
-        setServices(data.data)
+        // Verifichiamo che tutti i servizi abbiano la proprietà carrier
+        const validatedServices = data.data.map((service: any) => {
+          if (!service.carrier) {
+            console.warn('Servizio senza carrier:', service);
+            service.carrier = {
+              _id: "unknown-carrier",
+              name: "Corriere Sconosciuto"
+            };
+          }
+          return service;
+        });
+        
+        setServices(validatedServices);
       } else {
         toast({
           title: "Error",
           description: data.message || "Failed to load services",
           variant: "destructive"
-        })
+        });
+        // Inizializza comunque con un array vuoto
+        setServices([]);
       }
     } catch (error) {
-      console.error('Error loading services:', error)
+      console.error('Error loading services:', error);
       toast({
         title: "Error",
         description: "Failed to load services",
         variant: "destructive"
-      })
+      });
+      // Inizializza comunque con un array vuoto
+      setServices([]);
     } finally {
-      setIsLoadingServices(false)
+      setIsLoadingServices(false);
     }
-  }
+  };
 
   // Carica le tariffe
   const loadRates = async (serviceId?: string) => {
@@ -546,7 +565,57 @@ export default function RatesPage() {
         // Assicuriamoci che i dati siano un array
         if (Array.isArray(data.data) && data.data.length > 0) {
           console.log(`Tariffe caricate: ${data.data.length}`);
-          setRates(data.data);
+          
+          // Verifica la struttura dei dati e correggi eventuali oggetti mancanti
+          const validatedRates = data.data.map((rate: any) => {
+            // Verifica che rate.service esista
+            if (!rate.service) {
+              console.warn('Tariffa senza servizio:', rate);
+              // Se abbiamo il serviceId, possiamo trovare il servizio corrispondente
+              const associatedService = actualServiceId
+                ? services.find(s => s._id === actualServiceId)
+                : services[0];
+                
+              if (associatedService) {
+                rate.service = {
+                  _id: associatedService._id,
+                  name: associatedService.name,
+                  carrier: { ...associatedService.carrier }
+                };
+              } else {
+                // Fallback di emergenza
+                rate.service = {
+                  _id: "unknown-service",
+                  name: "Servizio Sconosciuto",
+                  carrier: {
+                    _id: "unknown-carrier",
+                    name: "Corriere Sconosciuto"
+                  }
+                };
+              }
+            } 
+            // Verifica che rate.service.carrier esista
+            else if (!rate.service.carrier) {
+              console.warn('Servizio senza corriere:', rate.service);
+              
+              // Cerca il servizio nei servizi caricati
+              const associatedService = services.find(s => s._id === rate.service._id);
+              
+              if (associatedService && associatedService.carrier) {
+                rate.service.carrier = { ...associatedService.carrier };
+              } else {
+                // Fallback di emergenza
+                rate.service.carrier = {
+                  _id: "unknown-carrier",
+                  name: "Corriere Sconosciuto"
+                };
+              }
+            }
+            
+            return rate;
+          });
+          
+          setRates(validatedRates);
         } else {
           console.warn('Nessuna tariffa trovata o formato dati non valido');
           
@@ -644,6 +713,16 @@ export default function RatesPage() {
     
     if (!service) return [];
     
+    // Verifica che il servizio abbia la proprietà carrier
+    if (!service.carrier) {
+      console.error('Servizio senza proprietà carrier:', service);
+      // Utilizziamo un carrier di fallback
+      service.carrier = {
+        _id: "fallback-carrier-id",
+        name: "Carrier Fallback"
+      };
+    }
+    
     // Genera alcune fasce di peso simulate
     const weightRanges = [
       { min: 0, max: 1 },
@@ -658,7 +737,7 @@ export default function RatesPage() {
       service: {
         _id: service._id,
         name: service.name,
-        carrier: service.carrier
+        carrier: service.carrier  // Questo ora è garantito che esista
       },
       weightMin: range.min,
       weightMax: range.max,
@@ -737,12 +816,12 @@ export default function RatesPage() {
     setIsOpen(true)
   }
 
-  // Gestisce la creazione/aggiornamento di una tariffa
+  // Modifico la funzione onSubmit per gestire la creazione di un nuovo rate dopo il salvataggio
   const onSubmit = async (data: RateFormValues) => {
     try {
-      const isEditing = !!editingRate
-      const url = isEditing ? `/api/rates/${data.id}` : '/api/rates'
-      const method = isEditing ? 'PUT' : 'POST'
+      const isEditing = !!editingRate;
+      const url = isEditing ? `/api/rates/${data.id}` : '/api/rates';
+      const method = isEditing ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
@@ -750,33 +829,65 @@ export default function RatesPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(data)
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.success) {
+        // Mostra toast di successo
         toast({
           title: isEditing ? "Rate Updated" : "Rate Created",
           description: `Rate for weight range ${data.weightMin}-${data.weightMax}kg has been successfully ${isEditing ? 'updated' : 'created'}.`
-        })
-        setIsOpen(false)
-        loadRates(selectedService || undefined)
+        });
+
+        // Se è una creazione (non un aggiornamento), salva i dati appena creati
+        // e mostra il dialog per chiedere se creare un altro rate
+        if (!isEditing) {
+          setLastCreatedRate(data);
+          setIsOpen(false); // Chiudi il dialog attuale
+          setCreateAnotherDialogOpen(true); // Apri il dialog di conferma
+        } else {
+          // Se è un aggiornamento, chiudi semplicemente il dialog
+          setIsOpen(false);
+        }
+
+        // Ricarica comunque i rates per aggiornare la lista
+        loadRates(selectedService || undefined);
       } else {
         toast({
           title: "Error",
           description: result.message || `Failed to ${isEditing ? 'update' : 'create'} rate`,
           variant: "destructive"
-        })
+        });
       }
     } catch (error) {
-      console.error(`Error ${editingRate ? 'updating' : 'creating'} rate:`, error)
+      console.error(`Error ${editingRate ? 'updating' : 'creating'} rate:`, error);
       toast({
         title: "Error",
         description: `Failed to ${editingRate ? 'update' : 'create'} rate`,
         variant: "destructive"
-      })
+      });
     }
-  }
+  };
+
+  // Funzione per gestire la creazione di un altro rate
+  const handleCreateAnother = () => {
+    if (lastCreatedRate) {
+      // Utilizza i dati dell'ultimo rate creato per pre-compilare il form
+      // ma azzera i campi che devono essere diversi
+      form.reset({
+        ...lastCreatedRate,
+        id: undefined, // Nuovo rate, nessun ID
+        weightMin: lastCreatedRate.weightMax, // Inizia dal peso massimo precedente
+        weightMax: lastCreatedRate.weightMax + 5, // Incrementa di 5kg come esempio
+        // Mantieni gli altri valori come prezzo, margine, etc.
+      });
+      
+      setEditingRate(null); // Non stiamo modificando un rate esistente
+      setCreateAnotherDialogOpen(false); // Chiudi il dialog di conferma
+      setIsOpen(true); // Apri il dialog di creazione
+    }
+  };
 
   // Gestisce l'eliminazione di una tariffa
   const handleDelete = async () => {
@@ -951,7 +1062,7 @@ export default function RatesPage() {
 
       {/* Dialog per creazione/modifica */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingRate ? "Edit Rate" : "Create Rate"}
@@ -988,6 +1099,26 @@ export default function RatesPage() {
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog di conferma per creare un altro rate */}
+      <Dialog open={createAnotherDialogOpen} onOpenChange={setCreateAnotherDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Another Rate</DialogTitle>
+            <DialogDescription>
+              Would you like to create another rate for the same service? This will pre-fill the form with the values you just entered.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => setCreateAnotherDialogOpen(false)}>
+              No, I'm Done
+            </Button>
+            <Button type="button" onClick={handleCreateAnother}>
+              Yes, Create Another
             </Button>
           </DialogFooter>
         </DialogContent>

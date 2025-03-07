@@ -138,6 +138,49 @@ const COUNTRIES = [
   // Aggiungi altri paesi secondo necessità
 ];
 
+// Componente per il filtro del carrier
+const CarrierFilter = ({ 
+  carriers, 
+  selectedCarrier, 
+  isLoadingCarriers, 
+  onCarrierChange 
+}: { 
+  carriers: Carrier[], 
+  selectedCarrier: string, 
+  isLoadingCarriers: boolean, 
+  onCarrierChange: (carrierId: string) => void 
+}) => {
+  return (
+    <div className="mb-6">
+      <div className="flex flex-col space-y-2">
+        <label className="text-sm font-medium">Filtra per Corriere</label>
+        <Select
+          value={selectedCarrier}
+          onValueChange={onCarrierChange}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Tutti i Corrieri" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">Tutti i Corrieri</SelectItem>
+            {isLoadingCarriers ? (
+              <SelectItem value="loading" disabled>Caricamento corrieri...</SelectItem>
+            ) : carriers.length === 0 ? (
+              <SelectItem value="none" disabled>Nessun corriere disponibile</SelectItem>
+            ) : (
+              carriers.map((carrier) => (
+                <SelectItem key={carrier._id} value={carrier._id}>
+                  {carrier.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+};
+
 // Componente per il form di creazione/modifica
 const ServiceForm = ({
   form,
@@ -430,6 +473,7 @@ const ServiceForm = ({
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [carriers, setCarriers] = useState<Carrier[]>([])
+  const [selectedCarrier, setSelectedCarrier] = useState<string>("_all")
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingCarriers, setIsLoadingCarriers] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
@@ -453,65 +497,107 @@ export default function ServicesPage() {
     }
   })
 
+  // Gestisce il cambio del carrier selezionato
+  const handleCarrierChange = (carrierId: string) => {
+    setSelectedCarrier(carrierId);
+    // Carica i servizi filtrati per il carrier selezionato
+    loadServices(carrierId);
+  };
+
   // Carica i corrieri
   const loadCarriers = async () => {
-    setIsLoadingCarriers(true)
+    setIsLoadingCarriers(true);
     try {
-      const response = await fetch('/api/carriers')
-      const data = await response.json()
+      const response = await fetch('/api/carriers');
+      const data = await response.json();
       if (data.success) {
-        setCarriers(data.data)
+        setCarriers(data.data);
       } else {
         toast({
           title: "Error",
           description: data.message || "Failed to load carriers",
           variant: "destructive"
-        })
+        });
       }
     } catch (error) {
-      console.error('Error loading carriers:', error)
+      console.error('Error loading carriers:', error);
       toast({
         title: "Error",
         description: "Failed to load carriers",
         variant: "destructive"
-      })
+      });
     } finally {
-      setIsLoadingCarriers(false)
+      setIsLoadingCarriers(false);
     }
   }
 
-  // Carica i servizi
-  const loadServices = async () => {
-    setIsLoading(true)
+  // Carica i servizi, opzionalmente filtrati per carrier
+  const loadServices = async (carrierId?: string) => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/services')
-      const data = await response.json()
+      // Se carrierId è "_all", significa "tutti i corrieri", quindi lo impostiamo a undefined
+      const actualCarrierId = carrierId === "_all" ? undefined : carrierId;
+      
+      // Costruiamo l'URL appropriato con o senza parametro carrier
+      const url = actualCarrierId
+        ? `/api/services?carrier=${actualCarrierId}`
+        : '/api/services';
+        
+      console.log(`Caricamento servizi: ${url}`);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
       if (data.success) {
-        setServices(data.data)
+        // Verifichiamo che tutti i servizi abbiano la proprietà carrier
+        const validatedServices = data.data.map((service: any) => {
+          if (!service.carrier) {
+            console.warn('Servizio senza carrier:', service);
+            service.carrier = {
+              _id: "unknown-carrier",
+              name: "Corriere Sconosciuto"
+            };
+          }
+          return service;
+        });
+        
+        setServices(validatedServices);
       } else {
         toast({
-          title: "Error",
-          description: data.message || "Failed to load services",
+          title: "Errore",
+          description: data.message || "Impossibile caricare i servizi",
           variant: "destructive"
-        })
+        });
+        // Inizializza comunque con un array vuoto
+        setServices([]);
       }
     } catch (error) {
-      console.error('Error loading services:', error)
+      console.error('Errore nel caricamento dei servizi:', error);
       toast({
         title: "Error",
         description: "Failed to load services",
         variant: "destructive"
-      })
+      });
+      // Inizializza comunque con un array vuoto
+      setServices([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Carica i dati all'avvio
   useEffect(() => {
-    loadCarriers()
-    loadServices()
-  }, [])
+    // Imposta il valore di default per il filtro
+    setSelectedCarrier("_all");
+    
+    // Carica i dati
+    const initializeData = async () => {
+      await loadCarriers();
+      await loadServices();
+    };
+    
+    initializeData();
+  }, []);
 
   // Gestisce l'apertura del dialog per la creazione
   const handleCreate = () => {
@@ -661,6 +747,14 @@ export default function ServicesPage() {
               <CardTitle>Services</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Aggiungiamo il filtro per carrier */}
+              <CarrierFilter 
+                carriers={carriers}
+                selectedCarrier={selectedCarrier}
+                isLoadingCarriers={isLoadingCarriers}
+                onCarrierChange={handleCarrierChange}
+              />
+              
               {isLoading ? (
                 <div className="flex justify-center items-center h-32">
                   <p>Loading services...</p>
@@ -683,7 +777,9 @@ export default function ServicesPage() {
                     {services.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center">
-                          No services found. Create your first service by clicking the "Add Service" button.
+                          {selectedCarrier !== "_all" 
+                            ? "No services found for this carrier. Create your first service by clicking the 'Add Service' button."
+                            : "No services found. Create your first service by clicking the 'Add Service' button."}
                         </TableCell>
                       </TableRow>
                     ) : (

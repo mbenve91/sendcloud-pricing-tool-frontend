@@ -100,6 +100,82 @@ async function fetchRatesFallback(serviceId?: string | null, weight?: string | n
   }
 }
 
+// Funzione per validare e standardizzare la struttura dei dati delle tariffe
+function validateRatesData(data: any): any[] {
+  if (!data) return [];
+  
+  // Se non è un array, tenta di trasformarlo in un array
+  const ratesArray = Array.isArray(data) ? data : (data ? [data] : []);
+  
+  // Mappiamo ogni elemento per garantire che abbia la struttura corretta
+  return ratesArray.map((rate: any) => {
+    // Crea un oggetto rate con struttura predefinita
+    const validatedRate: any = {
+      _id: rate._id || rate.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
+      weightMin: typeof rate.weightMin === 'number' ? rate.weightMin : 0,
+      weightMax: typeof rate.weightMax === 'number' ? rate.weightMax : 0,
+      purchasePrice: typeof rate.purchasePrice === 'number' ? rate.purchasePrice : 0,
+      retailPrice: typeof rate.retailPrice === 'number' ? rate.retailPrice : 0,
+      margin: typeof rate.margin === 'number' ? rate.margin : 0,
+      marginPercentage: typeof rate.marginPercentage === 'number' ? rate.marginPercentage : 0,
+      volumeDiscount: typeof rate.volumeDiscount === 'number' ? rate.volumeDiscount : 0,
+      promotionalDiscount: typeof rate.promotionalDiscount === 'number' ? rate.promotionalDiscount : 0,
+      minimumVolume: typeof rate.minimumVolume === 'number' ? rate.minimumVolume : 0,
+      isActive: typeof rate.isActive === 'boolean' ? rate.isActive : true
+    };
+    
+    // Gestione dei servizi
+    if (rate.service) {
+      validatedRate.service = {
+        _id: rate.service._id || rate.service.id || "unknown-service",
+        name: rate.service.name || "Unknown Service"
+      };
+      
+      // Gestione del corriere
+      if (rate.service.carrier) {
+        validatedRate.service.carrier = {
+          _id: rate.service.carrier._id || rate.service.carrier.id || "unknown-carrier",
+          name: rate.service.carrier.name || "Unknown Carrier"
+        };
+      } else if (rate.carrierId || rate.carrierName) {
+        // Fallback se il corriere non è presente ma ci sono altre informazioni
+        validatedRate.service.carrier = {
+          _id: rate.carrierId || "unknown-carrier",
+          name: rate.carrierName || "Unknown Carrier"
+        };
+      } else {
+        // Fallback di emergenza
+        validatedRate.service.carrier = {
+          _id: "unknown-carrier",
+          name: "Unknown Carrier"
+        };
+      }
+    } else if (rate.serviceId || rate.serviceName) {
+      // Fallback se il servizio non è presente ma ci sono altre informazioni
+      validatedRate.service = {
+        _id: rate.serviceId || "unknown-service",
+        name: rate.serviceName || "Unknown Service",
+        carrier: {
+          _id: rate.carrierId || "unknown-carrier",
+          name: rate.carrierName || "Unknown Carrier"
+        }
+      };
+    } else {
+      // Fallback di emergenza
+      validatedRate.service = {
+        _id: "unknown-service",
+        name: "Unknown Service",
+        carrier: {
+          _id: "unknown-carrier",
+          name: "Unknown Carrier"
+        }
+      };
+    }
+    
+    return validatedRate;
+  });
+}
+
 // GET: Ottiene tutte le tariffe o filtra per servizio
 export async function GET(request: NextRequest) {
   try {
@@ -138,9 +214,13 @@ export async function GET(request: NextRequest) {
       // Primo tentativo: usa l'endpoint diretto
       const data = await fetchWithRetry(url);
       console.log("Risposta API tariffe:", data);
+      
+      // Validazione e standardizzazione dei dati
+      const validatedData = validateRatesData(data.data);
+      
       return NextResponse.json({ 
         success: true, 
-        data: Array.isArray(data.data) ? data.data : (data.data ? [data.data] : [])
+        data: validatedData
       });
     } catch (directError) {
       console.error(`Errore nell'endpoint diretto: ${directError}`);
@@ -151,9 +231,13 @@ export async function GET(request: NextRequest) {
           serviceId !== "_all" ? serviceId : null, 
           weightParam
         );
+        
+        // Validazione e standardizzazione dei dati
+        const validatedData = validateRatesData(fallbackData.data);
+        
         return NextResponse.json({
           success: true,
-          data: fallbackData.data,
+          data: validatedData,
           message: "Dati ottenuti tramite API fallback"
         });
       } catch (fallbackError) {
