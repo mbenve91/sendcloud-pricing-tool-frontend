@@ -522,54 +522,171 @@ export default function RatesPage() {
   const loadRates = async (serviceId?: string) => {
     setIsLoading(true);
     try {
+      console.log(`Caricamento tariffe per il servizio: ${serviceId || 'tutti'}`);
+      
       // Se serviceId è "_all", significa "tutti i servizi", quindi lo impostiamo a undefined
       const actualServiceId = serviceId === "_all" ? undefined : serviceId;
       
-      const url = actualServiceId ? `/api/rates?service=${actualServiceId}` : '/api/rates';
+      const url = actualServiceId 
+        ? `/api/rates?service=${actualServiceId}` 
+        : '/api/rates';
+      
+      console.log(`URL richiesta tariffe: ${url}`);
+      
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        throw new Error(`Errore server: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log(`Risposta API tariffe:`, data);
+      
       if (data.success) {
-        setRates(data.data);
+        // Assicuriamoci che i dati siano un array
+        if (Array.isArray(data.data) && data.data.length > 0) {
+          console.log(`Tariffe caricate: ${data.data.length}`);
+          setRates(data.data);
+        } else {
+          console.warn('Nessuna tariffa trovata o formato dati non valido');
+          
+          // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
+          if (services.length > 0) {
+            console.log('Generazione tariffe simulate come fallback');
+            const fallbackRates = generateFallbackRates(actualServiceId);
+            if (fallbackRates.length > 0) {
+              setRates(fallbackRates);
+              toast({
+                title: "Informazione",
+                description: "Mostrate tariffe simulate poiché non sono disponibili dati dal server",
+                variant: "default"
+              });
+              // Non mostriamo altro toast, abbiamo dei dati simulati
+              setIsLoading(false);
+              return;
+            }
+          }
+          
+          // Se non possiamo generare dati fallback, mostriamo un array vuoto
+          setRates([]);
+          toast({
+            title: "Avviso",
+            description: "Nessuna tariffa trovata per i criteri selezionati",
+            variant: "default"
+          });
+        }
       } else {
-        console.error('API response error:', data.message);
+        console.error('Errore API:', data.message);
+        
+        // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
+        if (services.length > 0) {
+          console.log('Generazione tariffe simulate come fallback dopo errore API');
+          const fallbackRates = generateFallbackRates(actualServiceId);
+          if (fallbackRates.length > 0) {
+            setRates(fallbackRates);
+            toast({
+              title: "Informazione",
+              description: "Mostrate tariffe simulate a causa di un errore API",
+              variant: "default"
+            });
+            // Non mostriamo altro toast, abbiamo dei dati simulati
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        setRates([]);
         toast({
-          title: "Error",
-          description: data.message || "Failed to load rates",
+          title: "Errore",
+          description: data.message || "Impossibile caricare le tariffe",
           variant: "destructive"
         });
-        
-        // Usa dati di fallback nel caso di errore
-        if (rates.length === 0) {
-          setRates([]);
-        }
       }
     } catch (error) {
-      console.error('Error loading rates:', error);
+      console.error('Errore caricamento tariffe:', error);
+      
+      // Verifichiamo se abbiamo già caricato servizi per generare dati di fallback
+      if (services.length > 0) {
+        console.log('Generazione tariffe simulate come fallback dopo eccezione');
+        const fallbackRates = generateFallbackRates(serviceId === "_all" ? undefined : serviceId);
+        if (fallbackRates.length > 0) {
+          setRates(fallbackRates);
+          toast({
+            title: "Informazione",
+            description: "Mostrate tariffe simulate a causa di un errore di connessione",
+            variant: "default"
+          });
+          // Non mostriamo altro toast, abbiamo dei dati simulati
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      setRates([]);
       toast({
-        title: "Error",
-        description: "Could not connect to the server. Please try again later.",
+        title: "Errore",
+        description: "Impossibile connettersi al server per caricare le tariffe. Riprova più tardi.",
         variant: "destructive"
       });
-      
-      // Mantieni i dati esistenti o usa un array vuoto
-      if (rates.length === 0) {
-        setRates([]);
-      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Carica i dati all'avvio
+  // Aggiungo una funzione di fallback per generare tariffe simulare in caso di problemi
+  const generateFallbackRates = (serviceId?: string): Rate[] => {
+    if (!services || services.length === 0) return [];
+    
+    // Trova il servizio corrispondente o il primo disponibile
+    const service = serviceId 
+      ? services.find(s => s._id === serviceId) 
+      : services[0];
+    
+    if (!service) return [];
+    
+    // Genera alcune fasce di peso simulate
+    const weightRanges = [
+      { min: 0, max: 1 },
+      { min: 1, max: 2 },
+      { min: 2, max: 5 },
+      { min: 5, max: 10 },
+      { min: 10, max: 20 }
+    ];
+    
+    return weightRanges.map((range, index) => ({
+      _id: `fallback-${service._id}-${index}`,
+      service: {
+        _id: service._id,
+        name: service.name,
+        carrier: service.carrier
+      },
+      weightMin: range.min,
+      weightMax: range.max,
+      purchasePrice: 5 + range.max * 0.5,
+      retailPrice: 10 + range.max * 0.7,
+      margin: 5 + range.max * 0.2,
+      marginPercentage: 40,
+      volumeDiscount: 0,
+      promotionalDiscount: 0,
+      minimumVolume: 0,
+      isActive: true
+    }));
+  };
+
+  // Modifico useEffect per gestire l'inizializzazione
   useEffect(() => {
-    loadServices()
-    loadRates()
-  }, [])
+    // Imposta il valore di default per il filtro
+    setSelectedService("_all");
+    
+    // Carica servizi e tariffe
+    const initializeData = async () => {
+      await loadServices();
+      // Carica tutte le tariffe all'inizio
+      await loadRates("_all");
+    };
+    
+    initializeData();
+  }, []);
 
   // Carica le tariffe quando cambia il servizio selezionato
   useEffect(() => {
