@@ -58,7 +58,7 @@ const serviceFormSchema = z.object({
   carrier: z.string({
     required_error: "Please select a carrier.",
   }),
-  sourceCountry: z.string().optional(),
+  sourceCountry: z.string().nullable().default(null),
   destinationType: z.enum(["national", "international", "both"]),
   destinationCountry: z.array(z.string()).default([]),
   isEU: z.boolean().default(false),
@@ -295,9 +295,9 @@ const ServiceForm = ({
               <FormItem>
                 <FormLabel>Source Market</FormLabel>
                 <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value || ""}
-                  value={field.value || ""}
+                  onValueChange={(value) => field.onChange(value || null)} 
+                  defaultValue={field.value || "none"}
+                  value={field.value || "none"}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -305,7 +305,7 @@ const ServiceForm = ({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Not specified</SelectItem>
+                    <SelectItem value="none">Not specified</SelectItem>
                     {COUNTRIES.map((country) => (
                       <SelectItem key={country.code} value={country.code}>
                         {country.name} ({country.code})
@@ -644,7 +644,7 @@ export default function ServicesPage() {
       code: "",
       description: "",
       carrier: "",
-      sourceCountry: "",
+      sourceCountry: "none",
       destinationType: "national",
       destinationCountry: [],
       isEU: false,
@@ -664,7 +664,7 @@ export default function ServicesPage() {
       code: service.code || "",
       description: service.description || "",
       carrier: service.carrier._id,
-      sourceCountry: service.sourceCountry || "",
+      sourceCountry: service.sourceCountry || "none",
       destinationType: service.destinationType,
       destinationCountry: Array.isArray(service.destinationCountry) 
         ? service.destinationCountry 
@@ -832,7 +832,7 @@ export default function ServicesPage() {
                           <TableCell>{service.code || "—"}</TableCell>
                           <TableCell>{service.carrier.name}</TableCell>
                           <TableCell>
-                            {service.sourceCountry 
+                            {service.sourceCountry && service.sourceCountry !== "none" 
                               ? COUNTRIES.find(c => c.code === service.sourceCountry)?.name || service.sourceCountry
                               : "—"}
                           </TableCell>
