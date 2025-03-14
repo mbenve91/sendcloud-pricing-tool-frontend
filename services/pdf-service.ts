@@ -249,11 +249,11 @@ const generateSimplePDF = async (
     let colWidths: number[] = [];
     const hasCountry = rates.some(r => r.countryName);
     if (hasCountry) {
-      // Con colonna paese - distribuiamo in percentuale
-      colWidths = [0.11, 0.11, 0.10, 0.09, 0.12, 0.10, 0.08, 0.10, 0.19].map(w => tableWidth * w);
+      // Con colonna paese - distribuiamo in percentuale più equa
+      colWidths = [0.11, 0.11, 0.10, 0.09, 0.12, 0.10, 0.10, 0.11, 0.16].map(w => tableWidth * w);
     } else {
       // Senza colonna paese
-      colWidths = [0.12, 0.12, 0.10, 0.12, 0.12, 0.09, 0.13, 0.20].map(w => tableWidth * w);
+      colWidths = [0.12, 0.12, 0.10, 0.12, 0.12, 0.12, 0.12, 0.18].map(w => tableWidth * w);
     }
     
     // Assicuriamoci che l'ultima colonna (prezzo) entri completamente
@@ -393,14 +393,16 @@ const generateSimplePDF = async (
     doc.text(discountText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 6 : 5];
     
-    // Fuel Surcharge
+    // Fuel Surcharge - aumentiamo lo spazio e riduciamo la dimensione del font
     const fuelText = getTranslation('fuel_surcharge', language);
-    doc.setFontSize(getHeaderFontSize(fuelText));
+    doc.setFontSize(8); // Riduciamo il font per questa intestazione lunga
     doc.text(fuelText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 7 : 6];
     
-    // Total Price
-    doc.text(getTranslation('price', language), currentX, startY + 6);
+    // Total Price - aggiungiamo un padding fisso per allineare correttamente
+    const priceText = getTranslation('price', language);
+    doc.setFontSize(9);
+    doc.text(priceText, currentX, startY + 6);
     
     // Dati delle righe
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
@@ -470,17 +472,17 @@ const generateSimplePDF = async (
       doc.text(discountValue, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 6 : 5];
       
-      // Fuel Surcharge
+      // Per la colonna Fuel Surcharge
       const fuelValue = rate.fuelSurcharge > 0 
         ? `${rate.fuelSurcharge}%` 
         : "0%";
       doc.text(fuelValue, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 7 : 6];
       
-      // Final Price - utilizziamo uno spazio sufficiente
-      const priceText = formatCurrency(rate.finalPrice, language);
+      // Per la colonna Price - rimuoviamo il padding eccessivo
+      const finalPriceText = formatCurrency(rate.finalPrice, language);
       doc.setFont('helvetica', 'bold');
-      doc.text(priceText, currentX, currentY + 6);
+      doc.text(finalPriceText, currentX, currentY + 6); // Rimuoviamo padding extra
       doc.setFont('helvetica', 'normal');
       
       currentY += rowHeight;
