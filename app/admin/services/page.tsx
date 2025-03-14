@@ -564,7 +564,8 @@ export default function ServicesPage() {
   const loadCarriers = async () => {
     setIsLoadingCarriers(true);
     try {
-      const response = await fetch('/api/carriers');
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/carriers`);
       const data = await response.json();
       if (data.success) {
         setCarriers(data.data);
@@ -594,10 +595,10 @@ export default function ServicesPage() {
       // Se carrierId è "_all", significa "tutti i corrieri", quindi lo impostiamo a undefined
       const actualCarrierId = carrierId === "_all" ? undefined : carrierId;
       
-      // Costruiamo l'URL appropriato con o senza parametro carrier
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
       const url = actualCarrierId
-        ? `/api/services?carrier=${actualCarrierId}`
-        : '/api/services';
+        ? `${baseUrl}/api/services?carrier=${actualCarrierId}`
+        : `${baseUrl}/api/services`;
         
       console.log(`Caricamento servizi: ${url}`);
       
@@ -721,7 +722,15 @@ export default function ServicesPage() {
   const onSubmit = async (data: ServiceFormValues) => {
     try {
       const isEditing = !!editingService;
-      const url = isEditing ? `/api/services/${data.id}` : '/api/services';
+      
+      // Usa la variabile d'ambiente per il baseURL
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      
+      // Costruisci l'URL completo
+      const url = isEditing 
+        ? `${baseUrl}/api/services/${data.id}` 
+        : `${baseUrl}/api/services`;
+      
       const method = isEditing ? 'PUT' : 'POST';
 
       // Converti "none" in null e normalizza sourceCountry in minuscolo
@@ -731,6 +740,7 @@ export default function ServicesPage() {
       };
       
       console.log('Dati da inviare al server:', formData);
+      console.log('URL API:', url);
 
       const response = await fetch(url, {
         method,
@@ -771,7 +781,8 @@ export default function ServicesPage() {
     if (!serviceToDelete) return
 
     try {
-      const response = await fetch(`/api/services/${serviceToDelete._id}`, {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/services/${serviceToDelete._id}`, {
         method: 'DELETE'
       })
 
