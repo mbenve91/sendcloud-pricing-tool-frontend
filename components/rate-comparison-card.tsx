@@ -1294,9 +1294,10 @@ export default function RateComparisonCard() {
 
             <Separator className="mb-4" />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Aggiungi il filtro Market come primo elemento */}
-              <div className="space-y-2">
+            {/* Sostituisci il grid con un flex layout */}
+            <div className="flex flex-wrap items-start gap-3">
+              {/* Market - larghezza ridotta */}
+              <div className="space-y-2 w-[120px]">
                 <label htmlFor="market" className="text-sm font-medium">
                   Market
                 </label>
@@ -1315,7 +1316,8 @@ export default function RateComparisonCard() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              {/* Carrier - larghezza ridotta */}
+              <div className="space-y-2 w-[140px]">
                 <label htmlFor="carrier" className="text-sm font-medium">
                   Carrier
                 </label>
@@ -1334,7 +1336,8 @@ export default function RateComparisonCard() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              {/* Service Type - larghezza ridotta */}
+              <div className="space-y-2 w-[150px]">
                 <label htmlFor="service" className="text-sm font-medium">
                   Service Type
                 </label>
@@ -1353,9 +1356,9 @@ export default function RateComparisonCard() {
                 </Select>
               </div>
 
-              {/* Country filter - only show for EU and Extra EU tabs */}
+              {/* Country filter - solo per EU e Extra EU */}
               {(activeTab === "eu" || activeTab === "extra_eu") && (
-                <div className="space-y-2">
+                <div className="space-y-2 w-[150px]">
                   <label htmlFor="country" className="text-sm font-medium">
                     Country
                   </label>
@@ -1375,7 +1378,8 @@ export default function RateComparisonCard() {
                 </div>
               )}
 
-              <div className="space-y-2">
+              {/* Weight - più stretto */}
+              <div className="space-y-2 w-[100px]">
                 <label htmlFor="weight" className="text-sm font-medium">
                   Weight (kg)
                 </label>
@@ -1387,14 +1391,15 @@ export default function RateComparisonCard() {
                     onChange={(e) => handleFilterChange("weight", e.target.value)}
                     min="0.1"
                     step="0.1"
+                    className="w-full"
                   />
-                  <span className="text-sm text-muted-foreground">kg</span>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* Monthly Volume - più stretto */}
+              <div className="space-y-2 w-[120px]">
                 <label htmlFor="volume" className="text-sm font-medium">
-                  Monthly Volume
+                  Volume
                 </label>
                 <div className="flex items-center space-x-2">
                   <Input
@@ -1403,14 +1408,15 @@ export default function RateComparisonCard() {
                     value={filters.volume}
                     onChange={(e) => handleFilterChange("volume", e.target.value)}
                     min="1"
+                    className="w-full"
                   />
-                  <span className="text-sm text-muted-foreground">pcs</span>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* Max Price - più stretto */}
+              <div className="space-y-2 w-[120px]">
                 <label htmlFor="maxPrice" className="text-sm font-medium">
-                  Max Price (Optional)
+                  Max Price
                 </label>
                 <div className="flex items-center space-x-2">
                   <Input
@@ -1420,9 +1426,9 @@ export default function RateComparisonCard() {
                     onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
                     min="0.1"
                     step="0.1"
-                    placeholder="Any price"
+                    placeholder="Any"
+                    className="w-full"
                   />
-                  <span className="text-sm text-muted-foreground">€</span>
                 </div>
               </div>
             </div>
