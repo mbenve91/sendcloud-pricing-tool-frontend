@@ -81,7 +81,7 @@ interface Service {
   }
   sourceCountry: string | null
   destinationType: "national" | "international" | "both"
-  destinationCountry: string[]
+  destinationCountry: string[] | any
   isEU: boolean
   deliveryTimeMin: number | null
   deliveryTimeMax: number | null
@@ -374,22 +374,34 @@ const ServiceForm = ({
               <FormLabel>Destination Countries</FormLabel>
               <div className="relative">
                 <Select
-                  multiple
-                  onValueChange={(values) => {
+                  onValueChange={(value) => {
+                    // Simuliamo la selezione multipla aggiungendo o rimuovendo elementi dall'array
+                    const values = [...field.value];
+                    if (values.includes(value)) {
+                      // Rimuovi il valore se già presente
+                      const index = values.indexOf(value);
+                      values.splice(index, 1);
+                    } else {
+                      // Aggiungi il valore se non presente
+                      values.push(value);
+                    }
                     field.onChange(values);
-                    // Se è selezionato almeno un paese, controlla se tutti i paesi selezionati sono EU
+                    
+                    // Controlla se tutti i paesi selezionati sono EU
                     if (values.length > 0) {
                       const selectedCountries = COUNTRIES.filter(c => values.includes(c.code));
                       const allEU = selectedCountries.every(c => c.isEU);
                       form.setValue("isEU", allEU);
                     }
                   }}
-                  value={field.value}
+                  value={field.value.length > 0 ? field.value[0] : ""}
                   disabled={form.watch("destinationType") === "national"}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select destination countries" />
+                      <SelectValue placeholder={field.value.length > 0 
+                        ? `${field.value.length} paesi selezionati` 
+                        : "Seleziona paesi di destinazione"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-[300px]">
@@ -695,6 +707,16 @@ export default function ServicesPage() {
     
     console.log('sourceCountry normalizzato:', normalizedSourceCountry);
     
+    // Converti destinationCountry in array se non lo è già
+    let destinationCountries: string[] = [];
+    if (service.destinationCountry) {
+      destinationCountries = Array.isArray(service.destinationCountry)
+        ? service.destinationCountry.map(country => country.toUpperCase())
+        : typeof service.destinationCountry === 'string' 
+          ? [service.destinationCountry.toUpperCase()]
+          : [];
+    }
+    
     // Imposta i valori del form
     form.reset({
       id: service._id,
@@ -705,9 +727,7 @@ export default function ServicesPage() {
       // Usa il valore normalizzato
       sourceCountry: normalizedSourceCountry !== "" ? normalizedSourceCountry : "none",
       destinationType: service.destinationType,
-      destinationCountry: Array.isArray(service.destinationCountry) 
-        ? service.destinationCountry.map(country => country.toUpperCase()) // Normalizza anche i paesi di destinazione
-        : service.destinationCountry ? [service.destinationCountry.toUpperCase()] : [],
+      destinationCountry: destinationCountries,
       isEU: service.isEU,
       deliveryTimeMin: service.deliveryTimeMin,
       deliveryTimeMax: service.deliveryTimeMax,
@@ -733,10 +753,12 @@ export default function ServicesPage() {
       
       const method = isEditing ? 'PUT' : 'POST';
 
-      // Converti "none" in null e normalizza sourceCountry in minuscolo
+      // Modifichiamo la gestione di sourceCountry per gestire in sicurezza i valori nulli
       const formData = {
         ...data,
-        sourceCountry: data.sourceCountry === "none" ? null : data.sourceCountry.toLowerCase()
+        sourceCountry: !data.sourceCountry || data.sourceCountry === "none"
+          ? null 
+          : data.sourceCountry.toLowerCase()
       };
       
       console.log('Dati da inviare al server:', formData);
