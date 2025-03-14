@@ -110,7 +110,7 @@ const ALL_COLUMNS = [
   { id: "details", name: "Details", isVisible: true },
 ]
 
-// Modifica alle colonne visibili per aggiungere la fascia di peso
+// Modifica alle colonne visibili - rimuovi details e aggiungi totalMargin
 const DEFAULT_VISIBLE_COLUMNS = [
   { id: "select", name: "Select", isVisible: true },
   { id: "carrier", name: "Carrier", isVisible: true },
@@ -121,8 +121,8 @@ const DEFAULT_VISIBLE_COLUMNS = [
   { id: "discount", name: "Discount", isVisible: true },
   { id: "finalPrice", name: "Final Price", isVisible: true },
   { id: "margin", name: "Margin", isVisible: true },
+  { id: "totalMargin", name: "Total Margin", isVisible: true },
   { id: "delivery", name: "Delivery", isVisible: true },
-  { id: "details", name: "Details", isVisible: true },
 ]
 
 // Definizione delle interfacce per i tipi
@@ -1484,13 +1484,13 @@ export default function RateComparisonCard() {
                         <TableHead className="text-right w-[100px]">Final Price</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                        <TableHead className="text-center w-[150px]">Margin</TableHead>
+                        <TableHead className="text-center w-[120px]">Margin</TableHead>
+                      )}
+                      {visibleColumns.find((col) => col.id === "totalMargin")?.isVisible && (
+                        <TableHead className="text-center w-[130px]">Total Margin ({filters.volume})</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
                         <TableHead className="text-center w-[100px]">Delivery</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                        <TableHead className="text-center w-[80px]">Details</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
@@ -1581,22 +1581,21 @@ export default function RateComparisonCard() {
                               </Badge>
                             </TableCell>
                           )}
+                          {visibleColumns.find((col) => col.id === "totalMargin")?.isVisible && (
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                {formatCurrency(
+                                  (rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100)) * 
+                                  parseInt(filters.volume || "0", 10)
+                                )}
+                              </Badge>
+                            </TableCell>
+                          )}
                           {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
                             <TableCell className="text-center">
                               {rate.deliveryTimeMin === rate.deliveryTimeMax
                                 ? `${rate.deliveryTimeMin}h`
                                 : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                            <TableCell className="text-center">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenDetail(rate)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
                             </TableCell>
                           )}
                         </TableRow>
@@ -1625,7 +1624,8 @@ export default function RateComparisonCard() {
                                         <TableHead className="w-[100px] text-right">Base Rate</TableHead>
                                         <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
                                         <TableHead className="w-[100px] text-right">Final Price</TableHead>
-                                        <TableHead className="w-[150px] text-center">Margin</TableHead>
+                                        <TableHead className="w-[120px] text-center">Margin</TableHead>
+                                        <TableHead className="w-[130px] text-center">Total Margin</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -1678,6 +1678,22 @@ export default function RateComparisonCard() {
                                                     ? weightRange.adjustedMargin 
                                                     : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
                                                 )})
+                                              </Badge>
+                                            ) : (
+                                              "N/D"
+                                            )}
+                                          </TableCell>
+                                          
+                                          {/* Aggiungi la cella per il margine totale */}
+                                          <TableCell className="text-center">
+                                            {weightRange.actualMargin !== undefined ? (
+                                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                                {formatCurrency(
+                                                  (weightRange.adjustedMargin !== undefined 
+                                                    ? weightRange.adjustedMargin 
+                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)) * 
+                                                  parseInt(filters.volume || "0", 10)
+                                                )}
                                               </Badge>
                                             ) : (
                                               "N/D"
