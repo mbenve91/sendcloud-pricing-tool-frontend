@@ -167,10 +167,10 @@ const getTranslation = (key: string, language: string): string => {
       'spanish': 'Todos los precios no incluyen IVA'
     },
     'price_note': {
-      'english': 'Total price includes the fuel surcharge',
-      'italian': 'Il prezzo totale include il sovrapprezzo carburante',
-      'german': 'Der Gesamtpreis enthält den Kraftstoffzuschlag',
-      'spanish': 'El precio total incluye el recargo por combustible'
+      'english': 'Total price does not include the fuel surcharge',
+      'italian': 'Il prezzo totale non include il sovrapprezzo carburante',
+      'german': 'Der Gesamtpreis enthält nicht den Kraftstoffzuschlag',
+      'spanish': 'El precio total no incluye el recargo por combustible'
     }
   };
   
@@ -466,7 +466,8 @@ const generateSimplePDF = async (
       currentX += colWidths[hasCountry ? 7 : 6];
       
       // Total Price (Final Price) - impostiamo in grassetto
-      const finalPriceText = formatCurrency(rate.finalPrice, language);
+      const priceWithoutFuel = rate.finalPrice / (1 + (rate.fuelSurcharge / 100));
+      const finalPriceText = formatCurrency(priceWithoutFuel, language);
       doc.setFont('helvetica', 'bold');
       doc.text(finalPriceText, currentX, currentY + 6);
       doc.setFont('helvetica', 'normal');
