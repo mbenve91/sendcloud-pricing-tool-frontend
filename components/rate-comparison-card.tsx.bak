@@ -87,6 +87,18 @@ const EXTRA_EU_COUNTRIES = [
   { id: "br", name: "Brazil" },
 ]
 
+// Add market list after EU_COUNTRIES constant
+const MARKETS = [
+  { id: "all", name: "Tutti i mercati" },
+  { id: "it", name: "Italia" },
+  { id: "es", name: "Spagna" },
+  { id: "fr", name: "Francia" },
+  { id: "de", name: "Germania" },
+  { id: "nl", name: "Paesi Bassi" },
+  { id: "be", name: "Belgio" },
+  { id: "uk", name: "Regno Unito" },
+]
+
 // Define weight ranges
 const WEIGHT_RANGES = [
   { min: 0, max: 1, label: "0-1 kg" },
@@ -174,20 +186,6 @@ interface Rate {
   };
 }
 
-// Aggiungi questa lista dopo le altre liste di costanti
-const MARKETS = [
-  { id: "it", name: "Italia" },
-  { id: "fr", name: "Francia" },
-  { id: "de", name: "Germania" },
-  { id: "es", name: "Spagna" },
-  { id: "uk", name: "Regno Unito" },
-  { id: "us", name: "Stati Uniti" },
-  { id: "nl", name: "Paesi Bassi" },
-  { id: "be", name: "Belgio" },
-  { id: "ch", name: "Svizzera" },
-  { id: "at", name: "Austria" },
-]
-
 export default function RateComparisonCard() {
   // States
   const [activeTab, setActiveTab] = useState("national")
@@ -209,15 +207,14 @@ export default function RateComparisonCard() {
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS)
 
-  // Update the filters state to include sourceCountry (market)
+  // Update the filters state to include country
   const [filters, setFilters] = useState({
-    sourceCountry: "", // Aggiungi questo campo per il market
+    weight: "1",
+    volume: "",
+    country: "",
     carrierId: "",
     serviceType: "",
-    weight: "1",
-    volume: "100",
-    country: "",
-    maxPrice: "",
+    sourceCountry: "all" // Nuovo filtro per il mercato
   })
 
   // Stato per memorizzare le fasce di peso complete per servizio
@@ -613,11 +610,11 @@ export default function RateComparisonCard() {
       try {
         // Se abbiamo selezionato un carrier specifico, carichiamo solo i suoi servizi
         if (filters.carrierId) {
-          const servicesData = await api.getServices(filters.carrierId);
+          const servicesData = await api.getServices(filters.carrierId, filters.sourceCountry !== "all" ? filters.sourceCountry : undefined);
           setServices(servicesData);
         } else if (carriers.length > 0) {
-          // Altrimenti carichiamo tutti i servizi disponibili
-          const servicesData = await api.getServices();
+          // Altrimenti carichiamo tutti i servizi disponibili, filtrati per mercato se selezionato
+          const servicesData = await api.getServices(undefined, filters.sourceCountry !== "all" ? filters.sourceCountry : undefined);
           setServices(servicesData);
         }
       } catch (error) {
@@ -627,7 +624,7 @@ export default function RateComparisonCard() {
     };
 
     loadServices();
-  }, [filters.carrierId, carriers.length]);
+  }, [filters.carrierId, filters.sourceCountry, carriers.length]);
 
   // Load rates when filters or tab changes
   const loadRates = useCallback(async () => {
@@ -655,7 +652,7 @@ export default function RateComparisonCard() {
         carrierId: filters.carrierId,
         serviceType: filters.serviceType,
         volume: filters.volume,
-        sourceCountry: filters.sourceCountry // Aggiungi il market/sourceCountry alla richiesta
+        sourceCountry: filters.sourceCountry !== "all" ? filters.sourceCountry : undefined
       });
       
       console.log(`Richiesta tariffe per tab ${activeTab} con paese ${filters.country || 'tutti'}. Risultati: ${ratesData.length}`);
@@ -1220,44 +1217,41 @@ export default function RateComparisonCard() {
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-3 relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Image 
-              src="/sendcloud_logo.png" 
-              alt="Sendcloud Logo" 
-              width={40} 
-              height={40} 
-              className="rounded-md p-1"
-            />
-            <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
-              SendQuote
-            </CardTitle>
+      <CardHeader className="border-b bg-slate-50/50">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <CardTitle className="text-2xl font-bold mb-1">Price Manager</CardTitle>
+            <CardDescription>
+              Gestisci e confronta le tariffe dei corrieri per creare le migliori offerte per i clienti
+            </CardDescription>
           </div>
           
-          {/* Cart Icon with Item Count */}
-          <Button 
-            variant="outline"
-            size="icon" 
-            className="relative"
-            onClick={() => router.push("/cart")}
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {cartItems.length > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+          {/* Aggiungiamo il filtro per mercato */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex items-center gap-2">
+              <Select
+                value={filters.sourceCountry}
+                onValueChange={(value) => handleFilterChange("sourceCountry", value)}
               >
-                {cartItems.length}
-              </Badge>
-            )}
-          </Button>
+                <SelectTrigger className="w-32 h-9">
+                  <SelectValue placeholder="Mercato" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MARKETS.map((market) => (
+                    <SelectItem key={market.id} value={market.id}>
+                      {market.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Altri filtri esistenti */}
+            {/* ... existing filters ... */}
+          </div>
         </div>
-        <CardDescription>
-          Compare shipping rates across different carriers
-        </CardDescription>
       </CardHeader>
-
+      
       <CardContent className="space-y-6">
         {/* Filters Section */}
         <Card>
@@ -1281,26 +1275,6 @@ export default function RateComparisonCard() {
             <Separator className="mb-4" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Aggiungi il filtro Market come primo elemento */}
-              <div className="space-y-2">
-                <label htmlFor="market" className="text-sm font-medium">
-                  Market
-                </label>
-                <Select value={filters.sourceCountry} onValueChange={(value) => handleFilterChange("sourceCountry", value)}>
-                  <SelectTrigger id="market">
-                    <SelectValue placeholder="Tutti i mercati" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti i mercati</SelectItem>
-                    {MARKETS.map((market) => (
-                      <SelectItem key={market.id} value={market.id}>
-                        {market.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2">
                 <label htmlFor="carrier" className="text-sm font-medium">
                   Carrier
@@ -1339,6 +1313,26 @@ export default function RateComparisonCard() {
                 </Select>
               </div>
 
+              {/* Filtro per mercato */}
+              <div className="space-y-2">
+                <label htmlFor="sourceCountry" className="text-sm font-medium">
+                  Mercato
+                </label>
+                <Select value={filters.sourceCountry} onValueChange={(value) => handleFilterChange("sourceCountry", value)}>
+                  <SelectTrigger id="sourceCountry">
+                    <SelectValue placeholder="Tutti i mercati" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti i mercati</SelectItem>
+                    {MARKETS.map((market) => (
+                      <SelectItem key={market.id} value={market.id}>
+                        {market.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Country filter - only show for EU and Extra EU tabs */}
               {(activeTab === "eu" || activeTab === "extra_eu") && (
                 <div className="space-y-2">
@@ -1362,459 +1356,63 @@ export default function RateComparisonCard() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="weight" className="text-sm font-medium">
-                  Weight (kg)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="weight"
-                    type="number"
-                    value={filters.weight}
-                    onChange={(e) => handleFilterChange("weight", e.target.value)}
-                    min="0.1"
-                    step="0.1"
-                  />
-                  <span className="text-sm text-muted-foreground">kg</span>
+                <div className="text-sm font-medium">Dettagli</div>
+                <div className="flex justify-between">
+                  <span className="text-sm">Carrier:</span>
+                  <span className="text-sm font-medium">{selectedRate.carrierName}</span>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="volume" className="text-sm font-medium">
-                  Monthly Volume
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="volume"
-                    type="number"
-                    value={filters.volume}
-                    onChange={(e) => handleFilterChange("volume", e.target.value)}
-                    min="1"
-                  />
-                  <span className="text-sm text-muted-foreground">pcs</span>
+                <div className="flex justify-between">
+                  <span className="text-sm">Service:</span>
+                  <span className="text-sm font-medium">{selectedRate.serviceName}</span>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="maxPrice" className="text-sm font-medium">
-                  Max Price (Optional)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="maxPrice"
-                    type="number"
-                    value={filters.maxPrice}
-                    onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
-                    min="0.1"
-                    step="0.1"
-                    placeholder="Any price"
-                  />
-                  <span className="text-sm text-muted-foreground">€</span>
+                <div className="flex justify-between">
+                  <span className="text-sm">Weight Range:</span>
+                  <span className="text-sm font-medium">{selectedRate.currentWeightRange.label}</span>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Destination Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="national">National</TabsTrigger>
-            <TabsTrigger value="eu">European Union</TabsTrigger>
-            <TabsTrigger value="extra_eu">Extra EU</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab} className="mt-4">
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-            ) : rates.length === 0 ? (
-              <Alert>
-                <AlertTitle>No rates found</AlertTitle>
-                <AlertDescription>No shipping rates match your current filter criteria.</AlertDescription>
-              </Alert>
-            ) : (
-              <div className="rounded-md border">
-                <Table className="table-fixed">
-                  <TableHeader className="bg-muted">
-                    <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={areAllRowsSelected}
-                          onCheckedChange={handleSelectAllRows}
-                          aria-label="Select all rows"
-                        />
-                      </TableHead>
-                      {/* Aggiungi una colonna per l'espansione */}
-                      <TableHead className="w-[50px]"></TableHead>
-                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead className="w-[150px]">Carrier</TableHead>}
-                      {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead className="w-[150px]">Service</TableHead>}
-                      {(activeTab === "eu" || activeTab === "extra_eu") &&
-                        visibleColumns.find((col) => col.id === "country")?.isVisible && <TableHead className="w-[120px]">Country</TableHead>}
-                      {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                        <TableHead className="w-[120px]">Weight Range</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                        <TableHead className="text-right w-[100px]">Base Rate</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="text-right w-[120px]">Discount (%)</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                        <TableHead className="text-right w-[100px]">Final Price</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                        <TableHead className="text-center w-[150px]">Margin</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                        <TableHead className="text-center w-[100px]">Delivery</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                        <TableHead className="text-center w-[80px]">Details</TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedRates.map((rate, index) => (
-                      <>
-                        <TableRow key={rate.id} className="even:bg-muted/20 hover:bg-muted/40">
-                          <TableCell>
-                            <Checkbox
-                              checked={!!selectedRows[rate.id]}
-                              onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
-                              aria-label={`Select row ${index + 1}`}
-                            />
-                          </TableCell>
-                          {/* Aggiungi una cella con il pulsante di espansione */}
-                          <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleRowExpansion(rate.service?._id || '');
-                              }}
-                              className="h-8 w-8 p-0"
-                            >
-                              {expandedRows[rate.service?._id || ''] ? 
-                                <ChevronDown className="h-4 w-4" /> : 
-                                <ChevronRight className="h-4 w-4" />}
-                            </Button>
-                          </TableCell>
-                          {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
-                            <TableCell>{rate.carrierName}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                            <TableCell>
-                              <span className="font-medium">{rate.serviceName}</span>
-                            </TableCell>
-                          )}
-                          {(activeTab === "eu" || activeTab === "extra_eu") &&
-                            visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                              <TableCell>{rate.countryName}</TableCell>
-                            )}
-                          {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                            <TableCell className="font-medium">
-                              {rate.weightMin !== undefined && rate.weightMax !== undefined 
-                                ? `${rate.weightMin}-${rate.weightMax} kg` 
-                                : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                            <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="90"
-                                step="0.01"
-                                value={rate.userDiscount || 0}
-                                onChange={e => handleDiscountChange(
-                                  rate.id,
-                                  rate.service?._id || '',
-                                  parseFloat(e.target.value) || 0
-                                )}
-                                className="w-24 h-8 text-right"
-                              />
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                            <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                            <TableCell className="text-center">
-                              <Badge
-                                variant={getMarginColor(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}
-                              >
-                                {formatCurrency(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}{" "}
-                                (
-                                {getMarginLabel(
-                                  rate.actualMargin - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                )}
-                                )
-                              </Badge>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                            <TableCell className="text-center">
-                              {rate.deliveryTimeMin === rate.deliveryTimeMax
-                                ? `${rate.deliveryTimeMin}h`
-                                : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                            <TableCell className="text-center">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenDetail(rate)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                        
-                        {/* Riga espansa con tutte le fasce di peso */}
-                        {expandedRows[rate.service?._id || ''] && (
-                          <TableRow>
-                            <TableCell colSpan={visibleColumns.filter(col => col.isVisible).length + 2}>
-                              <div className="bg-muted/20 p-4 rounded-md">
-                                <h4 className="font-medium mb-3">Weight ranges for {rate.serviceName}</h4>
-                                
-                                {/* Mostra un indicatore di caricamento se le fasce di peso non sono ancora state caricate */}
-                                {!serviceWeightRanges[rate.service?._id || ''] ? (
-                                  <div className="flex justify-center py-4">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                                  </div>
-                                ) : serviceWeightRanges[rate.service?._id || ''].length === 0 ? (
-                                  <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
-                                ) : (
-                                  <Table className="table-fixed">
-                                    <TableHeader className="bg-muted">
-                                      <TableRow>
-                                        <TableHead className="w-[60px]">Select</TableHead>
-                                        {/* Rimuovi colonne duplicate e mostra solo le informazioni essenziali */}
-                                        <TableHead className="w-[120px]">Weight Range</TableHead>
-                                        <TableHead className="w-[100px] text-right">Base Rate</TableHead>
-                                        <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
-                                        <TableHead className="w-[100px] text-right">Final Price</TableHead>
-                                        <TableHead className="w-[150px] text-center">Margin</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
-                                        <TableRow key={weightRange.id} className="even:bg-muted/20 hover:bg-muted/40">
-                                          {/* Checkbox per la fascia di peso */}
-                                          <TableCell>
-                                            <Checkbox
-                                              checked={!!selectedRows[`${rate.id}-${weightRange.id}`]}
-                                              onCheckedChange={(checked) => 
-                                                handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
-                                              }
-                                              aria-label={`Select weight range ${weightRange.label}`}
-                                            />
-                                          </TableCell>
-                                          
-                                          {/* Weight Range */}
-                                          <TableCell className="font-medium">{weightRange.label}</TableCell>
-                                          
-                                          {/* Base Rate */}
-                                          <TableCell className="text-right">{formatCurrency(weightRange.basePrice || 0)}</TableCell>
-                                          
-                                          {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
-                                          <TableCell className="text-right">
-                                            <div className="flex items-center justify-end">
-                                              <span className="text-center min-w-[60px]">{rate.userDiscount || 0}%</span>
-                                            </div>
-                                          </TableCell>
-                                          
-                                          {/* Final Price */}
-                                          <TableCell className="text-right font-medium">{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
-                                          
-                                          {/* Margin */}
-                                          <TableCell className="text-center">
-                                            {weightRange.actualMargin !== undefined ? (
-                                              <Badge
-                                                variant={getMarginColor(
-                                                  weightRange.adjustedMargin !== undefined 
-                                                    ? weightRange.adjustedMargin 
-                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
-                                                )}
-                                              >
-                                                {formatCurrency(
-                                                  weightRange.adjustedMargin !== undefined 
-                                                    ? weightRange.adjustedMargin 
-                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
-                                                )}{" "}
-                                                ({getMarginLabel(
-                                                  weightRange.adjustedMargin !== undefined 
-                                                    ? weightRange.adjustedMargin 
-                                                    : weightRange.actualMargin - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)
-                                                )})
-                                              </Badge>
-                                            ) : (
-                                              "N/D"
-                                            )}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {rates.length > rowsPerPage && (
-              <div className="flex justify-center mt-4">
-                <Pagination>
-                  <UPaginationContent>
-                    <UPaginationItem>
-                      <PaginationPrevious
-                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </UPaginationItem>
-
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <UPaginationItem key={i}>
-                        <PaginationLink isActive={currentPage === i + 1} onClick={() => setCurrentPage(i + 1)}>
-                          {i + 1}
-                        </PaginationLink>
-                      </UPaginationItem>
-                    ))}
-
-                    <UPaginationItem>
-                      <PaginationNext
-                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </UPaginationItem>
-                  </UPaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between space-x-2">
-          <div>
-            {Object.values(selectedRows).some(Boolean) && (
-              <Button variant="outline">{Object.values(selectedRows).filter(Boolean).length} rows selected</Button>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {/* Aggiungi il toggle per il fuel surcharge qui, accanto al pulsante columns */}
-            <div className="flex items-center space-x-2 mr-4">
-              <Switch
-                checked={includeFuelSurcharge}
-                onCheckedChange={setIncludeFuelSurcharge}
-                id="fuel-surcharge-toggle"
-              />
-              <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
-                Include Fuel
-              </Label>
-            </div>
-            
-            <Button variant="outline" onClick={() => setColumnsDialogOpen(true)}>
-              <Columns className="mr-2 h-4 w-4" />
-              Columns
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-
-      {/* Rate Detail Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>
-                Rate Details: {selectedRate?.carrierName} - {selectedRate?.serviceName}
-              </span>
-              <Button variant="ghost" size="icon" onClick={() => setDetailOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedRate && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Basic Information</h4>
-                <Separator className="mb-3" />
-
-                <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm">Destination:</span>
+                  <span className="text-sm font-medium">
+                    {selectedRate.destinationType === "national"
+                      ? "National"
+                      : selectedRate.destinationType === "eu"
+                        ? "European Union"
+                        : "Extra EU"}
+                  </span>
+                </div>
+                {(selectedRate.destinationType === "eu" || selectedRate.destinationType === "extra_eu") && (
                   <div className="flex justify-between">
-                    <span className="text-sm">Carrier:</span>
-                    <span className="text-sm font-medium">{selectedRate.carrierName}</span>
+                    <span className="text-sm">Country:</span>
+                    <span className="text-sm font-medium">{selectedRate.countryName}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Service:</span>
-                    <span className="text-sm font-medium">{selectedRate.serviceName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Weight Range:</span>
-                    <span className="text-sm font-medium">{selectedRate.currentWeightRange.label}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Destination:</span>
-                    <span className="text-sm font-medium">
-                      {selectedRate.destinationType === "national"
-                        ? "National"
-                        : selectedRate.destinationType === "eu"
-                          ? "European Union"
-                          : "Extra EU"}
-                    </span>
-                  </div>
-                  {(selectedRate.destinationType === "eu" || selectedRate.destinationType === "extra_eu") && (
-                    <div className="flex justify-between">
-                      <span className="text-sm">Country:</span>
-                      <span className="text-sm font-medium">{selectedRate.countryName}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-sm">Delivery Time:</span>
-                    <span className="text-sm font-medium">
-                      {selectedRate.deliveryTimeMin === selectedRate.deliveryTimeMax
-                        ? `${selectedRate.deliveryTimeMin} hours`
-                        : `${selectedRate.deliveryTimeMin}-${selectedRate.deliveryTimeMax} hours`}
-                    </span>
-                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-sm">Delivery Time:</span>
+                  <span className="text-sm font-medium">
+                    {selectedRate.deliveryTimeMin === selectedRate.deliveryTimeMax
+                      ? `${selectedRate.deliveryTimeMin} hours`
+                      : `${selectedRate.deliveryTimeMin}-${selectedRate.deliveryTimeMax} hours`}
+                  </span>
                 </div>
               </div>
 
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">Price Details</h4>
                 <Separator className="mb-3" />
-
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm">Base Rate:</span>
+                    <span className="text-sm">Base Price:</span>
                     <span className="text-sm font-medium">{formatCurrency(selectedRate.basePrice)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Fuel Surcharge ({selectedRate.fuelSurcharge}%):</span>
-                    <span className="text-sm font-medium">
-                      {formatCurrency(selectedRate.basePrice * (selectedRate.fuelSurcharge / 100))}
-                    </span>
-                  </div>
+                  {getFuelSurchargeText(selectedRate) && (
+                    <div className="flex justify-between">
+                      <span className="text-sm">Fuel Surcharge ({selectedRate.fuelSurcharge}%):</span>
+                      <span className="text-sm font-medium">
+                        {includeFuelSurcharge 
+                          ? `+${formatCurrency(selectedRate.basePrice * (selectedRate.fuelSurcharge / 100))}` 
+                          : "Not included"}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-sm">Total Base Price:</span>
                     <span className="text-sm font-medium">{formatCurrency(selectedRate.totalBasePrice)}</span>
@@ -1867,15 +1465,9 @@ export default function RateComparisonCard() {
                 </div>
               </div>
             </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      </CardContent>
 
       {/* AI Suggestions Dialog */}
       <Dialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen}>

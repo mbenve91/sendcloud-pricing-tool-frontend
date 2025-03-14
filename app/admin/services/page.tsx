@@ -58,6 +58,7 @@ const serviceFormSchema = z.object({
   carrier: z.string({
     required_error: "Please select a carrier.",
   }),
+  sourceCountry: z.string().optional(),
   destinationType: z.enum(["national", "international", "both"]),
   destinationCountry: z.array(z.string()).default([]),
   isEU: z.boolean().default(false),
@@ -78,6 +79,7 @@ interface Service {
     _id: string
     name: string
   }
+  sourceCountry: string | null
   destinationType: "national" | "international" | "both"
   destinationCountry: string[]
   isEU: boolean
@@ -247,66 +249,40 @@ const ServiceForm = ({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="carrier"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Carrier</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a carrier" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {isLoadingCarriers ? (
-                    <SelectItem value="loading" disabled>Loading carriers...</SelectItem>
-                  ) : carriers.length === 0 ? (
-                    <SelectItem value="none" disabled>No carriers available</SelectItem>
-                  ) : (
-                    carriers.map((carrier) => (
-                      <SelectItem key={carrier._id} value={carrier._id}>
-                        {carrier.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                The carrier that provides this service
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="destinationType"
+            name="carrier"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Destination Type</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
+                <FormLabel>Carrier</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
                   defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select destination type" />
+                      <SelectValue placeholder="Select a carrier" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="national">National</SelectItem>
-                    <SelectItem value="international">International</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
+                    {isLoadingCarriers ? (
+                      <SelectItem value="loading" disabled>Loading carriers...</SelectItem>
+                    ) : carriers.length === 0 ? (
+                      <SelectItem value="none" disabled>No carriers available</SelectItem>
+                    ) : (
+                      carriers.map((carrier) => (
+                        <SelectItem key={carrier._id} value={carrier._id}>
+                          {carrier.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  The carrier that provides this service
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -314,58 +290,117 @@ const ServiceForm = ({
 
           <FormField
             control={form.control}
-            name="destinationCountry"
+            name="sourceCountry"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Destination Countries</FormLabel>
-                <div className="relative">
-                  <Select
-                    multiple
-                    onValueChange={(values) => {
-                      field.onChange(values);
-                      // Se è selezionato almeno un paese, controlla se tutti i paesi selezionati sono EU
-                      if (values.length > 0) {
-                        const selectedCountries = COUNTRIES.filter(c => values.includes(c.code));
-                        const allEU = selectedCountries.every(c => c.isEU);
-                        form.setValue("isEU", allEU);
-                      }
-                    }}
-                    value={field.value}
-                    disabled={form.watch("destinationType") === "national"}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select destination countries" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="max-h-[300px]">
-                      <SelectGroup>
-                        <SelectLabel>European Union</SelectLabel>
-                        {COUNTRIES.filter(c => c.isEU).map((country) => (
-                          <SelectItem key={country.code} value={country.code}>
-                            {country.name} ({country.code})
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel>Non-EU Countries</SelectLabel>
-                        {COUNTRIES.filter(c => !c.isEU).map((country) => (
-                          <SelectItem key={country.code} value={country.code}>
-                            {country.name} ({country.code})
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <FormLabel>Source Market</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value || ""}
+                  value={field.value || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source market" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="">Not specified</SelectItem>
+                    {COUNTRIES.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.name} ({country.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormDescription>
-                  Select countries for international destinations
+                  The country/market where the service originates
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="destinationType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Destination Type</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select destination type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="national">National</SelectItem>
+                  <SelectItem value="international">International</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="destinationCountry"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Destination Countries</FormLabel>
+              <div className="relative">
+                <Select
+                  multiple
+                  onValueChange={(values) => {
+                    field.onChange(values);
+                    // Se è selezionato almeno un paese, controlla se tutti i paesi selezionati sono EU
+                    if (values.length > 0) {
+                      const selectedCountries = COUNTRIES.filter(c => values.includes(c.code));
+                      const allEU = selectedCountries.every(c => c.isEU);
+                      form.setValue("isEU", allEU);
+                    }
+                  }}
+                  value={field.value}
+                  disabled={form.watch("destinationType") === "national"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select destination countries" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectGroup>
+                      <SelectLabel>European Union</SelectLabel>
+                      {COUNTRIES.filter(c => c.isEU).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Non-EU Countries</SelectLabel>
+                      {COUNTRIES.filter(c => !c.isEU).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <FormDescription>
+                Select countries for international destinations
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
@@ -609,6 +644,7 @@ export default function ServicesPage() {
       code: "",
       description: "",
       carrier: "",
+      sourceCountry: "",
       destinationType: "national",
       destinationCountry: [],
       isEU: false,
@@ -628,6 +664,7 @@ export default function ServicesPage() {
       code: service.code || "",
       description: service.description || "",
       carrier: service.carrier._id,
+      sourceCountry: service.sourceCountry || "",
       destinationType: service.destinationType,
       destinationCountry: Array.isArray(service.destinationCountry) 
         ? service.destinationCountry 
@@ -771,6 +808,7 @@ export default function ServicesPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>Carrier</TableHead>
+                      <TableHead>Market</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Destination</TableHead>
                       <TableHead>Delivery Time</TableHead>
@@ -793,6 +831,11 @@ export default function ServicesPage() {
                           <TableCell>{service.name}</TableCell>
                           <TableCell>{service.code || "—"}</TableCell>
                           <TableCell>{service.carrier.name}</TableCell>
+                          <TableCell>
+                            {service.sourceCountry 
+                              ? COUNTRIES.find(c => c.code === service.sourceCountry)?.name || service.sourceCountry
+                              : "—"}
+                          </TableCell>
                           <TableCell>
                             <span className="capitalize">{service.destinationType}</span>
                           </TableCell>
