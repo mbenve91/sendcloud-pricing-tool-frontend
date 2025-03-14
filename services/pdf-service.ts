@@ -240,34 +240,30 @@ const generateSimplePDF = async (
     const primaryColor = [18, 40, 87]; // RGB per #122857
     const secondaryColor = [33, 37, 41]; // RGB per #212529
     
-    // SOLUZIONE SEMPLICE: Allarghiamo il documento per far entrare tutte le colonne
-    const margin = 10; // Margine ridotto
+    // SOLUZIONE MIGLIORATA: Ottimizziamo il layout per distribuire lo spazio in modo più efficiente
+    const margin = 10; // Margine per il documento
     const pageWidth = 210;
     const tableWidth = pageWidth - (margin * 2);
     
-    // Ridistribuiamo lo spazio delle colonne in modo ottimale
+    // Ridistribuiamo lo spazio delle colonne in modo più equilibrato
     let colWidths: number[] = [];
     const hasCountry = rates.some(r => r.countryName);
+    
     if (hasCountry) {
-      // Con colonna paese - distribuiamo in percentuale più equa
-      colWidths = [0.11, 0.11, 0.10, 0.09, 0.12, 0.10, 0.10, 0.11, 0.16].map(w => tableWidth * w);
+      // Con colonna paese - equilibriamo meglio le colonne
+      colWidths = [0.11, 0.11, 0.10, 0.09, 0.12, 0.13, 0.12, 0.12, 0.10].map(w => tableWidth * w);
     } else {
-      // Senza colonna paese
-      colWidths = [0.12, 0.12, 0.10, 0.12, 0.12, 0.12, 0.12, 0.18].map(w => tableWidth * w);
+      // Senza colonna paese - distribuiamo meglio le colonne
+      colWidths = [0.13, 0.13, 0.11, 0.13, 0.14, 0.13, 0.12, 0.11].map(w => tableWidth * w);
     }
     
-    // Assicuriamoci che l'ultima colonna (prezzo) entri completamente
-    // Riduciamo il testo delle intestazioni per le colonne più strette
-    const getHeaderFontSize = (text: string): number => {
-      return 8; // Font più piccolo per tutte le intestazioni
-    };
+    // Utilizziamo un font size uniforme per le intestazioni
+    const headerFontSize = 8;
     
     // Aggiungiamo il logo SendCloud 
-    // Importa dinamicamente il modulo per convertire immagine in data URL
     const logoUrl = '/sendcloud_logo.png';
     
-    // Riserviamo uno spazio per il logo e lo aggiungeremo quando è caricato
-    // Nel frattempo, aggiungiamo uno spazio vuoto
+    // Dimensioni predefinite per il logo
     const logoHeight = 15;  // mm
     const logoWidth = 50;   // mm
     const logoX = 14;
@@ -332,76 +328,66 @@ const generateSimplePDF = async (
     doc.setFont('helvetica', 'normal');
     doc.text('Your Customer', 120, 75);
     
-    // Poiché autoTable non funziona, creiamo una tabella semplice
+    // Definiamo una tabella semplice con spaziatura migliore
     const startY = 85;
     const rowHeight = 10;
     
-    // RIPRISTINO: Assicuriamo che l'intestazione venga disegnata
-    // Intestazioni
+    // Intestazioni - utilizziamo rettangoli per assicurarci che tutta la riga sia colorata
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(getHeaderFontSize('Carrier'));
+    doc.setFontSize(headerFontSize);
     doc.setFont('helvetica', 'bold');
     
-    // Riga di intestazione - ASSICURIAMOCI CHE VENGA DISEGNATA
+    // Riga di intestazione
     doc.rect(margin, startY, tableWidth, rowHeight, 'F');
     
     // Testi delle intestazioni
-    let currentX = margin + 3;
+    let currentX = margin + 3; // Aggiungiamo un piccolo padding iniziale
     
     // Carrier
     const carrierText = getTranslation('carrier', language);
-    doc.setFontSize(getHeaderFontSize(carrierText));
     doc.text(carrierText, currentX, startY + 6);
     currentX += colWidths[0];
     
     // Service
     const serviceText = getTranslation('service', language);
-    doc.setFontSize(getHeaderFontSize(serviceText));
     doc.text(serviceText, currentX, startY + 6);
     currentX += colWidths[1];
     
     // Country (opzionale)
     if (hasCountry) {
       const destText = getTranslation('destination', language);
-      doc.setFontSize(getHeaderFontSize(destText));
       doc.text(destText, currentX, startY + 6);
       currentX += colWidths[2];
     }
     
     // Weight
     const weightText = getTranslation('weight', language);
-    doc.setFontSize(getHeaderFontSize(weightText));
     doc.text(weightText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 3 : 2];
     
     // Delivery Time
     const deliveryText = getTranslation('delivery_time', language);
-    doc.setFontSize(getHeaderFontSize(deliveryText));
     doc.text(deliveryText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 4 : 3];
     
     // Base Price
     const basePriceText = getTranslation('base_price', language);
-    doc.setFontSize(getHeaderFontSize(basePriceText));
     doc.text(basePriceText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 5 : 4];
     
     // Discount
     const discountText = getTranslation('discount', language);
-    doc.setFontSize(getHeaderFontSize(discountText));
     doc.text(discountText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 6 : 5];
     
-    // Fuel Surcharge - aumentiamo lo spazio e riduciamo la dimensione del font
+    // Fuel Surcharge
     const fuelText = getTranslation('fuel_surcharge', language);
-    doc.setFontSize(8); // Riduciamo il font per questa intestazione lunga
     doc.text(fuelText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 7 : 6];
     
-    // Total Price - aggiungiamo un padding fisso per allineare correttamente
+    // Total Price - Assicuriamo che sia allineato correttamente
     const priceText = getTranslation('price', language);
-    doc.setFontSize(9);
     doc.text(priceText, currentX, startY + 6);
     
     // Dati delle righe
@@ -414,7 +400,7 @@ const generateSimplePDF = async (
     
     // Abbreviare i nomi lunghi se necessario
     const truncateText = (text: string, maxLength: number): string => {
-      return text.length > maxLength ? text.substring(0, maxLength-2) + '..' : text;
+      return text?.length > maxLength ? text.substring(0, maxLength-2) + '..' : text || '';
     };
     
     rates.forEach((rate, index) => {
@@ -442,7 +428,7 @@ const generateSimplePDF = async (
       
       // Country (opzionale)
       if (hasCountry) {
-        doc.text(rate.countryName?.substring(0, 16) || "", currentX, currentY + 6);
+        doc.text(truncateText(rate.countryName, 14), currentX, currentY + 6);
         currentX += colWidths[2];
       }
       
@@ -472,17 +458,17 @@ const generateSimplePDF = async (
       doc.text(discountValue, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 6 : 5];
       
-      // Per la colonna Fuel Surcharge
+      // Fuel Surcharge
       const fuelValue = rate.fuelSurcharge > 0 
         ? `${rate.fuelSurcharge}%` 
         : "0%";
       doc.text(fuelValue, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 7 : 6];
       
-      // Per la colonna Price - rimuoviamo il padding eccessivo
+      // Total Price (Final Price) - impostiamo in grassetto
       const finalPriceText = formatCurrency(rate.finalPrice, language);
       doc.setFont('helvetica', 'bold');
-      doc.text(finalPriceText, currentX, currentY + 6); // Rimuoviamo padding extra
+      doc.text(finalPriceText, currentX, currentY + 6);
       doc.setFont('helvetica', 'normal');
       
       currentY += rowHeight;
@@ -494,7 +480,6 @@ const generateSimplePDF = async (
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, margin + tableWidth, currentY);
     
-    // MODIFICA: Organizzazione migliorata delle note per evitare sovrapposizioni
     // Nota sul prezzo totale
     currentY += 10;
     doc.setFontSize(9);
@@ -502,7 +487,7 @@ const generateSimplePDF = async (
     doc.setTextColor(80, 80, 80);
     doc.text(`* ${getTranslation('price_note', language)}`, margin, currentY);
     
-    // Box per il messaggio di ringraziamento con più spazio
+    // Box per il messaggio di ringraziamento
     currentY += 20;
     doc.setFillColor(240, 248, 255); 
     doc.setDrawColor(0, 123, 255);
@@ -515,29 +500,28 @@ const generateSimplePDF = async (
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text(getTranslation('thank_you', language), margin + 6, currentY + 10);
     
-    // MODIFICA: Distanziamo il footer text
+    // Testo a piè di pagina
     currentY += 25;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     
-    // Split del testo a piè di pagina
+    // Split del testo a piè di pagina per gestire il wrapping
     const footerText = getTranslation('footer_text', language);
     const splitFooter = doc.splitTextToSize(footerText, tableWidth);
     doc.text(splitFooter, margin, currentY);
     
-    // MODIFICA: Aumentiamo ulteriormente lo spazio per la nota sull'IVA
+    // Nota sull'IVA
     currentY += splitFooter.length * 6 + 10;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
     doc.text(`* ${getTranslation('vat_excluded', language)}`, margin, currentY);
     
-    // MODIFICA: Aggiungiamo più padding in basso
     // Footer con informazioni aziendali
     const pageHeight = doc.internal.pageSize.height;
     
-    // Aggiungiamo una linea sopra il footer con più spazio
+    // Aggiungiamo una linea sopra il footer
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
     doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
@@ -569,4 +553,4 @@ export const downloadQuotePDF = async (rates: Rate[], options: QuoteOptions): Pr
 };
 
 // Esportiamo la funzione di generazione per completezza
-export const generateQuotePDF = generateSimplePDF; 
+export const generateQuotePDF = generateSimplePDF;
