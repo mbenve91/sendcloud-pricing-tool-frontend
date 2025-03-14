@@ -795,7 +795,7 @@ export default function RateComparisonCard() {
   // Handle filter change
   const handleFilterChange = (name: string, value: string) => {
     // Convert 'all' to empty string for API compatibility
-    const apiValue = value === 'all' ? '' : value;
+    let apiValue = value === 'all' ? '' : value; // Cambiato da const a let
     
     // Per sourceCountry, converti sempre in minuscolo per corrispondere al formato del database
     if (name === 'sourceCountry' && apiValue) {
