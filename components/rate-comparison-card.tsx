@@ -1042,8 +1042,8 @@ export default function RateComparisonCard() {
     // Converti selectedRows in un array di rate selezionati
     const selectedRatesToAdd = Object.entries(selectedRows)
       .filter(([_, isSelected]) => isSelected)
-      .map(([id]) => {
-        // Gestione separata per le fasce di peso
+      .map(([id, _]) => {
+        // Controllo se è un ID di fascia peso (contiene un trattino)
         if (id.includes('-')) {
           const [parentId, weightRangeId] = id.split('-');
           const parentRate = rates.find(rate => rate.id === parentId);
@@ -1055,6 +1055,10 @@ export default function RateComparisonCard() {
             const weightRange = weightRanges.find(wr => wr.id === weightRangeId);
             
             if (weightRange) {
+              // Calcola il prezzo finale SENZA fuel surcharge (indipendentemente dall'impostazione)
+              const priceWithoutFuel = weightRange.basePrice - 
+                (weightRange.actualMargin * (weightRange.userDiscount / 100));
+              
               // Crea una versione modificata del rate padre con i dati della fascia di peso
               return {
                 ...parentRate,
@@ -1065,7 +1069,7 @@ export default function RateComparisonCard() {
                   label: weightRange.label
                 },
                 basePrice: weightRange.basePrice,
-                finalPrice: weightRange.finalPrice,
+                finalPrice: priceWithoutFuel, // Assicurati di usare il prezzo SENZA fuel surcharge
                 actualMargin: weightRange.actualMargin,
                 isWeightRange: true,
                 parentRateId: parentId
@@ -1075,8 +1079,20 @@ export default function RateComparisonCard() {
           
           return null;
         } else {
-          // Per i rate normali, restituisci il rate come è
-          return rates.find(rate => rate.id === id);
+          // Per i rate normali, calcola il prezzo senza fuel surcharge
+          const rate = rates.find(rate => rate.id === id);
+          if (rate) {
+            // Calcola il prezzo finale SENZA fuel surcharge
+            const priceWithoutFuel = rate.basePrice - 
+              (rate.actualMargin * (rate.userDiscount / 100));
+            
+            // Restituisci una copia dell'oggetto rate con il prezzo corretto
+            return {
+              ...rate,
+              finalPrice: priceWithoutFuel // Assicurati di usare il prezzo SENZA fuel surcharge
+            };
+          }
+          return null;
         }
       })
       .filter(rate => rate !== null) as Rate[];

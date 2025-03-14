@@ -466,8 +466,7 @@ const generateSimplePDF = async (
       currentX += colWidths[hasCountry ? 7 : 6];
       
       // Total Price (Final Price) - impostiamo in grassetto
-      const priceWithoutFuel = rate.finalPrice / (1 + (rate.fuelSurcharge / 100));
-      const finalPriceText = formatCurrency(priceWithoutFuel, language);
+      const finalPriceText = formatCurrency(rate.finalPrice, language);
       doc.setFont('helvetica', 'bold');
       doc.text(finalPriceText, currentX, currentY + 6);
       doc.setFont('helvetica', 'normal');
