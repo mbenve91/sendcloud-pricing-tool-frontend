@@ -292,8 +292,18 @@ const ServiceForm = ({
             control={form.control}
             name="sourceCountry"
             render={({ field }) => {
-              // Assicurati che il valore sia corretto
-              const currentValue = field.value && field.value !== "" ? field.value : "none";
+              // Assicurati che il valore sia corretto e normalizzato
+              let currentValue = field.value;
+              
+              if (currentValue && currentValue !== "none") {
+                // Assicurati che sia in maiuscolo
+                currentValue = currentValue.toUpperCase();
+              } else {
+                currentValue = "none";
+              }
+              
+              console.log('Field value attuale:', field.value);
+              console.log('Valore normalizzato per select:', currentValue);
               
               return (
                 <FormItem>
@@ -301,7 +311,7 @@ const ServiceForm = ({
                   <Select 
                     onValueChange={(value) => {
                       console.log('sourceCountry cambiato a:', value);
-                      // Converti "none" in null o stringa vuota quando viene salvato
+                      // Converti "none" in null quando viene salvato
                       field.onChange(value === "none" ? null : value);
                     }} 
                     value={currentValue}
@@ -677,6 +687,13 @@ export default function ServicesPage() {
     console.log('Servizio da modificare:', service);
     console.log('sourceCountry dal database:', service.sourceCountry);
     
+    // Normalizza il sourceCountry (converti in maiuscolo se esiste)
+    const normalizedSourceCountry = service.sourceCountry 
+      ? service.sourceCountry.toUpperCase() 
+      : "none";
+    
+    console.log('sourceCountry normalizzato:', normalizedSourceCountry);
+    
     // Imposta i valori del form
     form.reset({
       id: service._id,
@@ -684,12 +701,12 @@ export default function ServicesPage() {
       code: service.code || "",
       description: service.description || "",
       carrier: service.carrier._id,
-      // Verifica che sourceCountry sia definito e sia una stringa non vuota
-      sourceCountry: service.sourceCountry && service.sourceCountry !== "" ? service.sourceCountry : "none",
+      // Usa il valore normalizzato
+      sourceCountry: normalizedSourceCountry !== "" ? normalizedSourceCountry : "none",
       destinationType: service.destinationType,
       destinationCountry: Array.isArray(service.destinationCountry) 
-        ? service.destinationCountry 
-        : service.destinationCountry ? [service.destinationCountry] : [],
+        ? service.destinationCountry.map(country => country.toUpperCase()) // Normalizza anche i paesi di destinazione
+        : service.destinationCountry ? [service.destinationCountry.toUpperCase()] : [],
       isEU: service.isEU,
       deliveryTimeMin: service.deliveryTimeMin,
       deliveryTimeMax: service.deliveryTimeMax,

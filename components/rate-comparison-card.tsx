@@ -305,7 +305,7 @@ export default function RateComparisonCard() {
     });
   };
 
-  // Update the generateMockRates function to include weight ranges
+  // Update the generateMockRates function to include sourceCountry filter
   const generateMockRates = useCallback((destinationType: string, filters: any) => {
     const services = ["Standard", "Express", "Premium"]
     const mockRates = []
@@ -316,6 +316,15 @@ export default function RateComparisonCard() {
 
     for (let i = 0; i < CARRIERS.length; i++) {
       for (let j = 0; j < services.length; j++) {
+        // Assegna un sourceCountry casuale a ogni servizio (simulando il database)
+        // Se sourceCountry è specificato nei filtri, usa solo quello
+        const serviceSourceCountry = MARKETS[Math.floor(Math.random() * MARKETS.length)].id;
+        
+        // Se è specificato un sourceCountry nei filtri, salta i servizi che non corrispondono
+        if (filters.sourceCountry && serviceSourceCountry !== filters.sourceCountry.toLowerCase()) {
+          continue;
+        }
+        
         // For international shipments, create rates for each country or a subset
         if (destinationType !== "national") {
           // Create rates for a subset of countries to make data more realistic
@@ -787,6 +796,11 @@ export default function RateComparisonCard() {
   const handleFilterChange = (name: string, value: string) => {
     // Convert 'all' to empty string for API compatibility
     const apiValue = value === 'all' ? '' : value;
+    
+    // Per sourceCountry, converti sempre in minuscolo per corrispondere al formato del database
+    if (name === 'sourceCountry' && apiValue) {
+      apiValue = apiValue.toLowerCase();
+    }
     
     setFilters((prev) => ({
       ...prev,
@@ -1326,10 +1340,10 @@ export default function RateComparisonCard() {
                 </label>
                 <Select value={filters.serviceType} onValueChange={(value) => handleFilterChange("serviceType", value)}>
                   <SelectTrigger id="service">
-                    <SelectValue placeholder="Tutti i servizi" />
+                    <SelectValue placeholder="All services" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tutti i servizi</SelectItem>
+                    <SelectItem value="all">All services</SelectItem>
                     {services.map((service) => (
                       <SelectItem key={service._id} value={service._id}>
                         {service.name}
