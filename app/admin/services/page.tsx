@@ -291,34 +291,42 @@ const ServiceForm = ({
           <FormField
             control={form.control}
             name="sourceCountry"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Source Market</FormLabel>
-                <Select 
-                  onValueChange={(value) => field.onChange(value || null)} 
-                  defaultValue={field.value || "none"}
-                  value={field.value || "none"}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select source market" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">Not specified</SelectItem>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {country.name} ({country.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  The country/market where the service originates
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              // Assicurati che il valore sia corretto
+              const currentValue = field.value && field.value !== "" ? field.value : "none";
+              
+              return (
+                <FormItem>
+                  <FormLabel>Source Market</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      console.log('sourceCountry cambiato a:', value);
+                      // Converti "none" in null o stringa vuota quando viene salvato
+                      field.onChange(value === "none" ? null : value);
+                    }} 
+                    value={currentValue}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select source market" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Not specified</SelectItem>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    The country/market where the service originates
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
         </div>
 
@@ -587,7 +595,10 @@ export default function ServicesPage() {
       const data = await response.json();
       
       if (data.success) {
-        // Verifichiamo che tutti i servizi abbiano la proprietà carrier
+        // Aggiungi log per ispezionare i dati ricevuti
+        console.log('Servizi ricevuti:', data.data);
+        
+        // Verifichiamo che tutti i servizi abbiano la proprietà carrier e sourceCountry
         const validatedServices = data.data.map((service: any) => {
           if (!service.carrier) {
             console.warn('Servizio senza carrier:', service);
@@ -596,6 +607,10 @@ export default function ServicesPage() {
               name: "Corriere Sconosciuto"
             };
           }
+          
+          // Log specifico per sourceCountry
+          console.log(`Servizio ${service.name}, sourceCountry:`, service.sourceCountry);
+          
           return service;
         });
         
@@ -658,13 +673,19 @@ export default function ServicesPage() {
 
   // Gestisce l'apertura del dialog per la modifica
   const handleEdit = (service: Service) => {
+    // Log per debug
+    console.log('Servizio da modificare:', service);
+    console.log('sourceCountry dal database:', service.sourceCountry);
+    
+    // Imposta i valori del form
     form.reset({
       id: service._id,
       name: service.name,
       code: service.code || "",
       description: service.description || "",
       carrier: service.carrier._id,
-      sourceCountry: service.sourceCountry || "none",
+      // Verifica che sourceCountry sia definito e sia una stringa non vuota
+      sourceCountry: service.sourceCountry && service.sourceCountry !== "" ? service.sourceCountry : "none",
       destinationType: service.destinationType,
       destinationCountry: Array.isArray(service.destinationCountry) 
         ? service.destinationCountry 
@@ -673,51 +694,60 @@ export default function ServicesPage() {
       deliveryTimeMin: service.deliveryTimeMin,
       deliveryTimeMax: service.deliveryTimeMax,
       isActive: service.isActive
-    })
-    setEditingService(service)
-    setIsOpen(true)
+    });
+    
+    setEditingService(service);
+    setIsOpen(true);
   }
 
   // Gestisce la creazione/aggiornamento di un servizio
   const onSubmit = async (data: ServiceFormValues) => {
     try {
-      const isEditing = !!editingService
-      const url = isEditing ? `/api/services/${data.id}` : '/api/services'
-      const method = isEditing ? 'PUT' : 'POST'
+      const isEditing = !!editingService;
+      const url = isEditing ? `/api/services/${data.id}` : '/api/services';
+      const method = isEditing ? 'PUT' : 'POST';
+
+      // Converti "none" in null o stringa vuota prima di inviare al server
+      const formData = {
+        ...data,
+        sourceCountry: data.sourceCountry === "none" ? null : data.sourceCountry
+      };
+      
+      console.log('Dati da inviare al server:', formData);
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(data)
-      })
+        body: JSON.stringify(formData)
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.success) {
         toast({
           title: isEditing ? "Service Updated" : "Service Created",
           description: `${data.name} has been successfully ${isEditing ? 'updated' : 'created'}.`
-        })
-        setIsOpen(false)
-        loadServices()
+        });
+        setIsOpen(false);
+        loadServices();
       } else {
         toast({
           title: "Error",
           description: result.message || `Failed to ${isEditing ? 'update' : 'create'} service`,
           variant: "destructive"
-        })
+        });
       }
     } catch (error) {
-      console.error(`Error ${editingService ? 'updating' : 'creating'} service:`, error)
+      console.error(`Error ${editingService ? 'updating' : 'creating'} service:`, error);
       toast({
         title: "Error",
         description: `Failed to ${editingService ? 'update' : 'create'} service`,
         variant: "destructive"
-      })
+      });
     }
-  }
+  };
 
   // Gestisce l'eliminazione di un servizio
   const handleDelete = async () => {
