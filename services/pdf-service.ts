@@ -223,9 +223,9 @@ const generateSimplePDF = async (
     // In base alla struttura del modulo, prendiamo jsPDF dal default o direttamente
     const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
     
-    // Creiamo un'istanza di jsPDF
+    // Creiamo un'istanza di jsPDF - CAMBIAMO IN LANDSCAPE
     const doc = new jsPDF({
-      orientation: 'portrait',
+      orientation: 'landscape', // Cambiato da 'portrait' a 'landscape'
       unit: 'mm',
       format: 'a4'
     });
@@ -421,7 +421,7 @@ const generateSimplePDF = async (
     // Dati delle righe
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10); // Ripristina dimensione font standard per i dati
+    doc.setFontSize(8); // Ripristina dimensione font standard per i dati
     
     let currentY = startY + rowHeight;
     let isAlternateRow = false;
