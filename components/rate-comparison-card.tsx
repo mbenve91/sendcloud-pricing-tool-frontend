@@ -1039,71 +1039,90 @@ export default function RateComparisonCard() {
 
   // Modifica la funzione addSelectedToCart per gestire anche le fasce di peso selezionate
   const addSelectedToCart = useCallback(() => {
-    // Converti selectedRows in un array di rate selezionati
-    const selectedRatesToAdd = Object.entries(selectedRows)
+    // Prima identifichiamo le tariffe principali e le loro fasce di peso selezionate
+    const mainRatesSelected = new Set<string>();
+    const weightRangesSelected = new Map<string, string[]>(); // mappa parentId -> [rangeIds]
+    
+    Object.entries(selectedRows)
       .filter(([_, isSelected]) => isSelected)
-      .map(([id, _]) => {
-        // Controllo se è un ID di fascia peso (contiene un trattino)
+      .forEach(([id, _]) => {
         if (id.includes('-')) {
-          const [parentId, weightRangeId] = id.split('-');
-          const parentRate = rates.find(rate => rate.id === parentId);
+          // È una fascia di peso
+          const [parentId, _] = id.split('-');
+          if (!weightRangesSelected.has(parentId)) {
+            weightRangesSelected.set(parentId, []);
+          }
+          weightRangesSelected.get(parentId)?.push(id);
+        } else {
+          // È una tariffa principale
+          mainRatesSelected.add(id);
+        }
+      });
+    
+    // Array finale di tariffe da aggiungere
+    const ratesToAdd: Rate[] = [];
+    
+    // Per ogni tariffa principale selezionata
+    mainRatesSelected.forEach(parentId => {
+      const rangeIds = weightRangesSelected.get(parentId) || [];
+      
+      if (rangeIds.length > 0) {
+        // Se ci sono fasce di peso selezionate per questa tariffa principale,
+        // aggiungiamo SOLO le fasce di peso e NON la tariffa principale
+        rangeIds.forEach(rangeId => {
+          const [parentRateId, weightRangeId] = rangeId.split('-');
+          const parentRate = rates.find(rate => rate.id === parentRateId);
           
           if (parentRate) {
-            // Trova la fascia di peso corretta nel servizio
             const serviceId = parentRate.service?._id || '';
             const weightRanges = serviceWeightRanges[serviceId] || [];
             const weightRange = weightRanges.find(wr => wr.id === weightRangeId);
             
             if (weightRange) {
-              // Calcola il prezzo finale SENZA fuel surcharge (indipendentemente dall'impostazione)
+              // Calcola il prezzo finale SENZA fuel surcharge
               const priceWithoutFuel = weightRange.basePrice - 
                 (weightRange.actualMargin * (weightRange.userDiscount / 100));
               
-              // Crea una versione modificata del rate padre con i dati della fascia di peso
-              return {
+              ratesToAdd.push({
                 ...parentRate,
-                id: id, // Usa l'ID combinato
+                id: rangeId,
                 currentWeightRange: {
                   min: weightRange.min,
                   max: weightRange.max,
                   label: weightRange.label
                 },
                 basePrice: weightRange.basePrice,
-                finalPrice: priceWithoutFuel, // Assicurati di usare il prezzo SENZA fuel surcharge
+                finalPrice: priceWithoutFuel,
                 actualMargin: weightRange.actualMargin,
                 isWeightRange: true,
-                parentRateId: parentId
-              };
+                parentRateId: parentRateId
+              });
             }
           }
+        });
+      } else {
+        // Se non ci sono fasce di peso selezionate, aggiungiamo la tariffa principale
+        const rate = rates.find(rate => rate.id === parentId);
+        if (rate) {
+          // Calcola il prezzo finale SENZA fuel surcharge
+          const priceWithoutFuel = rate.basePrice - 
+            (rate.actualMargin * (rate.userDiscount / 100));
           
-          return null;
-        } else {
-          // Per i rate normali, calcola il prezzo senza fuel surcharge
-          const rate = rates.find(rate => rate.id === id);
-          if (rate) {
-            // Calcola il prezzo finale SENZA fuel surcharge
-            const priceWithoutFuel = rate.basePrice - 
-              (rate.actualMargin * (rate.userDiscount / 100));
-            
-            // Restituisci una copia dell'oggetto rate con il prezzo corretto
-            return {
-              ...rate,
-              finalPrice: priceWithoutFuel // Assicurati di usare il prezzo SENZA fuel surcharge
-            };
-          }
-          return null;
+          ratesToAdd.push({
+            ...rate,
+            finalPrice: priceWithoutFuel
+          });
         }
-      })
-      .filter(rate => rate !== null) as Rate[];
-
-    // Aggiungi ogni rate selezionato al carrello
-    selectedRatesToAdd.forEach(rate => {
+      }
+    });
+    
+    // Aggiungi le tariffe al carrello
+    ratesToAdd.forEach(rate => {
       addToCart(rate);
     });
     
     // Mostra la notifica solo se almeno un elemento è stato aggiunto
-    if (selectedRatesToAdd.length > 0) {
+    if (ratesToAdd.length > 0) {
       showCartNotification(toast);
     }
     
