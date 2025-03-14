@@ -37,6 +37,7 @@ import { toast } from "@/components/ui/use-toast"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import ChatWidget from "@/components/chat/ChatWidget"
 
 // Schema di validazione per il form del corriere
 const carrierFormSchema = z.object({
@@ -891,6 +892,17 @@ export default function CarriersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ChatWidget - mostrato quando un corriere è selezionato */}
+      {selectedCarrier && (
+        <ChatWidget
+          carrier={{
+            _id: selectedCarrier._id,
+            name: selectedCarrier.name,
+            logoUrl: selectedCarrier.logoUrl
+          }}
+        />
+      )}
     </main>
   )
 } 
