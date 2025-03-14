@@ -62,7 +62,34 @@ interface Carrier {
   isActive: boolean
   fuelSurcharge: number
   isVolumetric: boolean
+  knowledgeBase?: KnowledgeItem[]
 }
+
+// Tipo per l'elemento della knowledge base
+interface KnowledgeItem {
+  _id?: string
+  title: string
+  content: string
+  category: 'general' | 'shipping' | 'tracking' | 'returns' | 'pricing' | 'other'
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+// Schema di validazione per il form dell'elemento della knowledge base
+const knowledgeItemFormSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(2, {
+    message: "Title must be at least 2 characters.",
+  }),
+  content: z.string().min(10, {
+    message: "Content must be at least 10 characters.",
+  }),
+  category: z.enum(['general', 'shipping', 'tracking', 'returns', 'pricing', 'other']),
+  isActive: z.boolean().default(true),
+})
+
+type KnowledgeItemFormValues = z.infer<typeof knowledgeItemFormSchema>
 
 // Componente per il form di creazione/modifica
 const CarrierForm = ({
@@ -180,6 +207,13 @@ export default function CarriersPage() {
   const [editingCarrier, setEditingCarrier] = useState<Carrier | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [carrierToDelete, setCarrierToDelete] = useState<Carrier | null>(null)
+  
+  // Nuovi stati per la knowledge base
+  const [selectedCarrier, setSelectedCarrier] = useState<Carrier | null>(null)
+  const [knowledgeDialogOpen, setKnowledgeDialogOpen] = useState(false)
+  const [editingKnowledgeItem, setEditingKnowledgeItem] = useState<KnowledgeItem | null>(null)
+  const [deleteKnowledgeDialogOpen, setDeleteKnowledgeDialogOpen] = useState(false)
+  const [knowledgeItemToDelete, setKnowledgeItemToDelete] = useState<KnowledgeItem | null>(null)
 
   // Form per la creazione/modifica del corriere
   const form = useForm<CarrierFormValues>({
@@ -190,6 +224,17 @@ export default function CarriersPage() {
       isActive: true,
       fuelSurcharge: 0,
       isVolumetric: false
+    }
+  })
+
+  // Form per la knowledge base
+  const knowledgeItemForm = useForm<KnowledgeItemFormValues>({
+    resolver: zodResolver(knowledgeItemFormSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+      category: "general",
+      isActive: true,
     }
   })
 
@@ -252,6 +297,36 @@ export default function CarriersPage() {
     setIsOpen(true)
   }
 
+  // Gestisce l'apertura del dialog per la gestione della knowledge base
+  const handleKnowledgeBase = (carrier: Carrier) => {
+    setSelectedCarrier(carrier)
+  }
+
+  // Gestisce l'apertura del dialog per la creazione di un elemento della knowledge base
+  const handleCreateKnowledgeItem = () => {
+    knowledgeItemForm.reset({
+      title: "",
+      content: "",
+      category: "general",
+      isActive: true,
+    })
+    setEditingKnowledgeItem(null)
+    setKnowledgeDialogOpen(true)
+  }
+
+  // Gestisce l'apertura del dialog per la modifica di un elemento della knowledge base
+  const handleEditKnowledgeItem = (item: KnowledgeItem) => {
+    knowledgeItemForm.reset({
+      id: item._id,
+      title: item.title,
+      content: item.content,
+      category: item.category,
+      isActive: item.isActive,
+    })
+    setEditingKnowledgeItem(item)
+    setKnowledgeDialogOpen(true)
+  }
+
   // Gestisce la creazione/aggiornamento di un corriere
   const onSubmit = async (data: CarrierFormValues) => {
     try {
@@ -290,6 +365,74 @@ export default function CarriersPage() {
         description: `Failed to ${editingCarrier ? 'update' : 'create'} carrier`,
         variant: "destructive"
       })
+    }
+  }
+
+  // Gestisce l'invio del form per la knowledge base
+  const onSubmitKnowledgeItem = async (data: KnowledgeItemFormValues) => {
+    if (!selectedCarrier) return
+
+    setIsLoading(true)
+    try {
+      let response
+      
+      if (editingKnowledgeItem && data.id) {
+        // Aggiornamento di un elemento esistente
+        response = await fetch(`/api/carriers/${selectedCarrier._id}/knowledge/${data.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: data.title,
+            content: data.content,
+            category: data.category,
+            isActive: data.isActive,
+          }),
+        })
+      } else {
+        // Creazione di un nuovo elemento
+        response = await fetch(`/api/carriers/${selectedCarrier._id}/knowledge`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: data.title,
+            content: data.content,
+            category: data.category,
+            isActive: data.isActive,
+          }),
+        })
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: editingKnowledgeItem ? "Knowledge item updated" : "Knowledge item created",
+          description: `Successfully ${editingKnowledgeItem ? 'updated' : 'created'} knowledge item.`,
+        })
+        
+        setKnowledgeDialogOpen(false)
+        // Aggiorna i dati del corriere per riflettere le modifiche
+        loadCarriers()
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || `Failed to ${editingKnowledgeItem ? 'update' : 'create'} knowledge item.`,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error saving knowledge item:', error)
+      toast({
+        title: "Error",
+        description: `Failed to ${editingKnowledgeItem ? 'update' : 'create'} knowledge item.`,
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -332,6 +475,58 @@ export default function CarriersPage() {
   const confirmDelete = (carrier: Carrier) => {
     setCarrierToDelete(carrier)
     setDeleteDialogOpen(true)
+  }
+
+  // Gestisce la conferma dell'eliminazione di un elemento della knowledge base
+  const confirmDeleteKnowledgeItem = (item: KnowledgeItem) => {
+    setKnowledgeItemToDelete(item)
+    setDeleteKnowledgeDialogOpen(true)
+  }
+
+  // Gestisce l'eliminazione di un elemento della knowledge base
+  const handleDeleteKnowledgeItem = async () => {
+    if (!selectedCarrier || !knowledgeItemToDelete || !knowledgeItemToDelete._id) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(
+        `/api/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "Knowledge item deleted",
+          description: "Successfully deleted knowledge item.",
+        })
+        
+        setDeleteKnowledgeDialogOpen(false)
+        // Aggiorna i dati del corriere per riflettere le modifiche
+        loadCarriers()
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to delete knowledge item.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting knowledge item:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete knowledge item.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -419,6 +614,9 @@ export default function CarriersPage() {
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleKnowledgeBase(carrier)}>
+                                Knowledge Base
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -468,6 +666,198 @@ export default function CarriersPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Knowledge base management dialog */}
+      {selectedCarrier && (
+        <Dialog open={!!selectedCarrier} onOpenChange={(open) => !open && setSelectedCarrier(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Knowledge Base for {selectedCarrier.name}</DialogTitle>
+              <DialogDescription>
+                Manage knowledge base items for this carrier. These will be used to train AI assistants to answer questions about this carrier.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex justify-end mb-4">
+              <Button onClick={handleCreateKnowledgeItem}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Knowledge Item
+              </Button>
+            </div>
+            
+            <div className="overflow-y-auto max-h-96">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedCarrier.knowledgeBase && selectedCarrier.knowledgeBase.length > 0 ? (
+                    selectedCarrier.knowledgeBase.map((item) => (
+                      <TableRow key={item._id}>
+                        <TableCell className="font-medium">{item.title}</TableCell>
+                        <TableCell className="capitalize">{item.category}</TableCell>
+                        <TableCell>
+                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            item.isActive
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}>
+                            {item.isActive ? "Active" : "Inactive"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEditKnowledgeItem(item)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => confirmDeleteKnowledgeItem(item)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">
+                        No knowledge items yet. Add some to help train the AI assistant.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Knowledge item form dialog */}
+      <Dialog open={knowledgeDialogOpen} onOpenChange={setKnowledgeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingKnowledgeItem ? "Edit Knowledge Item" : "Add Knowledge Item"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingKnowledgeItem
+                ? "Update the knowledge item details below."
+                : "Fill in the details to add a new knowledge item."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...knowledgeItemForm}>
+            <form onSubmit={knowledgeItemForm.handleSubmit(onSubmitKnowledgeItem)} className="space-y-4">
+              <FormField
+                control={knowledgeItemForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter knowledge item title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={knowledgeItemForm.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content</FormLabel>
+                    <FormControl>
+                      <textarea
+                        className="flex min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="Enter knowledge item content"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={knowledgeItemForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        {...field}
+                      >
+                        <option value="general">General</option>
+                        <option value="shipping">Shipping</option>
+                        <option value="tracking">Tracking</option>
+                        <option value="returns">Returns</option>
+                        <option value="pricing">Pricing</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={knowledgeItemForm.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Active</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setKnowledgeDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingKnowledgeItem ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete knowledge item confirmation dialog */}
+      <Dialog open={deleteKnowledgeDialogOpen} onOpenChange={setDeleteKnowledgeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this knowledge item? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteKnowledgeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteKnowledgeItem}>
               Delete
             </Button>
           </DialogFooter>
