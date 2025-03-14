@@ -1375,13 +1375,6 @@ export default function RateComparisonCard() {
                   <span className="text-sm text-muted-foreground">€</span>
                 </div>
               </div>
-
-              <div className="flex items-end">
-                <Button className="w-full" onClick={loadRates}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -1706,10 +1699,6 @@ export default function RateComparisonCard() {
             <Button variant="outline" onClick={() => setColumnsDialogOpen(true)}>
               <Columns className="mr-2 h-4 w-4" />
               Columns
-            </Button>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
             </Button>
           </div>
         </div>
