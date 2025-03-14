@@ -176,13 +176,13 @@ interface Rate {
 
 // Aggiungi questa lista dopo le altre liste di costanti
 const MARKETS = [
-  { id: "it", name: "Italia" },
-  { id: "fr", name: "Francia" },
-  { id: "de", name: "Germania" },
-  { id: "es", name: "Spagna" },
-  { id: "uk", name: "Regno Unito" },
-  { id: "us", name: "Stati Uniti" },
-  { id: "nl", name: "Paesi Bassi" },
+  { id: "it", name: "Italy" },
+  { id: "fr", name: "France" },
+  { id: "de", name: "Germany" },
+  { id: "es", name: "Spain" },
+  { id: "uk", name: "United Kingdom" },
+  { id: "us", name: "United States" },
+  { id: "nl", name: "Netherlands" },
   { id: "be", name: "Belgio" },
   { id: "ch", name: "Svizzera" },
   { id: "at", name: "Austria" },
@@ -1288,10 +1288,10 @@ export default function RateComparisonCard() {
                 </label>
                 <Select value={filters.sourceCountry} onValueChange={(value) => handleFilterChange("sourceCountry", value)}>
                   <SelectTrigger id="market">
-                    <SelectValue placeholder="Tutti i mercati" />
+                    <SelectValue placeholder="All markets" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tutti i mercati</SelectItem>
+                    <SelectItem value="all">All markets</SelectItem>
                     {MARKETS.map((market) => (
                       <SelectItem key={market.id} value={market.id}>
                         {market.name}
