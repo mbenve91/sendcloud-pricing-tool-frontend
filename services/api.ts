@@ -11,6 +11,21 @@ const API_BASE_URL = isProduction
   ? 'https://sendcloud-pricing-tool-backend.onrender.com'
   : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050');
 
+// Definizione dell'interfaccia WeightRange
+export interface WeightRange {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  basePrice: number;
+  userDiscount: number;
+  finalPrice: number;
+  actualMargin: number;
+  adjustedMargin?: number;
+  volumeDiscount: number;
+  promotionDiscount: number;
+}
+
 // Funzione di utilità per le chiamate fetch con gestione degli errori
 async function fetchWithErrorHandling(url: string, options?: RequestInit) {
   try {
@@ -58,6 +73,7 @@ export async function compareRates(filters: {
   carrierId?: string;
   serviceType?: string;
   volume?: string;
+  sourceCountry?: string;
 }) {
   try {
     // Costruisci i parametri di query
@@ -93,6 +109,11 @@ export async function compareRates(filters: {
     // Aggiungi volume se presente
     if (filters.volume) {
       queryParams.append('volume', filters.volume);
+    }
+    
+    // Aggiungi sourceCountry (market) se presente
+    if (filters.sourceCountry) {
+      queryParams.append('sourceCountry', filters.sourceCountry.toLowerCase());
     }
     
     const response = await fetch(`${API_URL}/rates/compare?${queryParams.toString()}`);
