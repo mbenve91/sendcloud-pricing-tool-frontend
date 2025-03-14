@@ -311,45 +311,29 @@ const generateSimplePDF = async (
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     
+    // MODIFICA: Riduciamo i margini laterali per avere più spazio orizzontale
+    const margin = 10; // Ridotto da 14
+    
     // Definizione delle colonne
     const startY = 85;
     const rowHeight = 10;
-    const margin = 14;
     const hasCountry = rates.some(r => r.countryName);
     const cols = hasCountry ? 8 : 7;
     
-    // MODIFICA: Adatta le larghezze delle colonne in base alla lingua
-    // Assegna più spazio alla colonna del tempo di consegna in italiano
+    // MODIFICA: Ottimizziamo le larghezze delle colonne
     let colWidths: number[] = [];
-    if (language === 'italian') {
-      // Larghezze personalizzate per italiano (più spazio per "Tempo di Consegna")
-      if (hasCountry) {
-        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
-      } else {
-        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
-      }
-    } else if (language === 'german') {
-      // Larghezze personalizzate per tedesco
-      if (hasCountry) {
-        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
-      } else {
-        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
-      }
-    } else if (language === 'spanish') {
-      // Larghezze personalizzate per spagnolo
-      if (hasCountry) {
-        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
-      } else {
-        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
-      }
+    const pageWidth = 210; // Larghezza A4 in mm
+    const tableWidth = pageWidth - (margin * 2);
+    
+    if (hasCountry) {
+      // Distribuzione ottimizzata con priorità al prezzo finale
+      colWidths = [0.11, 0.12, 0.11, 0.09, 0.14, 0.12, 0.08, 0.1, 0.13].map(w => tableWidth * w);
     } else {
-      // Larghezze predefinite per inglese e altre lingue
-      if (hasCountry) {
-        colWidths = [0.14, 0.14, 0.12, 0.10, 0.15, 0.10, 0.12, 0.13].map(w => (210 - (margin * 2)) * w);
-      } else {
-        colWidths = [0.15, 0.15, 0.12, 0.17, 0.12, 0.14, 0.15].map(w => (210 - (margin * 2)) * w);
-      }
+      colWidths = [0.13, 0.13, 0.10, 0.15, 0.13, 0.09, 0.11, 0.16].map(w => tableWidth * w);
     }
+    
+    // MODIFICA: Riduciamo la dimensione del font per i dati della tabella
+    doc.setFontSize(8); // Ridotto per far entrare più testo
     
     // Riga di intestazione
     doc.rect(margin, startY, 210 - (margin * 2), rowHeight, 'F');
@@ -426,6 +410,11 @@ const generateSimplePDF = async (
     let currentY = startY + rowHeight;
     let isAlternateRow = false;
     
+    // Abbreviare i nomi lunghi se necessario
+    const truncateText = (text: string, maxLength: number): string => {
+      return text.length > maxLength ? text.substring(0, maxLength-2) + '..' : text;
+    };
+    
     rates.forEach((rate, index) => {
       // Aggiungiamo un bordo sottile attorno alla cella
       doc.setDrawColor(220, 220, 220); // Colore grigio chiaro per i bordi
@@ -441,12 +430,12 @@ const generateSimplePDF = async (
       
       currentX = margin + 3;
       
-      // Carrier
-      doc.text(rate.carrierName.substring(0, 16), currentX, currentY + 6);
+      // Carrier - abbreviamo se troppo lungo
+      doc.text(truncateText(rate.carrierName, 14), currentX, currentY + 6);
       currentX += colWidths[0];
       
-      // Service
-      doc.text(rate.serviceName.substring(0, 16), currentX, currentY + 6);
+      // Service - abbreviamo se troppo lungo
+      doc.text(truncateText(rate.serviceName, 14), currentX, currentY + 6);
       currentX += colWidths[1];
       
       // Country (opzionale)
