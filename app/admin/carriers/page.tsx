@@ -374,11 +374,14 @@ export default function CarriersPage() {
 
     setIsLoading(true)
     try {
-      let response
+      // Ottieni la base URL del backend dalle variabili d'ambiente
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+      
+      let response;
       
       if (editingKnowledgeItem && data.id) {
         // Aggiornamento di un elemento esistente
-        response = await fetch(`/api/carriers/${selectedCarrier._id}/knowledge/${data.id}`, {
+        response = await fetch(`${backendUrl}/carriers/${selectedCarrier._id}/knowledge/${data.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -392,7 +395,7 @@ export default function CarriersPage() {
         })
       } else {
         // Creazione di un nuovo elemento
-        response = await fetch(`/api/carriers/${selectedCarrier._id}/knowledge`, {
+        response = await fetch(`${backendUrl}/carriers/${selectedCarrier._id}/knowledge`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -489,8 +492,11 @@ export default function CarriersPage() {
 
     setIsLoading(true)
     try {
+      // Ottieni la base URL del backend dalle variabili d'ambiente
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+      
       const response = await fetch(
-        `/api/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`,
+        `${backendUrl}/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`,
         {
           method: 'DELETE',
           headers: {
