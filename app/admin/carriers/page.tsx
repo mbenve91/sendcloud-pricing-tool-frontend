@@ -895,13 +895,15 @@ export default function CarriersPage() {
 
       {/* ChatWidget - mostrato quando un corriere è selezionato */}
       {selectedCarrier && (
-        <ChatWidget
-          carrier={{
-            _id: selectedCarrier._id,
-            name: selectedCarrier.name,
-            logoUrl: selectedCarrier.logoUrl
-          }}
-        />
+        <div className="fixed bottom-4 right-4 z-50">
+          <ChatWidget
+            carrier={{
+              _id: selectedCarrier._id,
+              name: selectedCarrier.name,
+              logoUrl: selectedCarrier.logoUrl
+            }}
+          />
+        </div>
       )}
     </main>
   )

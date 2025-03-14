@@ -34,10 +34,12 @@ const ChatWidget: FC<ChatWidgetProps> = ({ carrier: initialCarrier }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier | null>(initialCarrier || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const welcomeMessageShown = useRef<{[key: string]: boolean}>({});
 
-  // Update welcome message when carrier changes
+  // Update welcome message when carrier changes - with safeguards against infinite loops
   useEffect(() => {
-    if (selectedCarrier) {
+    if (selectedCarrier && !welcomeMessageShown.current[selectedCarrier._id]) {
+      console.log(`Setting welcome message for ${selectedCarrier.name}`);
       setMessages([
         {
           id: Date.now().toString(),
@@ -45,8 +47,21 @@ const ChatWidget: FC<ChatWidgetProps> = ({ carrier: initialCarrier }) => {
           isUser: false,
         },
       ]);
+      // Mark this carrier as having shown the welcome message
+      welcomeMessageShown.current[selectedCarrier._id] = true;
     }
   }, [selectedCarrier]);
+
+  // Initialize with initial carrier if provided
+  useEffect(() => {
+    if (initialCarrier && !welcomeMessageShown.current[initialCarrier._id]) {
+      console.log(`Initializing with carrier: ${initialCarrier.name}`);
+      setSelectedCarrier(initialCarrier);
+      welcomeMessageShown.current[initialCarrier._id] = true;
+    }
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,11 +136,13 @@ const ChatWidget: FC<ChatWidgetProps> = ({ carrier: initialCarrier }) => {
   };
 
   const handleCarrierSelect = (carrier: Carrier) => {
+    if (!carrier || carrier._id === selectedCarrier?._id) return;
+    console.log(`Carrier selected: ${carrier.name}`);
     setSelectedCarrier(carrier);
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="z-50">
       <AnimatePresence>
         {isOpen && (
           <motion.div

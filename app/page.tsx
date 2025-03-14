@@ -38,13 +38,15 @@ export default function Home() {
       
       {/* ChatWidget - only render when a carrier is selected */}
       {selectedCarrier && (
-        <ChatWidget 
-          carrier={{
-            _id: selectedCarrier._id,
-            name: selectedCarrier.name,
-            logoUrl: selectedCarrier.logoUrl
-          }} 
-        />
+        <div className="fixed bottom-4 right-4 z-50">
+          <ChatWidget 
+            carrier={{
+              _id: selectedCarrier._id,
+              name: selectedCarrier.name,
+              logoUrl: selectedCarrier.logoUrl
+            }}
+          />
+        </div>
       )}
     </main>
   )

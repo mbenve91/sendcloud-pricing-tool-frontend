@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bot } from 'lucide-react';
@@ -20,25 +20,36 @@ interface CarrierSelectorProps {
 const CarrierSelector: FC<CarrierSelectorProps> = ({ onSelect, selectedCarrierId }) => {
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const hasInitialized = useRef(false);
+  
+  // Fetch carriers only once when component mounts
   useEffect(() => {
+    // Skip if we've already initialized
+    if (hasInitialized.current) return;
+    
     const fetchCarriers = async () => {
       try {
+        setIsLoading(true);
+        console.log("Fetching carriers...");
         const response = await fetch('/api/carriers');
         const data = await response.json();
         
         if (data.success && data.data) {
+          console.log(`Loaded ${data.data.length} carriers`);
           setCarriers(data.data);
           
-          // Select first carrier by default if none is selected
-          if (!selectedCarrierId && data.data.length > 0) {
-            onSelect(data.data[0]);
-          } else if (selectedCarrierId && data.data.length > 0) {
-            const selectedCarrier = data.data.find((c: Carrier) => c._id === selectedCarrierId);
-            if (selectedCarrier) {
-              onSelect(selectedCarrier);
-            } else {
+          // Only select a carrier if we don't have one selected yet
+          if (data.data.length > 0) {
+            if (!selectedCarrierId) {
+              // No carrier selected, choose the first one
               onSelect(data.data[0]);
+            } else {
+              // We have a selected ID, verify it exists in the loaded data
+              const selectedCarrier = data.data.find((c: Carrier) => c._id === selectedCarrierId);
+              if (!selectedCarrier) {
+                // If the selected ID doesn't exist, fall back to the first carrier
+                onSelect(data.data[0]);
+              }
             }
           }
         }
@@ -46,13 +57,32 @@ const CarrierSelector: FC<CarrierSelectorProps> = ({ onSelect, selectedCarrierId
         console.error("Error fetching carriers:", error);
       } finally {
         setIsLoading(false);
+        hasInitialized.current = true;
       }
     };
 
     fetchCarriers();
-  }, [selectedCarrierId, onSelect]);
+  // No dependencies - this should run only once when component mounts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (isLoading) {
+  // Update carrier list when selectedCarrierId changes, without fetching again
+  useEffect(() => {
+    if (!hasInitialized.current || carriers.length === 0) return;
+    
+    if (selectedCarrierId) {
+      // Check if the selected carrier exists in our loaded list
+      const exists = carriers.some(c => c._id === selectedCarrierId);
+      if (!exists && carriers.length > 0) {
+        // If it doesn't exist, fall back to the first carrier
+        onSelect(carriers[0]);
+      }
+    }
+  // This effect only runs when selectedCarrierId changes and we already have carriers loaded
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCarrierId, carriers]);
+
+  if (isLoading && !hasInitialized.current) {
     return <Skeleton className="h-10 w-full" />;
   }
 
