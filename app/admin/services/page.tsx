@@ -724,10 +724,10 @@ export default function ServicesPage() {
       const url = isEditing ? `/api/services/${data.id}` : '/api/services';
       const method = isEditing ? 'PUT' : 'POST';
 
-      // Converti "none" in null o stringa vuota prima di inviare al server
+      // Converti "none" in null e normalizza sourceCountry in minuscolo
       const formData = {
         ...data,
-        sourceCountry: data.sourceCountry === "none" ? null : data.sourceCountry
+        sourceCountry: data.sourceCountry === "none" ? null : data.sourceCountry.toLowerCase()
       };
       
       console.log('Dati da inviare al server:', formData);
