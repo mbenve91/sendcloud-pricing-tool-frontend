@@ -377,11 +377,15 @@ export default function CarriersPage() {
       // Ottieni la base URL del backend dalle variabili d'ambiente
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
       
+      // Rimuovi '/api' alla fine se presente per costruire l'URL in modo consistente
+      const baseUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`;
+      
       let response;
       
       if (editingKnowledgeItem && data.id) {
         // Aggiornamento di un elemento esistente
-        response = await fetch(`${backendUrl}/carriers/${selectedCarrier._id}/knowledge/${data.id}`, {
+        console.log(`Sending PUT request to: ${baseUrl}/carriers/${selectedCarrier._id}/knowledge/${data.id}`);
+        response = await fetch(`${baseUrl}/carriers/${selectedCarrier._id}/knowledge/${data.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -395,7 +399,8 @@ export default function CarriersPage() {
         })
       } else {
         // Creazione di un nuovo elemento
-        response = await fetch(`${backendUrl}/carriers/${selectedCarrier._id}/knowledge`, {
+        console.log(`Sending POST request to: ${baseUrl}/carriers/${selectedCarrier._id}/knowledge`);
+        response = await fetch(`${baseUrl}/carriers/${selectedCarrier._id}/knowledge`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -409,7 +414,13 @@ export default function CarriersPage() {
         })
       }
 
-      const result = await response.json()
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Server response:', text);
+        throw new Error(`Server responded with status: ${response.status}, body: ${text}`);
+      }
+
+      const result = await response.json();
       
       if (result.success) {
         toast({
@@ -495,8 +506,13 @@ export default function CarriersPage() {
       // Ottieni la base URL del backend dalle variabili d'ambiente
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
       
+      // Rimuovi '/api' alla fine se presente per costruire l'URL in modo consistente
+      const baseUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`;
+      
+      console.log(`Sending DELETE request to: ${baseUrl}/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`);
+      
       const response = await fetch(
-        `${backendUrl}/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`,
+        `${baseUrl}/carriers/${selectedCarrier._id}/knowledge/${knowledgeItemToDelete._id}`,
         {
           method: 'DELETE',
           headers: {
@@ -505,7 +521,13 @@ export default function CarriersPage() {
         }
       )
 
-      const result = await response.json()
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Server response:', text);
+        throw new Error(`Server responded with status: ${response.status}, body: ${text}`);
+      }
+
+      const result = await response.json();
       
       if (result.success) {
         toast({
