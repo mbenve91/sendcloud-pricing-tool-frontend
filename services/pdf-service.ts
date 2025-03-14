@@ -229,9 +229,9 @@ const generateSimplePDF = async (
     // In base alla struttura del modulo, prendiamo jsPDF dal default o direttamente
     const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
     
-    // Creiamo un'istanza di jsPDF - CAMBIAMO IN LANDSCAPE
+    // Creiamo un'istanza di jsPDF
     const doc = new jsPDF({
-      orientation: 'landscape', // Cambiato da 'portrait' a 'landscape'
+      orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
@@ -239,6 +239,12 @@ const generateSimplePDF = async (
     // Configurazione colori
     const primaryColor = [18, 40, 87]; // RGB per #122857
     const secondaryColor = [33, 37, 41]; // RGB per #212529
+    
+    // MODIFICA: Ottimizziamo i margini per usare tutto lo spazio disponibile
+    const leftMargin = 10;     
+    const rightMargin = 5;     
+    const pageWidth = 210;     
+    const tableWidth = pageWidth - leftMargin - rightMargin; // Usiamo quasi tutta la pagina
     
     // Aggiungiamo il logo SendCloud 
     // Importa dinamicamente il modulo per convertire immagine in data URL
@@ -311,102 +317,88 @@ const generateSimplePDF = async (
     doc.text('Your Customer', 120, 75);
     
     // Poiché autoTable non funziona, creiamo una tabella semplice
+    const startY = 85;
+    const rowHeight = 10;
+    const hasCountry = rates.some(r => r.countryName);
+    
+    // MODIFICA: Ricalibrazione delle larghezze colonna per usare tutto lo spazio
+    let colWidths: number[] = [];
+    if (hasCountry) {
+      colWidths = [0.11, 0.12, 0.10, 0.09, 0.14, 0.12, 0.12, 0.20].map(w => tableWidth * w);
+    } else {
+      colWidths = [0.12, 0.14, 0.11, 0.14, 0.12, 0.12, 0.25].map(w => tableWidth * w);
+    }
+    
+    // RIPRISTINO: Assicuriamo che l'intestazione venga disegnata
     // Intestazioni
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     
-    // MODIFICA: Ottimizziamo i margini per utilizzare più spazio orizzontale
-    const leftMargin = 10;     // Margine sinistro ridotto 
-    const rightMargin = 5;     // Margine destro minimizzato
-    const pageWidth = 210;     // Larghezza A4 in mm
-    const tableWidth = pageWidth - leftMargin - rightMargin; // Utilizziamo più spazio
-    
-    // Definizione delle colonne
-    const startY = 85;
-    const rowHeight = 10;
-    const hasCountry = rates.some(r => r.countryName);
-    const cols = hasCountry ? 8 : 7;
-    
-    // MODIFICA: Distribuzione ottimizzata delle larghezze con utilizzo completo dello spazio
-    let colWidths: number[] = [];
-    if (hasCountry) {
-      // Con colonna paese - utilizziamo tutto lo spazio disponibile
-      colWidths = [0.11, 0.12, 0.10, 0.09, 0.14, 0.12, 0.12, 0.20].map(w => tableWidth * w);
-    } else {
-      // Senza colonna paese - più spazio per tutte le colonne
-      colWidths = [0.12, 0.14, 0.11, 0.14, 0.12, 0.12, 0.25].map(w => tableWidth * w);
-    }
+    // Riga di intestazione - ASSICURIAMOCI CHE VENGA DISEGNATA
+    doc.rect(leftMargin, startY, tableWidth, rowHeight, 'F');
     
     // Testi delle intestazioni
     let currentX = leftMargin + 3;
     
-    // Non abbiamo più bisogno di ridurre il font in modo così drastico
-    const getHeaderFontSize = (text: string): number => {
-      if (text.length > 14) return 9;
-      return 10;
-    };
-    
     // Carrier
     const carrierText = getTranslation('carrier', language);
-    doc.setFontSize(getHeaderFontSize(carrierText));
+    doc.setFontSize(10);
     doc.text(carrierText, currentX, startY + 6);
     currentX += colWidths[0];
     
     // Service
     const serviceText = getTranslation('service', language);
-    doc.setFontSize(getHeaderFontSize(serviceText));
+    doc.setFontSize(10);
     doc.text(serviceText, currentX, startY + 6);
     currentX += colWidths[1];
     
     // Country (opzionale)
     if (hasCountry) {
       const destText = getTranslation('destination', language);
-      doc.setFontSize(getHeaderFontSize(destText));
+      doc.setFontSize(10);
       doc.text(destText, currentX, startY + 6);
       currentX += colWidths[2];
     }
     
     // Weight
     const weightText = getTranslation('weight', language);
-    doc.setFontSize(getHeaderFontSize(weightText));
+    doc.setFontSize(10);
     doc.text(weightText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 3 : 2];
     
     // Delivery Time
     const deliveryText = getTranslation('delivery_time', language);
-    doc.setFontSize(getHeaderFontSize(deliveryText));
+    doc.setFontSize(10);
     doc.text(deliveryText, currentX, startY + 6);
     currentX += colWidths[hasCountry ? 4 : 3];
     
     // Base Price
     const basePriceText = getTranslation('base_price', language);
-    doc.setFontSize(getHeaderFontSize(basePriceText));
+    doc.setFontSize(10);
     doc.text(basePriceText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 4 : 3];
+    currentX += colWidths[hasCountry ? 5 : 4];
     
     // Discount
     const discountText = getTranslation('discount', language);
-    doc.setFontSize(getHeaderFontSize(discountText));
+    doc.setFontSize(10);
     doc.text(discountText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 5 : 4];
+    currentX += colWidths[hasCountry ? 6 : 5];
     
     // Fuel Surcharge
     const fuelText = getTranslation('fuel_surcharge', language);
-    doc.setFontSize(getHeaderFontSize(fuelText));
+    doc.setFontSize(10);
     doc.text(fuelText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 6 : 5];
+    currentX += colWidths[hasCountry ? 7 : 6];
     
-    // Final Price
-    const priceText = getTranslation('price', language);
-    doc.setFontSize(getHeaderFontSize(priceText));
-    doc.text(priceText, currentX, startY + 6);
+    // Total Price
+    doc.text(getTranslation('price', language), currentX, startY + 6);
     
     // Dati delle righe
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8); // Ripristina dimensione font standard per i dati
+    doc.setFontSize(10);
     
     let currentY = startY + rowHeight;
     let isAlternateRow = false;
@@ -462,21 +454,21 @@ const generateSimplePDF = async (
       
       // Base Price
       doc.text(formatCurrency(rate.basePrice, language), currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 4 : 3];
+      currentX += colWidths[hasCountry ? 5 : 4];
       
       // Discount
       const discountValue = rate.userDiscount > 0 
         ? `${rate.userDiscount}%` 
         : "0%";
       doc.text(discountValue, currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 5 : 4];
+      currentX += colWidths[hasCountry ? 6 : 5];
       
       // Fuel Surcharge
       const fuelValue = rate.fuelSurcharge > 0 
         ? `${rate.fuelSurcharge}%` 
         : "0%";
       doc.text(fuelValue, currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 6 : 5];
+      currentX += colWidths[hasCountry ? 7 : 6];
       
       // Final Price - utilizziamo il grassetto per il prezzo finale, più spazio
       const priceText = formatCurrency(rate.finalPrice, language);
@@ -488,62 +480,66 @@ const generateSimplePDF = async (
       isAlternateRow = !isAlternateRow;
     });
     
-    // Aggiungiamo una linea di separazione alla fine della tabella che copre tutta la larghezza
-    doc.setDrawColor(0, 123, 255);
+    // Aggiungiamo una linea di separazione alla fine della tabella
+    doc.setDrawColor(0, 123, 255); 
     doc.setLineWidth(0.5);
     doc.line(leftMargin, currentY, leftMargin + tableWidth, currentY);
     
-    // AGGIUNTA: Nota sul prezzo finale
+    // MODIFICA: Organizzazione migliorata delle note per evitare sovrapposizioni
+    // Nota sul prezzo totale
+    currentY += 10;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(80, 80, 80);
-    doc.text(`* ${getTranslation('price_note', language)}`, leftMargin, currentY + 10);
+    doc.text(`* ${getTranslation('price_note', language)}`, leftMargin, currentY);
     
-    // Nota finale e ringraziamento (spostati per far spazio alla nota sul prezzo)
-    const finalY = currentY + 25; // Aumentato per accomodare la nota sul prezzo
-    
-    // Aggiungiamo un box colorato per il messaggio di ringraziamento
-    doc.setFillColor(240, 248, 255); // Colore azzurro chiaro
+    // Box per il messaggio di ringraziamento con più spazio
+    currentY += 20;
+    doc.setFillColor(240, 248, 255); 
     doc.setDrawColor(0, 123, 255);
     doc.setLineWidth(0.5);
-    doc.roundedRect(14, finalY - 5, 210 - (leftMargin * 2), 15, 3, 3, 'FD');
+    doc.roundedRect(leftMargin, currentY, tableWidth, 15, 3, 3, 'FD');
     
+    // Messaggio di ringraziamento
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(getTranslation('thank_you', language), leftMargin + 20, finalY + 5);
+    doc.text(getTranslation('thank_you', language), leftMargin + 6, currentY + 10);
     
+    // MODIFICA: Distanziamo il footer text
+    currentY += 25;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     
     // Split del testo a piè di pagina
     const footerText = getTranslation('footer_text', language);
-    const splitFooter = doc.splitTextToSize(footerText, 180);
-    doc.text(splitFooter, leftMargin, finalY + 20);
+    const splitFooter = doc.splitTextToSize(footerText, tableWidth);
+    doc.text(splitFooter, leftMargin, currentY);
     
-    // Aggiungiamo la nota sui prezzi IVA esclusa
-    const vatNoteY = finalY + 30; // Posizionamento dopo il footer text
+    // MODIFICA: Aumentiamo ulteriormente lo spazio per la nota sull'IVA
+    currentY += splitFooter.length * 6 + 10;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
-    doc.text(`* ${getTranslation('vat_excluded', language)}`, leftMargin, vatNoteY);
+    doc.text(`* ${getTranslation('vat_excluded', language)}`, leftMargin, currentY);
     
+    // MODIFICA: Aggiungiamo più padding in basso
     // Footer con informazioni aziendali
     const pageHeight = doc.internal.pageSize.height;
     
-    // Aggiungiamo una linea sopra il footer
+    // Aggiungiamo una linea sopra il footer con più spazio
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
-    doc.line(leftMargin, pageHeight - 15, leftMargin + tableWidth, pageHeight - 15);
+    doc.line(leftMargin, pageHeight - 20, pageWidth - rightMargin, pageHeight - 20);
     
     // Aggiungiamo il testo del footer
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text('SendCloud B.V. | www.sendcloud.com | ' + new Date().getFullYear(), leftMargin, pageHeight - 10);
+    doc.text('SendCloud B.V. | www.sendcloud.com | ' + new Date().getFullYear(), leftMargin, pageHeight - 15);
     
     // Aggiungiamo il numero di pagina a destra
-    doc.text('Page 1/1', leftMargin + tableWidth - 20, pageHeight - 10, { align: 'right' });
+    doc.text('Page 1/1', pageWidth - rightMargin - 20, pageHeight - 15, { align: 'right' });
     
     return doc;
   } catch (error) {
