@@ -138,9 +138,6 @@ interface WeightRange {
   adjustedMargin?: number
   volumeDiscount: number
   promotionDiscount: number
-  fuelSurcharge?: number
-  totalBasePrice?: number
-  totalDiscountPercentage?: number
 }
 
 interface Rate {
@@ -160,10 +157,10 @@ interface Rate {
   adjustedMargin?: number;
   deliveryTimeMin?: number;
   deliveryTimeMax?: number;
-  fuelSurcharge?: number;
+  fuelSurcharge: number;
   volumeDiscount: number;
   promotionDiscount: number;
-  totalBasePrice?: number;
+  totalBasePrice: number;
   weightRanges: WeightRange[];
   currentWeightRange?: WeightRange;
   retailPrice?: number;
@@ -175,11 +172,6 @@ interface Rate {
     _id?: string;
     name?: string;
   };
-  isWeightRange?: boolean;
-  parentRateId?: string;
-  destinationType?: string;
-  countryId?: string;
-  weight?: number;
 }
 
 // Aggiungi questa lista dopo le altre liste di costanti
@@ -365,31 +357,27 @@ export default function RateComparisonCard() {
               // Calculate margin as a monetary value in euros
               const actualMargin = finalPrice * (Math.random() * 0.35) // Random margin up to 35% of final price
 
-              // Creiamo un oggetto WeightRange invece di un oggetto generico
               return {
-                id: `${serviceId}-${range.min}-${range.max}`,
-                label: range.label,
-                min: range.min,
-                max: range.max,
+                rangeId: `${serviceId}-${range.min}-${range.max}`,
+                weightRange: range,
                 basePrice,
-                userDiscount: 0,
-                finalPrice,
-                actualMargin,
-                volumeDiscount,
-                promotionDiscount,
                 fuelSurcharge,
                 totalBasePrice,
-                totalDiscountPercentage
-              } as WeightRange;
+                volumeDiscount,
+                promotionDiscount,
+                totalDiscountPercentage,
+                finalPrice,
+                actualMargin,
+              }
             })
 
             // Use the first weight range as the default display
             const defaultRange =
               weightRanges.find(
-                (range: WeightRange) =>
-                  Number.parseFloat(filters.weight) >= range.min &&
-                  Number.parseFloat(filters.weight) < range.max,
-              ) || weightRanges[0];
+                (range) =>
+                  Number.parseFloat(filters.weight) >= range.weightRange.min &&
+                  Number.parseFloat(filters.weight) < range.weightRange.max,
+              ) || weightRanges[0]
 
             const deliveryTimeMin = 24 + Math.round(Math.random() * 48) + (destinationType === "extra_eu" ? 48 : 24) // Extra EU takes longer
             const deliveryTimeMax = deliveryTimeMin + Math.round(Math.random() * 24)
@@ -401,7 +389,6 @@ export default function RateComparisonCard() {
               carrierLogo: CARRIERS[i].logoUrl,
               serviceCode: services[j].toLowerCase(),
               serviceName: services[j],
-              serviceDescription: `${services[j]} service by ${CARRIERS[i].name}`, // Aggiungi serviceDescription
               basePrice: defaultRange.basePrice,
               fuelSurcharge: defaultRange.fuelSurcharge,
               totalBasePrice: defaultRange.totalBasePrice,
@@ -410,7 +397,6 @@ export default function RateComparisonCard() {
               totalDiscountPercentage: defaultRange.totalDiscountPercentage,
               finalPrice: defaultRange.finalPrice,
               actualMargin: defaultRange.actualMargin,
-              marginPercentage: 20, // Aggiungi marginPercentage con valore di default
               userDiscount: 0, // Add user discount field
               weight: Number.parseFloat(filters.weight),
               destinationType,
@@ -448,32 +434,27 @@ export default function RateComparisonCard() {
             // Calculate margin as a monetary value in euros
             const actualMargin = finalPrice * (Math.random() * 0.35) // Random margin up to 35% of final price
 
-            // Creiamo un oggetto WeightRange invece di un oggetto generico
             return {
-              id: `${serviceId}-${range.min}-${range.max}`,
-              label: range.label,
-              min: range.min,
-              max: range.max,
+              rangeId: `${serviceId}-${range.min}-${range.max}`,
+              weightRange: range,
               basePrice,
-              userDiscount: 0,
-              finalPrice,
-              actualMargin,
-              volumeDiscount,
-              promotionDiscount,
               fuelSurcharge,
               totalBasePrice,
-              totalDiscountPercentage
-            } as WeightRange;
+              volumeDiscount,
+              promotionDiscount,
+              totalDiscountPercentage,
+              finalPrice,
+              actualMargin,
+            }
           })
 
           // Use the first weight range as the default display
           const defaultRange =
             weightRanges.find(
-              (range: WeightRange) => {
-                const weight = Number.parseFloat(filters.weight);
-                return weight >= range.min && weight < range.max;
-              }
-            ) || weightRanges[0];
+              (range) =>
+                Number.parseFloat(filters.weight) >= range.weightRange.min &&
+                Number.parseFloat(filters.weight) < range.weightRange.max,
+            ) || weightRanges[0]
 
           const deliveryTimeMin = 24 + Math.round(Math.random() * 48)
           const deliveryTimeMax = deliveryTimeMin + Math.round(Math.random() * 24)
@@ -485,7 +466,6 @@ export default function RateComparisonCard() {
             carrierLogo: CARRIERS[i].logoUrl,
             serviceCode: services[j].toLowerCase(),
             serviceName: services[j],
-            serviceDescription: `${services[j]} service by ${CARRIERS[i].name} (national)`, // Aggiungi serviceDescription
             basePrice: defaultRange.basePrice,
             fuelSurcharge: defaultRange.fuelSurcharge,
             totalBasePrice: defaultRange.totalBasePrice,
@@ -494,7 +474,6 @@ export default function RateComparisonCard() {
             totalDiscountPercentage: defaultRange.totalDiscountPercentage,
             finalPrice: defaultRange.finalPrice,
             actualMargin: defaultRange.actualMargin,
-            marginPercentage: 20, // Aggiungi marginPercentage con valore di default
             userDiscount: 0, // Add user discount field
             weight: Number.parseFloat(filters.weight),
             destinationType,
@@ -726,7 +705,7 @@ export default function RateComparisonCard() {
         // Trova l'intervallo di peso corrente in base al filtro del peso
         const weightValue = parseFloat(filters.weight);
         const currentWeightRange = weightRanges.find(
-          (range: WeightRange) => weightValue >= range.min && weightValue <= range.max
+          (range) => weightValue >= range.min && weightValue <= range.max
         ) || weightRanges[0];
         
         // Estrai i dati del servizio e del corriere con gestione null/undefined
@@ -782,12 +761,7 @@ export default function RateComparisonCard() {
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
-          },
-          isWeightRange: false,
-          parentRateId: undefined,
-          destinationType: undefined,
-          countryId: undefined,
-          weight: Number.parseFloat(filters.weight),
+          }
         };
         
         return formattedRate;
@@ -913,7 +887,7 @@ export default function RateComparisonCard() {
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnId: string, isVisible: boolean) => {
-    setVisibleColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, isVisible: Boolean(isVisible) } : col)))
+    setVisibleColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, isVisible } : col)))
   }
 
   // Calculate pagination
@@ -1143,16 +1117,9 @@ export default function RateComparisonCard() {
                 ...parentRate,
                 id: rangeId,
                 currentWeightRange: {
-                  id: weightRange.id,
                   min: weightRange.min,
                   max: weightRange.max,
-                  label: weightRange.label,
-                  basePrice: weightRange.basePrice,
-                  userDiscount: weightRange.userDiscount,
-                  finalPrice: weightRange.finalPrice,
-                  actualMargin: weightRange.actualMargin,
-                  volumeDiscount: weightRange.volumeDiscount,
-                  promotionDiscount: weightRange.promotionDiscount
+                  label: weightRange.label
                 },
                 basePrice: weightRange.basePrice,
                 finalPrice: priceWithoutFuel,
@@ -1286,51 +1253,40 @@ export default function RateComparisonCard() {
     }
   }, []);
 
-  // Aggiungo una nuova funzione per formattare la lista dei paesi in modo leggibile
-  const formatCountryList = (countryString: string): { display: string, tooltip: string } => {
-    if (!countryString) return { display: 'N/A', tooltip: '' };
+  // Add this function after the other utility functions (around line ~970-1000)
+  const formatCountryList = (countryStr: string): JSX.Element => {
+    if (!countryStr) return <span>-</span>;
     
-    // Se contiene caratteri alfanumerici ma nessuno spazio o virgola, potrebbe essere un singolo paese
-    if (/^[A-Z]+$/.test(countryString)) {
-      return { display: countryString, tooltip: countryString };
-    }
+    const countries = countryStr.match(/[A-Z]{2}/g) || [];
     
-    // Dividi la stringa dei paesi in un array
-    const countries = countryString.split(/(?=[A-Z]{2})/).filter(c => c.trim());
+    if (countries.length === 0) return <span>{countryStr}</span>;
     
     if (countries.length <= 3) {
-      // Se ci sono 3 o meno paesi, mostra tutti
-      return { 
-        display: countries.join(', '), 
-        tooltip: countries.join(', ')
-      };
-    } else {
-      // Se ci sono più di 3 paesi, mostra i primi 2 e indica quanti altri
-      return { 
-        display: `${countries.slice(0, 2).join(', ')} + ${countries.length - 2} more`, 
-        tooltip: countries.join(', ')
-      };
+      return <span>{countries.join(', ')}</span>;
     }
+    
+    return (
+      <div className="flex items-center">
+        <span>{countries.slice(0, 2).join(', ')}</span>
+        <span className="text-muted-foreground">
+          {" "}+{countries.length - 2} more
+        </span>
+        <div className="relative group ml-1">
+          <span className="cursor-help text-xs">ℹ️</span>
+          <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
+            <p className="font-medium mb-1">All countries ({countries.length}):</p>
+            <p className="flex flex-wrap gap-1">
+              {countries.map((country) => (
+                <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
+                  {country}
+                </span>
+              ))}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   };
-
-  // Correggiamo i riferimenti a weightRange nelle funzioni di ricerca
-  const findWeightRange = (ranges: WeightRange[], weight: number) => {
-    return ranges.find(range => weight >= range.min && weight < range.max) || ranges[0];
-  };
-
-  // Aggiorniamo le chiamate per usare la nuova funzione
-  const defaultRange = findWeightRange(WEIGHT_RANGES, Number.parseFloat(filters.weight));
-  const defaultRange2 = findWeightRange(WEIGHT_RANGES, Number.parseFloat(filters.weight));
-
-  // Aggiungiamo controlli per fuelSurcharge
-  const calculateTotalWithFuel = (rate: Rate) => {
-    const fuelCharge = rate.fuelSurcharge || 0;
-    return rate.basePrice * (1 + fuelCharge / 100);
-  };
-
-  // Aggiorniamo i punti dove viene usato fuelSurcharge
-  const totalPrice = calculateTotalWithFuel(rate);
-  const totalPrice2 = calculateTotalWithFuel(rate2);
 
   return (
     <Card className="w-full shadow-lg">
@@ -1631,20 +1587,8 @@ export default function RateComparisonCard() {
                           )}
                           {(activeTab === "eu" || activeTab === "extra_eu") &&
                             visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                              <TableCell>
-                                {(() => {
-                                  const formattedCountry = formatCountryList(rate.countryName);
-                                  return (
-                                    <div className="relative group">
-                                      <span>{formattedCountry.display}</span>
-                                      {formattedCountry.tooltip && formattedCountry.display !== formattedCountry.tooltip && (
-                                        <div className="absolute left-0 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs p-2 rounded shadow-md z-50 whitespace-nowrap max-w-[300px] overflow-hidden text-ellipsis">
-                                          {formattedCountry.tooltip}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
+                              <TableCell className="max-w-[250px] truncate">
+                                {formatCountryList(rate.countryName)}
                               </TableCell>
                             )}
                           {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
@@ -1943,12 +1887,7 @@ export default function RateComparisonCard() {
                   {(selectedRate.destinationType === "eu" || selectedRate.destinationType === "extra_eu") && (
                     <div className="flex justify-between">
                       <span className="text-sm">Country:</span>
-                      <span className="text-sm font-medium">
-                        {(() => {
-                          const formattedCountry = formatCountryList(selectedRate.countryName);
-                          return formattedCountry.tooltip || formattedCountry.display;
-                        })()}
-                      </span>
+                      <span className="text-sm font-medium">{selectedRate.countryName}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -2110,7 +2049,7 @@ export default function RateComparisonCard() {
                 <Checkbox
                   id={`${column.id}-visible`}
                   checked={column.isVisible}
-                  onCheckedChange={(checked) => toggleColumnVisibility(column.id, !!checked)}
+                  onCheckedChange={(checked) => toggleColumnVisibility(column.id, checked)}
                 />
                 <label htmlFor={`${column.id}-visible`}>{column.name}</label>
               </div>
