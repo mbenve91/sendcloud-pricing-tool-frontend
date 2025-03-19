@@ -227,7 +227,7 @@ export default function RateComparisonCard() {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
   // Aggiungi uno stato per tracciare l'inclusione del fuel surcharge
-  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true);
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(false);
 
   const router = useRouter()
   const { addToCart, isInCart, cartItems } = useCart()
@@ -1231,6 +1231,27 @@ export default function RateComparisonCard() {
       }));
     }
   }, [includeFuelSurcharge]);
+
+  // Add this function to generate page numbers with ellipsis
+  const getVisiblePageNumbers = useCallback((currentPage: number, totalPages: number) => {
+    // Always show maximum 7 page items (including ellipsis)
+    if (totalPages <= 7) {
+      // If we have 7 or fewer pages, show all of them
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    // We have more than 7 pages, so we need to use ellipsis
+    if (currentPage < 5) {
+      // Current page is near the start: show 1, 2, 3, 4, 5, ..., totalPages
+      return [1, 2, 3, 4, 5, 'ellipsis', totalPages];
+    } else if (currentPage > totalPages - 4) {
+      // Current page is near the end: show 1, ..., totalPages-4, totalPages-3, totalPages-2, totalPages-1, totalPages
+      return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    } else {
+      // Current page is in the middle: show 1, ..., currentPage-1, currentPage, currentPage+1, ..., totalPages
+      return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages];
+    }
+  }, []);
 
   return (
     <Card className="w-full shadow-lg">
