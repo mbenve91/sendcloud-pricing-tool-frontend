@@ -1748,11 +1748,18 @@ export default function RateComparisonCard() {
                       />
                     </UPaginationItem>
 
-                    {Array.from({ length: totalPages }).map((_, i) => (
+                    {getVisiblePageNumbers(currentPage, totalPages).map((item, i) => (
                       <UPaginationItem key={i}>
-                        <PaginationLink isActive={currentPage === i + 1} onClick={() => setCurrentPage(i + 1)}>
-                          {i + 1}
-                        </PaginationLink>
+                        {item === 'ellipsis' ? (
+                          <span className="px-3 py-2">...</span>
+                        ) : (
+                          <PaginationLink 
+                            isActive={currentPage === item} 
+                            onClick={() => setCurrentPage(item as number)}
+                          >
+                            {item}
+                          </PaginationLink>
+                        )}
                       </UPaginationItem>
                     ))}
 
