@@ -1253,39 +1253,79 @@ export default function RateComparisonCard() {
     }
   }, []);
 
-  // Add this function after the other utility functions (around line ~970-1000)
-  const formatCountryList = (countryStr: string): JSX.Element => {
+  // Modify the formatCountryList function to handle different data types
+  const formatCountryList = (countryStr: string | string[] | any): JSX.Element => {
+    // If it's undefined or null
     if (!countryStr) return <span>-</span>;
     
-    const countries = countryStr.match(/[A-Z]{2}/g) || [];
-    
-    if (countries.length === 0) return <span>{countryStr}</span>;
-    
-    if (countries.length <= 3) {
-      return <span>{countries.join(', ')}</span>;
-    }
-    
-    return (
-      <div className="flex items-center">
-        <span>{countries.slice(0, 2).join(', ')}</span>
-        <span className="text-muted-foreground">
-          {" "}+{countries.length - 2} more
-        </span>
-        <div className="relative group ml-1">
-          <span className="cursor-help text-xs">ℹ️</span>
-          <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
-            <p className="font-medium mb-1">All countries ({countries.length}):</p>
-            <p className="flex flex-wrap gap-1">
-              {countries.map((country) => (
-                <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
-                  {country}
-                </span>
-              ))}
-            </p>
+    // If it's already an array of country codes
+    if (Array.isArray(countryStr)) {
+      const countries = countryStr;
+      
+      if (countries.length === 0) return <span>-</span>;
+      
+      if (countries.length <= 3) {
+        return <span>{countries.join(', ')}</span>;
+      }
+      
+      return (
+        <div className="flex items-center">
+          <span>{countries.slice(0, 2).join(', ')}</span>
+          <span className="text-muted-foreground">
+            {" "}+{countries.length - 2} more
+          </span>
+          <div className="relative group ml-1">
+            <span className="cursor-help text-xs">ℹ️</span>
+            <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
+              <p className="font-medium mb-1">All countries ({countries.length}):</p>
+              <p className="flex flex-wrap gap-1">
+                {countries.map((country) => (
+                  <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
+                    {country}
+                  </span>
+                ))}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+    
+    // If it's a string, try to extract country codes
+    if (typeof countryStr === 'string') {
+      const countries = countryStr.match(/[A-Z]{2}/g) || [];
+      
+      if (countries.length === 0) return <span>{countryStr}</span>;
+      
+      if (countries.length <= 3) {
+        return <span>{countries.join(', ')}</span>;
+      }
+      
+      return (
+        <div className="flex items-center">
+          <span>{countries.slice(0, 2).join(', ')}</span>
+          <span className="text-muted-foreground">
+            {" "}+{countries.length - 2} more
+          </span>
+          <div className="relative group ml-1">
+            <span className="cursor-help text-xs">ℹ️</span>
+            <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
+              <p className="font-medium mb-1">All countries ({countries.length}):</p>
+              <p className="flex flex-wrap gap-1">
+                {countries.map((country) => (
+                  <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
+                    {country}
+                  </span>
+                ))}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // For any other type, just return a string representation
+    return <span>{String(countryStr)}</span>;
   };
 
   return (
