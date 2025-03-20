@@ -229,7 +229,7 @@ export default function RateComparisonCard() {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
   // Aggiungi uno stato per tracciare l'inclusione del fuel surcharge
-  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(false);
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true);
 
   const router = useRouter()
   const { addToCart, isInCart, cartItems } = useCart()

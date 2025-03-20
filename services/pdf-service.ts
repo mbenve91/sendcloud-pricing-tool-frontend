@@ -540,25 +540,6 @@ const generateSimplePDF = async (
     doc.setFont('helvetica', 'normal');
     doc.text(customerName || 'Your Customer', 120, validUntil ? 80 : 75);
     
-    // Mostra quali colonne sono state omesse (se ce ne sono)
-    const omittedColumns = [];
-    if (!displayColumns.carrier) omittedColumns.push(getTranslation('carrier', language));
-    if (!displayColumns.service) omittedColumns.push(getTranslation('service', language));
-    if (!displayColumns.destination) omittedColumns.push(getTranslation('destination', language));
-    if (!displayColumns.weight) omittedColumns.push(getTranslation('weight', language));
-    if (!displayColumns.basePrice) omittedColumns.push(getTranslation('base_price', language));
-    if (!displayColumns.discount) omittedColumns.push(getTranslation('discount', language));
-    if (!displayColumns.fuelSurcharge) omittedColumns.push(getTranslation('fuel_surcharge', language));
-    if (!displayColumns.totalPrice) omittedColumns.push(getTranslation('price', language));
-    
-    if (omittedColumns.length > 0) {
-      const omittedY = validUntil ? startY - 5 : startY - 10;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(100, 100, 100);
-      doc.text(`${getTranslation('omitted_columns', language)} ${omittedColumns.join(", ")}`, margin, omittedY);
-    }
-    
     // Intestazione tabella
     let currentY = addTableHeader(validUntil ? startY + 5 : startY);
     let isAlternateRow = false;

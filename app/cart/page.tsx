@@ -293,7 +293,7 @@ export default function CartPage() {
       
       {/* Dialog for quote generation */}
       <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Quote</DialogTitle>
             <DialogDescription>
@@ -360,8 +360,8 @@ export default function CartPage() {
             
             {/* Customize columns section */}
             <div className="border-t pt-4 mt-2">
-              <div className="flex justify-between items-center">
-                <h4 className="font-medium mb-2">Customize Quote Columns</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium">Customize Quote Columns</h4>
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
@@ -420,7 +420,7 @@ export default function CartPage() {
                 Select which columns to display in the PDF. Unselected columns will be omitted.
               </p>
               
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-2">
                 <div className="space-y-1">
                   <div className="flex items-center">
                     <input
@@ -454,7 +454,9 @@ export default function CartPage() {
                     />
                     <Label htmlFor="col-destination">Destination</Label>
                   </div>
-                  
+                </div>
+                
+                <div className="space-y-1">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -476,9 +478,7 @@ export default function CartPage() {
                     />
                     <Label htmlFor="col-deliveryTime">Delivery Time</Label>
                   </div>
-                </div>
-                
-                <div className="space-y-1">
+
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -489,7 +489,9 @@ export default function CartPage() {
                     />
                     <Label htmlFor="col-basePrice">Base Price</Label>
                   </div>
-                  
+                </div>
+                
+                <div className="space-y-1">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -527,59 +529,59 @@ export default function CartPage() {
             </div>
             
             {/* Column preview */}
-            <div className="mt-2 bg-muted p-2 rounded text-xs">
+            <div className="bg-muted p-2 rounded text-xs">
               <p className="font-medium mb-1">Column preview:</p>
-              <div className="flex overflow-x-auto pb-1">
+              <div className="flex flex-wrap gap-1">
                 {selectedColumns.carrier && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Carrier
                   </div>
                 )}
                 
                 {selectedColumns.service && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Service
                   </div>
                 )}
                 
                 {selectedColumns.destination && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Destination
                   </div>
                 )}
                 
                 {selectedColumns.weight && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Weight
                   </div>
                 )}
                 
                 {selectedColumns.deliveryTime && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Delivery Time
                   </div>
                 )}
                 
                 {selectedColumns.basePrice && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Base Price
                   </div>
                 )}
                 
                 {selectedColumns.discount && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Discount
                   </div>
                 )}
                 
                 {selectedColumns.fuelSurcharge && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Fuel Surcharge
                   </div>
                 )}
                 
                 {selectedColumns.totalPrice && (
-                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
                     Total Price
                   </div>
                 )}
