@@ -253,12 +253,41 @@ export default function RateComparisonCard() {
       const weightRangesData = await api.getWeightRangesByService(serviceId);
       console.log('Dati fasce di peso ricevuti:', JSON.stringify(weightRangesData));
       
+      // Trova la tariffa corrispondente per ottenere il fuel surcharge
+      const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
+      const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+      
       // Controlliamo che i dati siano un array e non vuoto
       if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
+        // Aggiorna il prezzo finale considerando il fuel surcharge
+        const updatedWeightRanges = weightRangesData.map((weightRange: WeightRange) => {
+          let finalPrice = weightRange.basePrice;
+          let displayBasePrice = weightRange.basePrice;
+          
+          // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
+          if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
+            // Applica il fuel surcharge al prezzo base
+            finalPrice = weightRange.basePrice * (1 + (fuelSurchargePercentage / 100));
+            displayBasePrice = finalPrice;
+            
+            // Applica lo sconto al margine
+            if (weightRange.userDiscount > 0) {
+              const discountAmount = weightRange.actualMargin * (weightRange.userDiscount / 100);
+              finalPrice -= discountAmount;
+            }
+          }
+          
+          return {
+            ...weightRange,
+            finalPrice,
+            displayBasePrice
+          };
+        });
+        
         // Aggiorniamo lo stato con type assertion per assicurarci che i dati abbiano il tipo corretto
         setServiceWeightRanges(prev => ({
           ...prev,
-          [serviceId]: weightRangesData as WeightRange[]
+          [serviceId]: updatedWeightRanges as WeightRange[]
         }));
         
         console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
@@ -282,7 +311,7 @@ export default function RateComparisonCard() {
         [serviceId]: simulatedWeightRanges
       }));
     }
-  }, [serviceWeightRanges]);
+  }, [serviceWeightRanges, rates, includeFuelSurcharge]);
 
   // Funzione per generare fasce di peso simulate
   const generateSimulatedWeightRanges = (serviceId: string): WeightRange[] => {
