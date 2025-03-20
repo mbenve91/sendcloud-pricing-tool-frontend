@@ -39,6 +39,7 @@ interface QuoteOptions {
   language: string;
   accountExecutive: string;
   customerName: string;
+  validUntil?: string;  // Data opzionale per la validità del preventivo
 }
 
 // Helper per formattare i valori monetari
@@ -178,7 +179,13 @@ const getTranslation = (key: string, language: string): string => {
       'italian': 'continuato',
       'german': 'fortgesetzt',
       'spanish': 'continuado'
-    }
+    },
+    'valid_until': {
+      'english': 'Valid until:',
+      'italian': 'Valido fino al:',
+      'german': 'Gültig bis:',
+      'spanish': 'Válido hasta:'
+    },
   };
   
   return translations[key]?.[language] || translations[key]?.['english'] || '';
@@ -229,7 +236,7 @@ const generateSimplePDF = async (
   options: QuoteOptions
 ): Promise<any> => {
   try {
-    const { language, accountExecutive, customerName } = options;
+    const { language, accountExecutive, customerName, validUntil } = options;
     
     // Importiamo dinamicamente jsPDF
     const jsPDFModule = await import('jspdf');
@@ -437,21 +444,26 @@ const generateSimplePDF = async (
     doc.text(`${getTranslation('date', language)} ${today}`, 14, 55);
     doc.text(`${getTranslation('quote_number', language)} ${quoteNumber}`, 14, 60);
     
+    // Aggiungiamo la data di validità se presente
+    if (validUntil) {
+      doc.text(`${getTranslation('valid_until', language)} ${validUntil}`, 14, 65);
+    }
+    
     // Account Executive
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(getTranslation('prepared_by', language), 14, 70);
+    doc.text(getTranslation('prepared_by', language), 14, validUntil ? 75 : 70);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${accountExecutive} - SendCloud`, 14, 75);
+    doc.text(`${accountExecutive} - SendCloud`, 14, validUntil ? 80 : 75);
     
     // Preparato per
     doc.setFont('helvetica', 'bold');
-    doc.text(getTranslation('prepared_for', language), 120, 70);
+    doc.text(getTranslation('prepared_for', language), 120, validUntil ? 75 : 70);
     doc.setFont('helvetica', 'normal');
-    doc.text(customerName || 'Your Customer', 120, 75);
+    doc.text(customerName || 'Your Customer', 120, validUntil ? 80 : 75);
     
     // Intestazione tabella
-    let currentY = addTableHeader(startY);
+    let currentY = addTableHeader(validUntil ? startY + 5 : startY);
     let isAlternateRow = false;
     
     // Abbreviare i nomi lunghi se necessario

@@ -65,6 +65,7 @@ export default function CartPage() {
   const [language, setLanguage] = useState("english")
   const [accountExecutive, setAccountExecutive] = useState("")
   const [customerName, setCustomerName] = useState("")
+  const [validUntil, setValidUntil] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
   
@@ -110,7 +111,8 @@ export default function CartPage() {
         await downloadQuotePDF(cartItems as Rate[], {
           language,
           accountExecutive,
-          customerName
+          customerName,
+          validUntil
         });
         
         setPdfGenerated(true);
@@ -305,6 +307,19 @@ export default function CartPage() {
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="col-span-3"
                 placeholder="Customer name"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="validUntil" className="text-right">
+                Valid Until
+              </Label>
+              <Input
+                id="validUntil"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g. December 31, 2023"
               />
             </div>
             
