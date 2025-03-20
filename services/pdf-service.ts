@@ -171,6 +171,12 @@ const getTranslation = (key: string, language: string): string => {
       'italian': 'Il prezzo totale non include il sovrapprezzo carburante',
       'german': 'Der Gesamtpreis enthält nicht den Kraftstoffzuschlag',
       'spanish': 'El precio total no incluye el recargo por combustible'
+    },
+    'continued': {
+      'english': 'continued',
+      'italian': 'continuato',
+      'german': 'fortgesetzt',
+      'spanish': 'continuado'
     }
   };
   
@@ -243,8 +249,10 @@ const generateSimplePDF = async (
     // SOLUZIONE MIGLIORATA: Ottimizziamo il layout per distribuire lo spazio in modo più efficiente
     const margin = 10; // Margine per il documento
     const pageWidth = 210;
+    const pageHeight = 297; // Altezza A4
     const tableWidth = pageWidth - (margin * 2);
-    
+    const footerHeight = 40; // Spazio riservato per il footer
+
     // Ridistribuiamo lo spazio delle colonne in modo più equilibrato
     let colWidths: number[] = [];
     const hasCountry = rates.some(r => r.countryName);
@@ -260,18 +268,139 @@ const generateSimplePDF = async (
     // Utilizziamo un font size uniforme per le intestazioni
     const headerFontSize = 8;
     
-    // Aggiungiamo il logo SendCloud 
-    const logoUrl = '/sendcloud_logo.png';
+    // Proprietà di pagina
+    let pageCount = 1;
+    const startY = 85; // Punto di inizio della tabella
+    const rowHeight = 10;
+    const maxY = pageHeight - footerHeight;
     
-    // Dimensioni predefinite per il logo
-    const logoHeight = 15;  // mm
-    const logoWidth = 50;   // mm
+    // Funzione per creare intestazione tabella
+    const addTableHeader = (yPosition: number) => {
+      // Intestazioni - utilizziamo rettangoli per assicurarci che tutta la riga sia colorata
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(headerFontSize);
+      doc.setFont('helvetica', 'bold');
+      
+      // Riga di intestazione
+      doc.rect(margin, yPosition, tableWidth, rowHeight, 'F');
+      
+      // Testi delle intestazioni
+      let currentX = margin + 3; // Aggiungiamo un piccolo padding iniziale
+      
+      // Carrier
+      const carrierText = getTranslation('carrier', language);
+      doc.text(carrierText, currentX, yPosition + 6);
+      currentX += colWidths[0];
+      
+      // Service
+      const serviceText = getTranslation('service', language);
+      doc.text(serviceText, currentX, yPosition + 6);
+      currentX += colWidths[1];
+      
+      // Country (opzionale)
+      if (hasCountry) {
+        const destText = getTranslation('destination', language);
+        doc.text(destText, currentX, yPosition + 6);
+        currentX += colWidths[2];
+      }
+      
+      // Weight
+      const weightText = getTranslation('weight', language);
+      doc.text(weightText, currentX, yPosition + 6);
+      currentX += colWidths[hasCountry ? 3 : 2];
+      
+      // Delivery Time
+      const deliveryText = getTranslation('delivery_time', language);
+      doc.text(deliveryText, currentX, yPosition + 6);
+      currentX += colWidths[hasCountry ? 4 : 3];
+      
+      // Base Price
+      const basePriceText = getTranslation('base_price', language);
+      doc.text(basePriceText, currentX, yPosition + 6);
+      currentX += colWidths[hasCountry ? 5 : 4];
+      
+      // Discount
+      const discountText = getTranslation('discount', language);
+      doc.text(discountText, currentX, yPosition + 6);
+      currentX += colWidths[hasCountry ? 6 : 5];
+      
+      // Fuel Surcharge
+      const fuelText = getTranslation('fuel_surcharge', language);
+      doc.text(fuelText, currentX, yPosition + 6);
+      currentX += colWidths[hasCountry ? 7 : 6];
+      
+      // Total Price - Assicuriamo che sia allineato correttamente
+      const priceText = getTranslation('price', language);
+      doc.text(priceText, currentX, yPosition + 6);
+      
+      return yPosition + rowHeight;
+    };
+    
+    // Funzione per aggiungere il footer
+    const addFooter = (pageNum: number, totalPages: number) => {
+      // Footer con informazioni aziendali
+      // Aggiungiamo una linea sopra il footer
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
+      
+      // Aggiungiamo il testo del footer
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text('SendCloud B.V. | www.sendcloud.com | ' + new Date().getFullYear(), margin, pageHeight - 15);
+      
+      // Aggiungiamo il numero di pagina a destra
+      doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - margin - 20, pageHeight - 15, { align: 'right' });
+    };
+    
+    // Funzione per creare una nuova pagina
+    const addNewPage = () => {
+      doc.addPage();
+      pageCount++;
+      
+      // Aggiungiamo logo alla nuova pagina
+      try {
+        if (typeof window !== 'undefined') {
+          // Ottieni dataUrl e aspect ratio dell'immagine
+          getDataUrl('/sendcloud_logo.png').then(({dataUrl, aspectRatio}) => {
+            const logoHeight = 15;
+            const logoWidth = logoHeight * aspectRatio;
+            doc.addImage(dataUrl, 'PNG', 14, 15, logoWidth, logoHeight);
+          }).catch(() => {
+            // Fallback per il logo
+            doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.rect(14, 15, 50, 15, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SendCloud', 14 + 6, 15 + 10);
+          });
+        }
+      } catch (e) {
+        // Fallback se getDataUrl non funziona
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(14, 15, 50, 15, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('SendCloud', 14 + 6, 15 + 10);
+      }
+      
+      // Titolo continuazione preventivo
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text(getTranslation('quote_title', language) + ` (${getTranslation('continued', language)})`, 14, 45);
+      
+      // Aggiungiamo intestazione tabella
+      return addTableHeader(55); // Iniziamo più in alto nelle pagine successive
+    };
+    
+    // Aggiungiamo il logo SendCloud alla prima pagina
+    const logoUrl = '/sendcloud_logo.png';
     const logoX = 14;
     const logoY = 15;
-    
-    // Creiamo un'immagine per caricare il logo
-    const img = new Image();
-    img.src = logoUrl;
     
     try {
       // Prova a caricare il logo se siamo in un ambiente browser
@@ -282,9 +411,6 @@ const generateSimplePDF = async (
         // Calcola la larghezza in base all'altezza per mantenere le proporzioni
         const logoHeight = 15;  // Altezza fissa in mm
         const logoWidth = logoHeight * aspectRatio;  // Larghezza proporzionata
-        
-        const logoX = 14;
-        const logoY = 15;
         
         // Aggiungi l'immagine con le dimensioni corrette
         doc.addImage(dataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
@@ -328,82 +454,28 @@ const generateSimplePDF = async (
     doc.setFont('helvetica', 'normal');
     doc.text('Your Customer', 120, 75);
     
-    // Definiamo una tabella semplice con spaziatura migliore
-    const startY = 85;
-    const rowHeight = 10;
-    
-    // Intestazioni - utilizziamo rettangoli per assicurarci che tutta la riga sia colorata
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(headerFontSize);
-    doc.setFont('helvetica', 'bold');
-    
-    // Riga di intestazione
-    doc.rect(margin, startY, tableWidth, rowHeight, 'F');
-    
-    // Testi delle intestazioni
-    let currentX = margin + 3; // Aggiungiamo un piccolo padding iniziale
-    
-    // Carrier
-    const carrierText = getTranslation('carrier', language);
-    doc.text(carrierText, currentX, startY + 6);
-    currentX += colWidths[0];
-    
-    // Service
-    const serviceText = getTranslation('service', language);
-    doc.text(serviceText, currentX, startY + 6);
-    currentX += colWidths[1];
-    
-    // Country (opzionale)
-    if (hasCountry) {
-      const destText = getTranslation('destination', language);
-      doc.text(destText, currentX, startY + 6);
-      currentX += colWidths[2];
-    }
-    
-    // Weight
-    const weightText = getTranslation('weight', language);
-    doc.text(weightText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 3 : 2];
-    
-    // Delivery Time
-    const deliveryText = getTranslation('delivery_time', language);
-    doc.text(deliveryText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 4 : 3];
-    
-    // Base Price
-    const basePriceText = getTranslation('base_price', language);
-    doc.text(basePriceText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 5 : 4];
-    
-    // Discount
-    const discountText = getTranslation('discount', language);
-    doc.text(discountText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 6 : 5];
-    
-    // Fuel Surcharge
-    const fuelText = getTranslation('fuel_surcharge', language);
-    doc.text(fuelText, currentX, startY + 6);
-    currentX += colWidths[hasCountry ? 7 : 6];
-    
-    // Total Price - Assicuriamo che sia allineato correttamente
-    const priceText = getTranslation('price', language);
-    doc.text(priceText, currentX, startY + 6);
-    
-    // Dati delle righe
-    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    
-    let currentY = startY + rowHeight;
+    // Intestazione tabella
+    let currentY = addTableHeader(startY);
     let isAlternateRow = false;
     
     // Abbreviare i nomi lunghi se necessario
-    const truncateText = (text: string, maxLength: number): string => {
-      return text?.length > maxLength ? text.substring(0, maxLength-2) + '..' : text || '';
+    const truncateText = (text: string | undefined, maxLength: number): string => {
+      if (!text) return '';
+      return text.length > maxLength ? text.substring(0, maxLength-2) + '..' : text;
     };
     
+    // Disegniamo le righe della tabella
     rates.forEach((rate, index) => {
+      // Controlla se abbiamo spazio per un'altra riga
+      if (currentY + rowHeight > maxY) {
+        // Aggiunge il footer alla pagina corrente
+        addFooter(pageCount, Math.ceil(rates.length / Math.floor((maxY - startY) / rowHeight)) + 1);
+        
+        // Crea una nuova pagina
+        currentY = addNewPage();
+        isAlternateRow = false;
+      }
+      
       // Aggiungiamo un bordo sottile attorno alla cella
       doc.setDrawColor(220, 220, 220); // Colore grigio chiaro per i bordi
       
@@ -413,10 +485,14 @@ const generateSimplePDF = async (
         doc.setFillColor(255, 255, 255);
       }
       
-      // Disegniamo il rettangolo di background con bordo che si estende fino al margine destro
+      // Disegniamo il rettangolo di background con bordo
       doc.rect(margin, currentY, tableWidth, rowHeight, 'FD');
       
-      currentX = margin + 3;
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      
+      let currentX = margin + 3;
       
       // Carrier - abbreviamo se troppo lungo
       doc.text(truncateText(rate.carrierName, 14), currentX, currentY + 6);
@@ -480,6 +556,17 @@ const generateSimplePDF = async (
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, margin + tableWidth, currentY);
     
+    // Verificare lo spazio rimanente prima di aggiungere il resto del contenuto
+    const spaceNeeded = 65; // Spazio necessario per note, box ringraziamento e footer
+    
+    if (currentY + spaceNeeded > maxY) {
+      // Aggiunge il footer alla pagina corrente
+      addFooter(pageCount, pageCount + 1);
+      
+      // Crea una nuova pagina
+      currentY = addNewPage() - rowHeight; // Aggiustiamo per compensare l'intestazione
+    }
+    
     // Nota sul prezzo totale
     currentY += 10;
     doc.setFontSize(9);
@@ -518,21 +605,8 @@ const generateSimplePDF = async (
     doc.setTextColor(100, 100, 100);
     doc.text(`* ${getTranslation('vat_excluded', language)}`, margin, currentY);
     
-    // Footer con informazioni aziendali
-    const pageHeight = doc.internal.pageSize.height;
-    
-    // Aggiungiamo una linea sopra il footer
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.3);
-    doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
-    
-    // Aggiungiamo il testo del footer
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text('SendCloud B.V. | www.sendcloud.com | ' + new Date().getFullYear(), margin, pageHeight - 15);
-    
-    // Aggiungiamo il numero di pagina a destra
-    doc.text('Page 1/1', pageWidth - margin - 20, pageHeight - 15, { align: 'right' });
+    // Aggiungiamo il footer all'ultima pagina
+    addFooter(pageCount, pageCount);
     
     return doc;
   } catch (error) {
