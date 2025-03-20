@@ -558,14 +558,58 @@ const generateSimplePDF = async (
     doc.line(margin, currentY, margin + tableWidth, currentY);
     
     // Verificare lo spazio rimanente prima di aggiungere il resto del contenuto
-    const spaceNeeded = 60; // Spazio necessario per note, box ringraziamento e footer - ridotto da 65 a 60
+    // Calcoliamo lo spazio effettivamente necessario in base agli elementi finali
+    // - 10mm (spazio sopra la nota prezzo)
+    // - 10mm (altezza nota prezzo)
+    // - 15mm (spazio sopra il box ringraziamento)
+    // - 15mm (altezza box ringraziamento)
+    // - 10mm (spazio sopra il testo piè di pagina)
+    // - 12mm (altezza testo piè di pagina, dipende dalle lingue)
+    // - 10mm (spazio sopra la nota IVA)
+    const spaceNeeded = 45; // Ridotto a un valore più realistico (era 60)
     
+    // Controlla se c'è abbastanza spazio nella pagina corrente
+    let needNewPage = false;
     if (currentY + spaceNeeded > maxY) {
-      // Aggiunge il footer alla pagina corrente
-      addFooter(pageCount, pageCount + 1);
+      needNewPage = true;
       
-      // Crea una nuova pagina
-      currentY = addNewPage() - rowHeight; // Aggiustiamo per compensare l'intestazione
+      // Aggiunge il footer alla pagina corrente senza forzare un numero di pagine
+      addFooter(pageCount, needNewPage ? pageCount + 1 : pageCount);
+      
+      if (needNewPage) {
+        // Crea una nuova pagina senza aggiungere l'intestazione della tabella
+        doc.addPage();
+        pageCount++;
+        
+        // Mantieni uno stile più semplice per la pagina di continuazione
+        // Qui aggiungiamo solo il titolo "Shipping Rate Quote (continued)"
+        try {
+          // Prova a caricare il logo anche nella seconda pagina
+          if (typeof window !== 'undefined') {
+            const {dataUrl, aspectRatio} = await getDataUrl('/sendcloud_logo.png');
+            const logoHeight = 15;
+            const logoWidth = logoHeight * aspectRatio;
+            doc.addImage(dataUrl, 'PNG', 14, 15, logoWidth, logoHeight);
+          }
+        } catch (e) {
+          // Fallback se getDataUrl non funziona
+          doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+          doc.rect(14, 15, 50, 15, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          doc.text('SendCloud', 14 + 6, 15 + 10);
+        }
+        
+        // Titolo continuazione preventivo
+        doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(getTranslation('quote_title', language) + ` (${getTranslation('continued', language)})`, 14, 45);
+        
+        // Reset posizione per la nuova pagina
+        currentY = 60; // Iniziamo più in alto perché non c'è l'intestazione tabella
+      }
     }
     
     // Nota sul prezzo totale
@@ -576,7 +620,7 @@ const generateSimplePDF = async (
     doc.text(`* ${getTranslation('price_note', language)}`, margin, currentY);
     
     // Box per il messaggio di ringraziamento
-    currentY += 20;
+    currentY += 15;
     doc.setFillColor(240, 248, 255); 
     doc.setDrawColor(0, 123, 255);
     doc.setLineWidth(0.5);
@@ -589,7 +633,7 @@ const generateSimplePDF = async (
     doc.text(getTranslation('thank_you', language), margin + 6, currentY + 10);
     
     // Testo a piè di pagina
-    currentY += 25;
+    currentY += 20;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
@@ -600,7 +644,7 @@ const generateSimplePDF = async (
     doc.text(splitFooter, margin, currentY);
     
     // Nota sull'IVA
-    currentY += splitFooter.length * 6 + 10;
+    currentY += splitFooter.length * 6 + 8;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
