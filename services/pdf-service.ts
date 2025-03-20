@@ -477,7 +477,7 @@ const generateSimplePDF = async (
       // Controlla se abbiamo spazio per un'altra riga
       if (currentY + rowHeight > maxY) {
         // Aggiunge il footer alla pagina corrente
-        addFooter(pageCount, Math.ceil(rates.length / Math.floor((maxY - startY) / rowHeight)) + 1);
+        addFooter(pageCount, Math.ceil(rates.length / Math.floor((maxY - startY) / rowHeight)));
         
         // Crea una nuova pagina
         currentY = addNewPage();
@@ -558,7 +558,7 @@ const generateSimplePDF = async (
     doc.line(margin, currentY, margin + tableWidth, currentY);
     
     // Verificare lo spazio rimanente prima di aggiungere il resto del contenuto
-    const spaceNeeded = 65; // Spazio necessario per note, box ringraziamento e footer
+    const spaceNeeded = 60; // Spazio necessario per note, box ringraziamento e footer - ridotto da 65 a 60
     
     if (currentY + spaceNeeded > maxY) {
       // Aggiunge il footer alla pagina corrente
