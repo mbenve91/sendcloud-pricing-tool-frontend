@@ -800,7 +800,7 @@ export default function RateComparisonCard() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length, includeFuelSurcharge]);
+  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length]);
 
   useEffect(() => {
     loadRates()
@@ -1213,48 +1213,52 @@ export default function RateComparisonCard() {
   useEffect(() => {
     if (rates.length > 0) {
       // Ricrea le tariffe con il nuovo calcolo del fuel surcharge
-      setRates(prevRates => prevRates.map(rate => {
-        // Calcola il prezzo senza fuel surcharge (se è già incluso, lo rimuoviamo)
-        const priceWithoutFuel = rate.carrierName && rate.fuelSurcharge > 0 
-          ? rate.finalPrice / (1 + (rate.fuelSurcharge / 100))
-          : rate.finalPrice;
-        
-        // Applica il fuel surcharge se richiesto
-        const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-          ? priceWithoutFuel * (1 + (rate.fuelSurcharge / 100))
-          : priceWithoutFuel;
-        
-        // Calcola il prezzo base con fuel surcharge se richiesto
-        const displayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-          ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
-          : rate.basePrice;
-        
-        // Aggiorna le fasce di peso con lo stesso calcolo
-        const updatedWeightRanges = rate.weightRanges?.map(range => {
-          const rangeWithoutFuel = range.finalPrice / (1 + ((rate.fuelSurcharge || 0) / 100));
-          const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-            ? rangeWithoutFuel * (1 + (rate.fuelSurcharge / 100))
-            : rangeWithoutFuel;
+      setRates(prevRates => {
+        const updatedRates = prevRates.map(rate => {
+          // Calcola il prezzo senza fuel surcharge (se è già incluso, lo rimuoviamo)
+          const priceWithoutFuel = rate.carrierName && rate.fuelSurcharge > 0 
+            ? rate.finalPrice / (1 + (rate.fuelSurcharge / 100))
+            : rate.finalPrice;
           
-          // Calcola il prezzo base della fascia con fuel surcharge se richiesto
-          const rangeDisplayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-            ? range.basePrice * (1 + (rate.fuelSurcharge / 100))
-            : range.basePrice;
+          // Applica il fuel surcharge se richiesto
+          const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+            ? priceWithoutFuel * (1 + (rate.fuelSurcharge / 100))
+            : priceWithoutFuel;
+          
+          // Calcola il prezzo base con fuel surcharge se richiesto
+          const displayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+            ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
+            : rate.basePrice;
+          
+          // Aggiorna le fasce di peso con lo stesso calcolo
+          const updatedWeightRanges = rate.weightRanges?.map(range => {
+            const rangeWithoutFuel = range.finalPrice / (1 + ((rate.fuelSurcharge || 0) / 100));
+            const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+              ? rangeWithoutFuel * (1 + (rate.fuelSurcharge / 100))
+              : rangeWithoutFuel;
+            
+            // Calcola il prezzo base della fascia con fuel surcharge se richiesto
+            const rangeDisplayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+              ? range.basePrice * (1 + (rate.fuelSurcharge / 100))
+              : range.basePrice;
+            
+            return {
+              ...range,
+              finalPrice: rangeFinalPrice,
+              displayBasePrice: rangeDisplayBasePrice
+            };
+          });
           
           return {
-            ...range,
-            finalPrice: rangeFinalPrice,
-            displayBasePrice: rangeDisplayBasePrice
+            ...rate,
+            finalPrice,
+            displayBasePrice,
+            weightRanges: updatedWeightRanges || rate.weightRanges
           };
         });
         
-        return {
-          ...rate,
-          finalPrice,
-          displayBasePrice,
-          weightRanges: updatedWeightRanges || rate.weightRanges
-        };
-      }));
+        return updatedRates;
+      });
     }
   }, [includeFuelSurcharge]);
 
