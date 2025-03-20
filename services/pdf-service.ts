@@ -38,6 +38,7 @@ interface Rate {
 interface QuoteOptions {
   language: string;
   accountExecutive: string;
+  customerName: string;
 }
 
 // Helper per formattare i valori monetari
@@ -228,7 +229,7 @@ const generateSimplePDF = async (
   options: QuoteOptions
 ): Promise<any> => {
   try {
-    const { language, accountExecutive } = options;
+    const { language, accountExecutive, customerName } = options;
     
     // Importiamo dinamicamente jsPDF
     const jsPDFModule = await import('jspdf');
@@ -258,11 +259,11 @@ const generateSimplePDF = async (
     const hasCountry = rates.some(r => r.countryName);
     
     if (hasCountry) {
-      // Con colonna paese - equilibriamo meglio le colonne
-      colWidths = [0.11, 0.11, 0.10, 0.09, 0.12, 0.13, 0.12, 0.12, 0.10].map(w => tableWidth * w);
+      // Con colonna paese - equilibriamo meglio le colonne senza delivery time
+      colWidths = [0.12, 0.12, 0.12, 0.13, 0.16, 0.14, 0.14, 0.07].map(w => tableWidth * w);
     } else {
-      // Senza colonna paese - distribuiamo meglio le colonne
-      colWidths = [0.13, 0.13, 0.11, 0.13, 0.14, 0.13, 0.12, 0.11].map(w => tableWidth * w);
+      // Senza colonna paese - distribuiamo meglio le colonne senza delivery time
+      colWidths = [0.15, 0.15, 0.14, 0.16, 0.15, 0.14, 0.11].map(w => tableWidth * w);
     }
     
     // Utilizziamo un font size uniforme per le intestazioni
@@ -310,25 +311,20 @@ const generateSimplePDF = async (
       doc.text(weightText, currentX, yPosition + 6);
       currentX += colWidths[hasCountry ? 3 : 2];
       
-      // Delivery Time
-      const deliveryText = getTranslation('delivery_time', language);
-      doc.text(deliveryText, currentX, yPosition + 6);
-      currentX += colWidths[hasCountry ? 4 : 3];
-      
-      // Base Price
+      // Base Price (rimuovendo la colonna Delivery Time)
       const basePriceText = getTranslation('base_price', language);
       doc.text(basePriceText, currentX, yPosition + 6);
-      currentX += colWidths[hasCountry ? 5 : 4];
+      currentX += colWidths[hasCountry ? 4 : 3];
       
       // Discount
       const discountText = getTranslation('discount', language);
       doc.text(discountText, currentX, yPosition + 6);
-      currentX += colWidths[hasCountry ? 6 : 5];
+      currentX += colWidths[hasCountry ? 5 : 4];
       
       // Fuel Surcharge
       const fuelText = getTranslation('fuel_surcharge', language);
       doc.text(fuelText, currentX, yPosition + 6);
-      currentX += colWidths[hasCountry ? 7 : 6];
+      currentX += colWidths[hasCountry ? 6 : 5];
       
       // Total Price - Assicuriamo che sia allineato correttamente
       const priceText = getTranslation('price', language);
@@ -452,7 +448,7 @@ const generateSimplePDF = async (
     doc.setFont('helvetica', 'bold');
     doc.text(getTranslation('prepared_for', language), 120, 70);
     doc.setFont('helvetica', 'normal');
-    doc.text('Your Customer', 120, 75);
+    doc.text(customerName || 'Your Customer', 120, 75);
     
     // Intestazione tabella
     let currentY = addTableHeader(startY);
@@ -516,30 +512,23 @@ const generateSimplePDF = async (
       doc.text(weightText, currentX, currentY + 6);
       currentX += colWidths[hasCountry ? 3 : 2];
       
-      // Delivery Time
-      const deliveryText = rate.deliveryTimeMin && rate.deliveryTimeMax
-        ? `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} ${getTranslation('days', language)}`
-        : "";
-      doc.text(deliveryText, currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 4 : 3];
-      
-      // Base Price
+      // Base Price (rimosso Delivery Time)
       doc.text(formatCurrency(rate.basePrice, language), currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 5 : 4];
+      currentX += colWidths[hasCountry ? 4 : 3];
       
       // Discount
       const discountValue = rate.userDiscount > 0 
         ? `${rate.userDiscount}%` 
         : "0%";
       doc.text(discountValue, currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 6 : 5];
+      currentX += colWidths[hasCountry ? 5 : 4];
       
       // Fuel Surcharge
       const fuelValue = rate.fuelSurcharge > 0 
         ? `${rate.fuelSurcharge}%` 
         : "0%";
       doc.text(fuelValue, currentX, currentY + 6);
-      currentX += colWidths[hasCountry ? 7 : 6];
+      currentX += colWidths[hasCountry ? 6 : 5];
       
       // Total Price (Final Price) - impostiamo in grassetto
       const finalPriceText = formatCurrency(rate.finalPrice, language);

@@ -64,6 +64,7 @@ export default function CartPage() {
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false)
   const [language, setLanguage] = useState("english")
   const [accountExecutive, setAccountExecutive] = useState("")
+  const [customerName, setCustomerName] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
   
@@ -108,7 +109,8 @@ export default function CartPage() {
         // Genera il PDF (ora è asincrona)
         await downloadQuotePDF(cartItems as Rate[], {
           language,
-          accountExecutive
+          accountExecutive,
+          customerName
         });
         
         setPdfGenerated(true);
@@ -291,6 +293,19 @@ export default function CartPage() {
                   <SelectItem value="spanish">Spanish</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="customer" className="text-right">
+                Customer Name
+              </Label>
+              <Input
+                id="customer"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="col-span-3"
+                placeholder="Customer name"
+              />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
