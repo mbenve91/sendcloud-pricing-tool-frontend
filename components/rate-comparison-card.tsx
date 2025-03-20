@@ -1350,7 +1350,7 @@ export default function RateComparisonCard() {
     return <span>{String(countryStr)}</span>;
   };
 
-  // Aggiungo una funzione di utilità per calcolare il margine extra sul fuel surcharge
+  // Modifico la funzione per calcolare il margine sul fuel surcharge tenendo conto dello sconto
   const calculateFuelSurchargeMargin = (rate: Rate): number => {
     if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
       return 0;
@@ -1359,20 +1359,29 @@ export default function RateComparisonCard() {
     // Calcola la differenza tra ciò che Sendcloud addebita e ciò che paga per il fuel surcharge
     // Sendcloud paga fuel surcharge sul costo di acquisto, ma addebita fuel surcharge sul prezzo di vendita
     const purchasePrice = rate.purchasePrice || (rate.basePrice - rate.actualMargin);
-    const fuelSurchargeOnRetail = rate.basePrice * (rate.fuelSurcharge / 100);
+    
+    // Calcolo lo sconto applicato al margine base
+    const discountPercentage = rate.userDiscount || 0;
+    const discountAmount = rate.actualMargin * (discountPercentage / 100);
+    
+    // Il prezzo di vendita dopo lo sconto
+    const discountedRetailPrice = rate.basePrice - discountAmount;
+    
+    // Calcolo il fuel surcharge sul prezzo di vendita scontato
+    const fuelSurchargeOnRetail = discountedRetailPrice * (rate.fuelSurcharge / 100);
     const fuelSurchargeOnPurchase = purchasePrice * (rate.fuelSurcharge / 100);
     
     return fuelSurchargeOnRetail - fuelSurchargeOnPurchase;
   };
 
-  // Aggiungo una funzione di utilità per calcolare il margine totale (incluso fuel surcharge)
+  // Ripristino la funzione per calcolare il margine totale (incluso fuel surcharge)
   const getTotalMargin = (rate: Rate): number => {
     const baseMargin = rate.actualMargin;
     const fuelMargin = calculateFuelSurchargeMargin(rate);
     return baseMargin + fuelMargin;
   };
 
-  // Aggiungo una funzione di utilità per calcolare il margine totale per le fasce di peso
+  // Aggiorno anche la funzione per le fasce di peso
   const getWeightRangeTotalMargin = (weightRange: WeightRange, rate: Rate): number => {
     const baseMargin = weightRange.actualMargin || 0;
     
@@ -1382,7 +1391,16 @@ export default function RateComparisonCard() {
     
     // Per le fasce di peso non abbiamo il purchase price, quindi dobbiamo calcolarlo indirettamente
     const purchasePrice = weightRange.basePrice - baseMargin;
-    const fuelSurchargeOnRetail = weightRange.basePrice * (rate.fuelSurcharge / 100);
+    
+    // Calcolo lo sconto applicato al margine base
+    const discountPercentage = rate.userDiscount || 0;
+    const discountAmount = baseMargin * (discountPercentage / 100);
+    
+    // Il prezzo di vendita dopo lo sconto
+    const discountedRetailPrice = weightRange.basePrice - discountAmount;
+    
+    // Calcolo il fuel surcharge sul prezzo di vendita scontato
+    const fuelSurchargeOnRetail = discountedRetailPrice * (rate.fuelSurcharge / 100);
     const fuelSurchargeOnPurchase = purchasePrice * (rate.fuelSurcharge / 100);
     
     return baseMargin + (fuelSurchargeOnRetail - fuelSurchargeOnPurchase);
@@ -1786,35 +1804,35 @@ export default function RateComparisonCard() {
                                     {/* Dettaglio del margine e calcolo dello sconto */}
                                     <div className="pt-1 border-t">
                                       <div className="flex justify-between">
-                                        <span>Margine Base:</span>
+                                        <span>Base Margin:</span>
                                         <span>{formatCurrency(rate.actualMargin)}</span>
                                       </div>
                                       {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                         <div className="flex justify-between text-amber-600">
-                                          <span>+ Margine sul Fuel Surcharge:</span>
+                                          <span>+ Extra Margin on Fuel:</span>
                                           <span>{formatCurrency(calculateFuelSurchargeMargin(rate))}</span>
                                         </div>
                                       )}
                                       <div className="flex justify-between font-medium">
-                                        <span>Margine Totale:</span>
+                                        <span>Total Margin:</span>
                                         <span>{formatCurrency(getTotalMargin(rate))}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span>Percentuale Sconto: </span>
+                                        <span>Discount Percentage:</span>
                                         <span>{rate.userDiscount || 0}%</span>
                                       </div>
                                       <div className="flex justify-between text-primary">
-                                        <span>Sconto = Margine Totale × % Sconto:</span>
-                                        <span>-{formatCurrency(getTotalMargin(rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                        <span>- Applied to Base Margin:</span>
+                                        <span>-{formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
                                       </div>
                                     </div>
                                     
                                     <div className="flex justify-between font-medium pt-1 border-t">
-                                      <span>Final Price = Base Rate - Sconto:</span>
+                                      <span>Final Price = Base Rate - Discount:</span>
                                       <span>{formatCurrency(rate.finalPrice)}</span>
                                     </div>
                                     <div className="flex justify-between text-muted-foreground text-[10px] italic pt-1">
-                                      <span>= {formatCurrency(rate.displayBasePrice || rate.basePrice)} - {formatCurrency(getTotalMargin(rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                      <span>= {formatCurrency(rate.displayBasePrice || rate.basePrice)} - {formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1826,16 +1844,16 @@ export default function RateComparisonCard() {
                               <div className="flex items-center justify-center">
                                 <Badge
                                   variant={getMarginColor(
-                                    getTotalMargin(rate) - getTotalMargin(rate) * ((rate.userDiscount || 0) / 100),
+                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
                                   )}
                                   className="cursor-help"
                                 >
                                   {formatCurrency(
-                                    getTotalMargin(rate) - getTotalMargin(rate) * ((rate.userDiscount || 0) / 100),
+                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
                                   )}{" "}
                                   (
                                   {getMarginLabel(
-                                    getTotalMargin(rate) - getTotalMargin(rate) * ((rate.userDiscount || 0) / 100),
+                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
                                   )}
                                   )
                                 </Badge>
@@ -1856,6 +1874,17 @@ export default function RateComparisonCard() {
                                       <span>{formatCurrency(rate.actualMargin)}</span>
                                     </div>
                                     
+                                    <div className="pt-1 border-t">
+                                      <div className="flex justify-between">
+                                        <span>Discount Percentage:</span>
+                                        <span>{rate.userDiscount || 0}%</span>
+                                      </div>
+                                      <div className="flex justify-between text-primary">
+                                        <span>- Applied to Base Margin:</span>
+                                        <span>-{formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
+                                      </div>
+                                    </div>
+                                    
                                     {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                       <>
                                         <div className="pt-1 border-t">
@@ -1863,12 +1892,16 @@ export default function RateComparisonCard() {
                                             <span>Fuel Margin Calculation:</span>
                                           </div>
                                           <div className="flex justify-between">
-                                            <span>Retail Price:</span>
+                                            <span>Original Retail Price:</span>
                                             <span>{formatCurrency(rate.basePrice)}</span>
                                           </div>
                                           <div className="flex justify-between">
-                                            <span>Fuel on Retail ({rate.fuelSurcharge}%):</span>
-                                            <span>{formatCurrency(rate.basePrice * (rate.fuelSurcharge / 100))}</span>
+                                            <span>Discounted Retail Price:</span>
+                                            <span>{formatCurrency(rate.basePrice - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
+                                            <span>{formatCurrency((rate.basePrice - rate.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Purchase Price:</span>
@@ -1883,28 +1916,17 @@ export default function RateComparisonCard() {
                                             <span>{formatCurrency(calculateFuelSurchargeMargin(rate))}</span>
                                           </div>
                                         </div>
-                                        
-                                        <div className="flex justify-between font-medium">
-                                          <span>Total Margin:</span>
-                                          <span>{formatCurrency(getTotalMargin(rate))}</span>
-                                        </div>
                                       </>
                                     )}
                                     
-                                    <div className="pt-1 border-t">
-                                      <div className="flex justify-between">
-                                        <span>Discount Percentage:</span>
-                                        <span>{rate.userDiscount || 0}%</span>
-                                      </div>
-                                      <div className="flex justify-between text-primary">
-                                        <span>- Applied Discount:</span>
-                                        <span>-{formatCurrency(getTotalMargin(rate) * ((rate.userDiscount || 0) / 100))}</span>
-                                      </div>
+                                    <div className="flex justify-between font-medium pt-1 border-t">
+                                      <span>Total Margin:</span>
+                                      <span>{formatCurrency(getTotalMargin(rate))}</span>
                                     </div>
                                     
                                     <div className="flex justify-between font-medium pt-1 border-t">
                                       <span>Final Margin:</span>
-                                      <span>{formatCurrency(getTotalMargin(rate) - getTotalMargin(rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                      <span>{formatCurrency(getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -2053,35 +2075,35 @@ export default function RateComparisonCard() {
                                                   {/* Dettaglio del margine e calcolo dello sconto */}
                                                   <div className="pt-1 border-t">
                                                     <div className="flex justify-between">
-                                                      <span>Margine Base:</span>
+                                                      <span>Base Margin:</span>
                                                       <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
                                                     </div>
                                                     {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                                       <div className="flex justify-between text-amber-600">
-                                                        <span>+ Margine sul Fuel Surcharge:</span>
+                                                        <span>+ Extra Margin on Fuel:</span>
                                                         <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0))}</span>
                                                       </div>
                                                     )}
                                                     <div className="flex justify-between font-medium">
-                                                      <span>Margine Totale:</span>
+                                                      <span>Total Margin:</span>
                                                       <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate))}</span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                      <span>Percentuale Sconto: </span>
+                                                      <span>Discount Percentage:</span>
                                                       <span>{rate.userDiscount || 0}%</span>
                                                     </div>
                                                     <div className="flex justify-between text-primary">
-                                                      <span>Sconto = Margine Totale × % Sconto:</span>
-                                                      <span>-{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                                      <span>- Applied to Base Margin:</span>
+                                                      <span>-{formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
                                                     </div>
                                                   </div>
                                                   
                                                   <div className="flex justify-between font-medium pt-1 border-t">
-                                                    <span>Final Price = Base Rate - Sconto:</span>
+                                                    <span>Final Price = Base Rate - Discount:</span>
                                                     <span>{formatCurrency(weightRange.finalPrice || 0)}</span>
                                                   </div>
                                                   <div className="flex justify-between text-muted-foreground text-[10px] italic pt-1">
-                                                    <span>= {formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)} - {formatCurrency(getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                                    <span>= {formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)} - {formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
                                                   </div>
                                                 </div>
                                               </div>
@@ -2094,15 +2116,15 @@ export default function RateComparisonCard() {
                                               <div className="flex items-center justify-center">
                                                 <Badge
                                                   variant={getMarginColor(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100)
+                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
                                                   )}
                                                   className="cursor-help"
                                                 >
                                                   {formatCurrency(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100)
+                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
                                                   )}{" "}
                                                   ({getMarginLabel(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100)
+                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
                                                   )})
                                                 </Badge>
                                                 <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
@@ -2122,6 +2144,17 @@ export default function RateComparisonCard() {
                                                       <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
                                                     </div>
                                                     
+                                                    <div className="pt-1 border-t">
+                                                      <div className="flex justify-between">
+                                                        <span>Discount Percentage:</span>
+                                                        <span>{rate.userDiscount || 0}%</span>
+                                                      </div>
+                                                      <div className="flex justify-between text-primary">
+                                                        <span>- Applied to Base Margin:</span>
+                                                        <span>-{formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
+                                                      </div>
+                                                    </div>
+                                                    
                                                     {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                                       <>
                                                         <div className="pt-1 border-t">
@@ -2129,12 +2162,16 @@ export default function RateComparisonCard() {
                                                             <span>Fuel Margin Calculation:</span>
                                                           </div>
                                                           <div className="flex justify-between">
-                                                            <span>Retail Price:</span>
+                                                            <span>Original Retail Price:</span>
                                                             <span>{formatCurrency(weightRange.basePrice || 0)}</span>
                                                           </div>
                                                           <div className="flex justify-between">
-                                                            <span>Fuel on Retail ({rate.fuelSurcharge}%):</span>
-                                                            <span>{formatCurrency((weightRange.basePrice || 0) * (rate.fuelSurcharge / 100))}</span>
+                                                            <span>Discounted Retail Price:</span>
+                                                            <span>{formatCurrency((weightRange.basePrice || 0) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
+                                                          </div>
+                                                          <div className="flex justify-between">
+                                                            <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
+                                                            <span>{formatCurrency(((weightRange.basePrice || 0) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Purchase Price:</span>
@@ -2149,28 +2186,17 @@ export default function RateComparisonCard() {
                                                             <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0))}</span>
                                                           </div>
                                                         </div>
-                                                        
-                                                        <div className="flex justify-between font-medium">
-                                                          <span>Total Margin:</span>
-                                                          <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate))}</span>
-                                                        </div>
                                                       </>
                                                     )}
                                                     
-                                                    <div className="pt-1 border-t">
-                                                      <div className="flex justify-between">
-                                                        <span>Discount Percentage:</span>
-                                                        <span>{rate.userDiscount || 0}%</span>
-                                                      </div>
-                                                      <div className="flex justify-between text-primary">
-                                                        <span>- Applied Discount:</span>
-                                                        <span>-{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100))}</span>
-                                                      </div>
+                                                    <div className="flex justify-between font-medium pt-1 border-t">
+                                                      <span>Total Margin:</span>
+                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate))}</span>
                                                     </div>
                                                     
                                                     <div className="flex justify-between font-medium pt-1 border-t">
                                                       <span>Final Margin:</span>
-                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100))}</span>
+                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
                                                     </div>
                                                   </div>
                                                 </div>
