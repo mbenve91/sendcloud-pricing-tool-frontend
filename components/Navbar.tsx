@@ -14,19 +14,14 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="bg-indigo-600 p-4 shadow-md">
+        <nav className="bg-transparent p-4">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center">
-                    <div className="flex-shrink-0">
-                        <Link href="/" className="text-white font-bold text-xl">
-                            SendCloud Pricing Tool
-                        </Link>
-                    </div>
-                    <div className="ml-4 flex items-center space-x-4">
+                <div className="flex justify-end items-center">
+                    <div className="flex items-center space-x-4">
                         {isAuthenticated && (
                             <button
                                 onClick={handleLogout}
-                                className="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out hover:bg-indigo-700"
+                                className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out hover:bg-gray-100"
                             >
                                 Logout
                             </button>
