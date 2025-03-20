@@ -771,7 +771,7 @@ export default function RateComparisonCard() {
           margin: rate.margin || 0,
           weightMin: rate.weightMin || 0,
           weightMax: rate.weightMax || 0,
-          displayBasePrice: rate.basePrice, // Aggiungi questa proprietà
+          displayBasePrice: rate.retailPrice || 0, // Correggi questa proprietà usando retailPrice
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
