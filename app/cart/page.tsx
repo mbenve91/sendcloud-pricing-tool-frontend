@@ -69,6 +69,19 @@ export default function CartPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
   
+  // Aggiungiamo lo stato per le colonne selezionate
+  const [selectedColumns, setSelectedColumns] = useState({
+    carrier: true,
+    service: true,
+    destination: true,
+    weight: true,
+    basePrice: true,
+    discount: true,
+    fuelSurcharge: true,
+    totalPrice: true,
+    deliveryTime: false
+  })
+  
   // Se non ci sono elementi nel carrello, mostra messaggio e bottone per tornare alla pagina principale
   if (cartItems.length === 0) {
     return (
@@ -112,7 +125,8 @@ export default function CartPage() {
           language,
           accountExecutive,
           customerName,
-          validUntil
+          validUntil,
+          columns: selectedColumns // Aggiungiamo le colonne selezionate
         });
         
         setPdfGenerated(true);
@@ -138,6 +152,14 @@ export default function CartPage() {
     
     // Esegui la funzione asincrona
     generatePDF();
+  };
+
+  // Funzione per gestire il cambio di stato di una colonna
+  const handleColumnToggle = (columnName: string) => {
+    setSelectedColumns(prev => ({
+      ...prev,
+      [columnName]: !prev[columnName as keyof typeof prev]
+    }));
   };
 
   // Funzione per formattare i valori monetari
@@ -334,6 +356,234 @@ export default function CartPage() {
                 className="col-span-3"
                 placeholder="Your name"
               />
+            </div>
+            
+            {/* Sezione per la personalizzazione delle colonne del PDF */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center">
+                <h4 className="font-medium mb-2">Personalizza le colonne del preventivo</h4>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedColumns({
+                      carrier: true,
+                      service: true,
+                      destination: true,
+                      weight: true,
+                      basePrice: true,
+                      discount: true,
+                      fuelSurcharge: true,
+                      totalPrice: true,
+                      deliveryTime: false
+                    })}
+                  >
+                    Reset
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedColumns({
+                      carrier: true,
+                      service: true,
+                      destination: true,
+                      weight: true,
+                      basePrice: false,
+                      discount: false,
+                      fuelSurcharge: false,
+                      totalPrice: true,
+                      deliveryTime: true
+                    })}
+                  >
+                    Semplificato
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedColumns({
+                      carrier: true,
+                      service: true,
+                      destination: true,
+                      weight: true,
+                      basePrice: true,
+                      discount: true,
+                      fuelSurcharge: true,
+                      totalPrice: true,
+                      deliveryTime: true
+                    })}
+                  >
+                    Tutte
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Seleziona quali colonne mostrare nel PDF. Le colonne non selezionate saranno omesse.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-carrier"
+                      checked={selectedColumns.carrier}
+                      onChange={() => handleColumnToggle('carrier')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-carrier">Corriere</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-service"
+                      checked={selectedColumns.service}
+                      onChange={() => handleColumnToggle('service')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-service">Servizio</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-destination"
+                      checked={selectedColumns.destination}
+                      onChange={() => handleColumnToggle('destination')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-destination">Destinazione</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-weight"
+                      checked={selectedColumns.weight}
+                      onChange={() => handleColumnToggle('weight')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-weight">Peso</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-deliveryTime"
+                      checked={selectedColumns.deliveryTime}
+                      onChange={() => handleColumnToggle('deliveryTime')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-deliveryTime">Tempo di Consegna</Label>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-basePrice"
+                      checked={selectedColumns.basePrice}
+                      onChange={() => handleColumnToggle('basePrice')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-basePrice">Prezzo Base</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-discount"
+                      checked={selectedColumns.discount}
+                      onChange={() => handleColumnToggle('discount')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-discount">Sconto</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-fuelSurcharge"
+                      checked={selectedColumns.fuelSurcharge}
+                      onChange={() => handleColumnToggle('fuelSurcharge')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-fuelSurcharge">Sovrapprezzo Carburante</Label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="col-totalPrice"
+                      checked={selectedColumns.totalPrice}
+                      onChange={() => handleColumnToggle('totalPrice')}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <Label htmlFor="col-totalPrice">Prezzo Totale</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Anteprima visiva delle colonne selezionate */}
+            <div className="mt-4 bg-muted p-2 rounded text-xs">
+              <p className="font-medium mb-1">Anteprima colonne:</p>
+              <div className="flex overflow-x-auto pb-1">
+                {selectedColumns.carrier && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Corriere
+                  </div>
+                )}
+                
+                {selectedColumns.service && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Servizio
+                  </div>
+                )}
+                
+                {selectedColumns.destination && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Destinazione
+                  </div>
+                )}
+                
+                {selectedColumns.weight && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Peso
+                  </div>
+                )}
+                
+                {selectedColumns.deliveryTime && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Tempo Consegna
+                  </div>
+                )}
+                
+                {selectedColumns.basePrice && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Prezzo Base
+                  </div>
+                )}
+                
+                {selectedColumns.discount && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Sconto
+                  </div>
+                )}
+                
+                {selectedColumns.fuelSurcharge && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Sovr. Carburante
+                  </div>
+                )}
+                
+                {selectedColumns.totalPrice && (
+                  <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
+                    Prezzo Totale
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
