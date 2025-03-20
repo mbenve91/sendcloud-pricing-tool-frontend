@@ -498,7 +498,7 @@ export default function RateComparisonCard() {
     }
 
     if (filters.serviceType && filters.serviceType !== "all") {
-      filteredRates = filteredRates.filter((rate) => rate.serviceName === filters.serviceType)
+      filteredRates = filteredRates.filter((rate) => rate.id === filters.serviceType)
     }
 
     if (filters.country && (destinationType === "eu" || destinationType === "extra_eu")) {
