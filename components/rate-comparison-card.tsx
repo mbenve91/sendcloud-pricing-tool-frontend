@@ -122,7 +122,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   { id: "finalPrice", name: "Final Price", isVisible: true },
   { id: "margin", name: "Margin", isVisible: true },
   { id: "totalMargin", name: "Total Margin", isVisible: true },
-  { id: "delivery", name: "Delivery", isVisible: true },
+  { id: "delivery", name: "Delivery", isVisible: false },
 ]
 
 // Definizione delle interfacce per i tipi
@@ -935,14 +935,12 @@ export default function RateComparisonCard() {
         // Limita lo sconto tra 0 e 90%
         const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
         
-        // Calcola il prezzo base scontato (prima dell'applicazione del fuel)
-        const discountAmount = rate.actualMargin * (clampedDiscount / 100);
-        const priceAfterDiscount = rate.basePrice - discountAmount;
+        // Ottieni il prezzo base corretto (con fuel surcharge se abilitato)
+        const currentBasePrice = rate.displayBasePrice || rate.basePrice;
         
-        // Applica il fuel surcharge se abilitato
-        const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0 
-          ? priceAfterDiscount * (1 + (rate.fuelSurcharge / 100))
-          : priceAfterDiscount;
+        // Calcola il prezzo finale applicando lo sconto sul margine
+        const discountAmount = rate.actualMargin * (clampedDiscount / 100);
+        const finalPrice = currentBasePrice - discountAmount;
         
         // Aggiorna anche le fasce di peso
         if (serviceId && rate.weightRanges) {
@@ -952,13 +950,14 @@ export default function RateComparisonCard() {
           }
           
           const updatedWeightRanges = rate.weightRanges.map(range => {
-            const rangeDiscountAmount = range.actualMargin * (clampedDiscount / 100);
-            const rangePriceAfterDiscount = range.basePrice - rangeDiscountAmount;
+            // Ottieni il prezzo base corretto per la fascia (con fuel surcharge se abilitato)
+            const currentRangeBasePrice = range.displayBasePrice || range.basePrice;
             
-            // Applica il fuel surcharge se abilitato
-            const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-              ? rangePriceAfterDiscount * (1 + (rate.fuelSurcharge / 100))
-              : rangePriceAfterDiscount;
+            // Calcola lo sconto sul margine per la fascia
+            const rangeDiscountAmount = range.actualMargin * (clampedDiscount / 100);
+            
+            // Calcola il prezzo finale per la fascia
+            const rangeFinalPrice = currentRangeBasePrice - rangeDiscountAmount;
             
             return {
               ...range,
@@ -1215,32 +1214,25 @@ export default function RateComparisonCard() {
       // Ricrea le tariffe con il nuovo calcolo del fuel surcharge
       setRates(prevRates => {
         const updatedRates = prevRates.map(rate => {
-          // Calcola il prezzo senza fuel surcharge (se è già incluso, lo rimuoviamo)
-          const priceWithoutFuel = rate.carrierName && rate.fuelSurcharge > 0 
-            ? rate.finalPrice / (1 + (rate.fuelSurcharge / 100))
-            : rate.finalPrice;
-          
-          // Applica il fuel surcharge se richiesto
-          const finalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-            ? priceWithoutFuel * (1 + (rate.fuelSurcharge / 100))
-            : priceWithoutFuel;
-          
           // Calcola il prezzo base con fuel surcharge se richiesto
           const displayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
             ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
             : rate.basePrice;
           
+          // Calcola il prezzo finale basato sul displayBasePrice meno lo sconto sul margine
+          const discountAmount = rate.actualMargin * (rate.userDiscount / 100);
+          const finalPrice = displayBasePrice - discountAmount;
+          
           // Aggiorna le fasce di peso con lo stesso calcolo
           const updatedWeightRanges = rate.weightRanges?.map(range => {
-            const rangeWithoutFuel = range.finalPrice / (1 + ((rate.fuelSurcharge || 0) / 100));
-            const rangeFinalPrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-              ? rangeWithoutFuel * (1 + (rate.fuelSurcharge / 100))
-              : rangeWithoutFuel;
-            
             // Calcola il prezzo base della fascia con fuel surcharge se richiesto
             const rangeDisplayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
               ? range.basePrice * (1 + (rate.fuelSurcharge / 100))
               : range.basePrice;
+            
+            // Calcola il prezzo finale della fascia basato sul displayBasePrice meno lo sconto sul margine
+            const rangeDiscountAmount = range.actualMargin * (rate.userDiscount / 100);
+            const rangeFinalPrice = rangeDisplayBasePrice - rangeDiscountAmount;
             
             return {
               ...range,
@@ -1729,7 +1721,43 @@ export default function RateComparisonCard() {
                             </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                            <TableCell className="text-right font-medium">{formatCurrency(rate.finalPrice)}</TableCell>
+                            <TableCell className="text-right font-medium relative group">
+                              <div className="flex justify-end">
+                                <span className="cursor-help">
+                                  {formatCurrency(rate.finalPrice)}
+                                </span>
+                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
+                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
+                                  <p className="font-medium mb-1 border-b pb-1">Final Price Calculation:</p>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="flex justify-between">
+                                      <span>Base Price:</span>
+                                      <span>{formatCurrency(rate.basePrice)}</span>
+                                    </div>
+                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
+                                      <div className="flex justify-between text-muted-foreground">
+                                        <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
+                                        <span>{formatCurrency(rate.basePrice * (rate.fuelSurcharge / 100))}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between font-medium">
+                                      <span>Base Rate:</span>
+                                      <span>{formatCurrency(rate.displayBasePrice || rate.basePrice)}</span>
+                                    </div>
+                                    {rate.userDiscount > 0 && (
+                                      <div className="flex justify-between text-primary">
+                                        <span>- User Discount ({rate.userDiscount}% of Margin):</span>
+                                        <span>-{formatCurrency(rate.actualMargin * (rate.userDiscount / 100))}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between font-medium pt-1 border-t">
+                                      <span>Final Price:</span>
+                                      <span>{formatCurrency(rate.finalPrice)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
                             <TableCell className="text-center">
@@ -1864,7 +1892,43 @@ export default function RateComparisonCard() {
                                           </TableCell>
                                           
                                           {/* Final Price */}
-                                          <TableCell className="text-right font-medium">{formatCurrency(weightRange.finalPrice || 0)}</TableCell>
+                                          <TableCell className="text-right font-medium relative group">
+                                            <div className="flex justify-end">
+                                              <span className="cursor-help">
+                                                {formatCurrency(weightRange.finalPrice || 0)}
+                                              </span>
+                                              <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
+                                              <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
+                                                <p className="font-medium mb-1 border-b pb-1">Final Price Calculation:</p>
+                                                <div className="space-y-1 text-xs">
+                                                  <div className="flex justify-between">
+                                                    <span>Base Price:</span>
+                                                    <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                                  </div>
+                                                  {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
+                                                    <div className="flex justify-between text-muted-foreground">
+                                                      <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
+                                                      <span>{formatCurrency((weightRange.basePrice || 0) * (rate.fuelSurcharge / 100))}</span>
+                                                    </div>
+                                                  )}
+                                                  <div className="flex justify-between font-medium">
+                                                    <span>Base Rate:</span>
+                                                    <span>{formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}</span>
+                                                  </div>
+                                                  {rate.userDiscount > 0 && (
+                                                    <div className="flex justify-between text-primary">
+                                                      <span>- User Discount ({rate.userDiscount}% of Margin):</span>
+                                                      <span>-{formatCurrency(weightRange.actualMargin * (rate.userDiscount / 100))}</span>
+                                                    </div>
+                                                  )}
+                                                  <div className="flex justify-between font-medium pt-1 border-t">
+                                                    <span>Final Price:</span>
+                                                    <span>{formatCurrency(weightRange.finalPrice || 0)}</span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </TableCell>
                                           
                                           {/* Margin */}
                                           <TableCell className="text-center">
