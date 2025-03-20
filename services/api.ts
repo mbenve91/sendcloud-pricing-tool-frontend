@@ -1,4 +1,5 @@
 // services/api.ts - Servizio per interagire con l'API backend
+import { authService } from './authService';
 
 // URL per il backend su Render
 // In produzione, usa sempre l'URL di Render per evitare riferimenti a localhost
@@ -26,11 +27,24 @@ export interface WeightRange {
   promotionDiscount: number;
 }
 
+// Funzione di utilità per aggiungere il token di autenticazione agli header
+function getAuthHeaders(): Record<string, string> {
+  const token = authService.getToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 // Funzione di utilità per le chiamate fetch con gestione degli errori
 async function fetchWithErrorHandling(url: string, options?: RequestInit) {
   try {
+    const authHeaders = getAuthHeaders();
+    
     const response = await fetch(url, {
       ...options,
+      headers: {
+        ...options?.headers as Record<string, string>,
+        ...authHeaders,
+        'Content-Type': 'application/json'
+      },
       // Assicurati che le credenziali non siano inviate per evitare problemi CORS
       credentials: 'omit', 
       // Imposta mode: 'cors' esplicitamente
@@ -38,6 +52,11 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit) {
     });
     
     if (!response.ok) {
+      // Se riceviamo 401, l'utente non è autenticato
+      if (response.status === 401) {
+        window.location.href = '/login';
+        throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+      }
       throw new Error(`Errore nella richiesta API: ${response.status} ${response.statusText}`);
     }
     
@@ -116,13 +135,8 @@ export async function compareRates(filters: {
       queryParams.append('sourceCountry', filters.sourceCountry.toLowerCase());
     }
     
-    const response = await fetch(`${API_URL}/rates/compare?${queryParams.toString()}`);
-    
-    if (!response.ok) {
-      throw new Error(`Errore durante il confronto delle tariffe: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    // Usa la funzione di utilità per fare la chiamata API
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/compare?${queryParams.toString()}`);
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio compareRates:', error);
@@ -136,13 +150,7 @@ export async function compareRates(filters: {
  */
 export async function getRateDetails(id: string) {
   try {
-    const response = await fetch(`${API_URL}/rates/${id}`);
-    
-    if (!response.ok) {
-      throw new Error(`Errore durante il recupero dei dettagli della tariffa: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/${id}`);
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio getRateDetails:', error);
@@ -162,13 +170,7 @@ export async function getServices(carrierId?: string) {
       url = `${API_URL}/services?carrier=${carrierId}`;
     }
     
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Errore durante il recupero dei servizi: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    const data = await fetchWithErrorHandling(url);
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio getServices:', error);
@@ -183,13 +185,7 @@ export async function getServices(carrierId?: string) {
  */
 export async function getWeightRangesByService(serviceId: string): Promise<WeightRange[]> {
   try {
-    const response = await fetch(`${API_URL}/rates/service/${serviceId}/weightRanges`);
-    
-    if (!response.ok) {
-      throw new Error(`Errore durante il recupero delle fasce di peso: ${response.statusText}`);
-    }
-    
-    const result = await response.json();
+    const result = await fetchWithErrorHandling(`${API_URL}/rates/service/${serviceId}/weightRanges`);
     console.log('Risposta API fasce di peso:', result);
     
     // Assicuriamoci di restituire l'array di dati, non l'oggetto di risposta

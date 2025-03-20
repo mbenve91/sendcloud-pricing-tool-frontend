@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import Navbar from '@/components/Navbar'
+import { AuthProvider } from '@/providers/AuthProvider'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'SendCloud Pricing Tool',
+  description: 'Pricing tool for SendCloud services',
   generator: 'v0.dev',
 }
 
@@ -14,7 +16,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-grow">
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
+      </body>
     </html>
   )
 }
