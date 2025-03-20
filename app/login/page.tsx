@@ -101,13 +101,6 @@ export default function LoginPage() {
                             {isLoading ? 'Signing in...' : 'Sign in'}
                         </button>
                     </div>
-                    
-                    {/* Credenziali di prova */}
-                    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
-                        <h3 className="text-sm font-medium text-gray-700 mb-2">Test Credentials:</h3>
-                        <p className="text-xs text-gray-500 mb-1">Email: marco.benvenuti@sendcloud.com</p>
-                        <p className="text-xs text-gray-500">Password: tBYaVxxJ&6z^rtZ93FXVjo</p>
-                    </div>
                 </form>
             </div>
         </div>
