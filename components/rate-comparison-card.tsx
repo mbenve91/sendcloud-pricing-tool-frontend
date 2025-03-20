@@ -1206,9 +1206,17 @@ export default function RateComparisonCard() {
             const weightRange = weightRanges.find(wr => wr.id === weightRangeId);
             
             if (weightRange) {
-              // Calcola il prezzo finale SENZA fuel surcharge
-              const priceWithoutFuel = weightRange.basePrice - 
-                (weightRange.actualMargin * (weightRange.userDiscount / 100));
+              // Calcola il prezzo finale considerando il fuel surcharge se il toggle è attivo
+              let finalPrice;
+              if (includeFuelSurcharge && parentRate.fuelSurcharge > 0) {
+                // Applica prima il fuel surcharge al prezzo base
+                const baseWithFuel = weightRange.basePrice * (1 + (parentRate.fuelSurcharge / 100));
+                // Poi sottrai lo sconto sul margine
+                finalPrice = baseWithFuel - (weightRange.actualMargin * (weightRange.userDiscount / 100));
+              } else {
+                // Senza fuel surcharge
+                finalPrice = weightRange.basePrice - (weightRange.actualMargin * (weightRange.userDiscount / 100));
+              }
               
               ratesToAdd.push({
                 ...parentRate,
@@ -1219,7 +1227,7 @@ export default function RateComparisonCard() {
                   label: weightRange.label
                 },
                 basePrice: weightRange.basePrice,
-                finalPrice: priceWithoutFuel,
+                finalPrice: finalPrice,
                 actualMargin: weightRange.actualMargin,
                 isWeightRange: true,
                 parentRateId: parentRateId
@@ -1231,13 +1239,21 @@ export default function RateComparisonCard() {
         // Se non ci sono fasce di peso selezionate, aggiungiamo la tariffa principale
         const rate = rates.find(rate => rate.id === parentId);
         if (rate) {
-          // Calcola il prezzo finale SENZA fuel surcharge
-          const priceWithoutFuel = rate.basePrice - 
-            (rate.actualMargin * (rate.userDiscount / 100));
+          // Calcola il prezzo finale considerando il fuel surcharge se il toggle è attivo
+          let finalPrice;
+          if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
+            // Applica prima il fuel surcharge al prezzo base
+            const baseWithFuel = rate.basePrice * (1 + (rate.fuelSurcharge / 100));
+            // Poi sottrai lo sconto sul margine
+            finalPrice = baseWithFuel - (rate.actualMargin * (rate.userDiscount / 100));
+          } else {
+            // Senza fuel surcharge
+            finalPrice = rate.basePrice - (rate.actualMargin * (rate.userDiscount / 100));
+          }
           
           ratesToAdd.push({
             ...rate,
-            finalPrice: priceWithoutFuel
+            finalPrice: finalPrice
           });
         }
       }
