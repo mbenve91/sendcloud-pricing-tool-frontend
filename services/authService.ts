@@ -1,6 +1,9 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+// Base URL senza il prefisso /api
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5050';
+// URL completo con il prefisso /api
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 export interface LoginCredentials {
@@ -33,12 +36,14 @@ class AuthService {
 
     public async login(credentials: LoginCredentials): Promise<AuthResponse> {
         try {
-            const response = await axios.post(`${API_URL}/auth/login`, credentials);
+            // Usa l'URL completo incluso /api per l'endpoint di autenticazione
+            const response = await axios.post(`${BASE_URL}/api/auth/login`, credentials);
             const { token, user } = response.data;
             
             this.setToken(token);
             return { token, user };
         } catch (error) {
+            console.error('Login error:', error);
             throw new Error('Invalid login credentials');
         }
     }
