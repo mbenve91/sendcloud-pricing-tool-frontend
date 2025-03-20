@@ -138,6 +138,7 @@ interface WeightRange {
   adjustedMargin?: number
   volumeDiscount: number
   promotionDiscount: number
+  displayBasePrice?: number // Aggiungi questa proprietà
 }
 
 interface Rate {
@@ -168,6 +169,7 @@ interface Rate {
   margin?: number;
   weightMin?: number;
   weightMax?: number;
+  displayBasePrice?: number; // Aggiungi questa proprietà
   service?: {
     _id?: string;
     name?: string;
@@ -300,7 +302,8 @@ export default function RateComparisonCard() {
         finalPrice: basePrice,
         actualMargin: margin,
         volumeDiscount: Math.round(Math.random() * 15),
-        promotionDiscount: Math.round(Math.random() * 10)
+        promotionDiscount: Math.round(Math.random() * 10),
+        displayBasePrice: basePrice // Aggiungi questa proprietà
       };
     });
   };
@@ -408,6 +411,11 @@ export default function RateComparisonCard() {
               currentWeightRange: defaultRange.weightRange, // Add current weight range
               weightMin: defaultRange.weightRange.min,
               weightMax: defaultRange.weightRange.max,
+              displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
+              service: {
+                _id: service._id || rate.service?._id || '',
+                name: service.name || rate.serviceName || 'Standard'
+              }
             })
           }
         } else {
@@ -485,6 +493,11 @@ export default function RateComparisonCard() {
             currentWeightRange: defaultRange.weightRange, // Add current weight range
             weightMin: defaultRange.weightRange.min,
             weightMax: defaultRange.weightRange.max,
+            displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
+            service: {
+              _id: service._id || rate.service?._id || '',
+              name: service.name || rate.serviceName || 'Standard'
+            }
           })
         }
       }
@@ -758,6 +771,7 @@ export default function RateComparisonCard() {
           margin: rate.margin || 0,
           weightMin: rate.weightMin || 0,
           weightMax: rate.weightMax || 0,
+          displayBasePrice: rate.basePrice, // Aggiungi questa proprietà
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
@@ -1210,6 +1224,11 @@ export default function RateComparisonCard() {
           ? priceWithoutFuel * (1 + (rate.fuelSurcharge / 100))
           : priceWithoutFuel;
         
+        // Calcola il prezzo base con fuel surcharge se richiesto
+        const displayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+          ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
+          : rate.basePrice;
+        
         // Aggiorna le fasce di peso con lo stesso calcolo
         const updatedWeightRanges = rate.weightRanges?.map(range => {
           const rangeWithoutFuel = range.finalPrice / (1 + ((rate.fuelSurcharge || 0) / 100));
@@ -1217,15 +1236,22 @@ export default function RateComparisonCard() {
             ? rangeWithoutFuel * (1 + (rate.fuelSurcharge / 100))
             : rangeWithoutFuel;
           
+          // Calcola il prezzo base della fascia con fuel surcharge se richiesto
+          const rangeDisplayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
+            ? range.basePrice * (1 + (rate.fuelSurcharge / 100))
+            : range.basePrice;
+          
           return {
             ...range,
-            finalPrice: rangeFinalPrice
+            finalPrice: rangeFinalPrice,
+            displayBasePrice: rangeDisplayBasePrice
           };
         });
         
         return {
           ...rate,
           finalPrice,
+          displayBasePrice,
           weightRanges: updatedWeightRanges || rate.weightRanges
         };
       }));
@@ -1571,7 +1597,19 @@ export default function RateComparisonCard() {
                         <TableHead className="w-[120px]">Weight Range</TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                        <TableHead className="text-right w-[100px]">Base Rate</TableHead>
+                        <TableHead className="text-right w-[100px]">
+                          {includeFuelSurcharge ? (
+                            <div className="whitespace-normal text-xs">
+                              Base Rate
+                              <br />
+                              <span className="text-xs text-muted-foreground">
+                                (+Fuel {Math.round((rates[0]?.fuelSurcharge || 0) * 10) / 10}%)
+                              </span>
+                            </div>
+                          ) : (
+                            "Base Rate"
+                          )}
+                        </TableHead>
                       )}
                       {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
                         <TableHead className="text-right w-[120px]">Discount (%)</TableHead>
@@ -1639,7 +1677,35 @@ export default function RateComparisonCard() {
                             </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                            <TableCell className="text-right">{formatCurrency(rate.basePrice)}</TableCell>
+                            <TableCell className="text-right relative group">
+                              <div className="flex justify-end">
+                                <span className="cursor-help">
+                                  {formatCurrency(rate.displayBasePrice || rate.basePrice)}
+                                </span>
+                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
+                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
+                                  <p className="font-medium mb-1 border-b pb-1">Base Rate Calculation:</p>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="flex justify-between">
+                                      <span>Base Price:</span>
+                                      <span>{formatCurrency(rate.basePrice)}</span>
+                                    </div>
+                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
+                                      <>
+                                        <div className="flex justify-between text-muted-foreground">
+                                          <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
+                                          <span>{formatCurrency(rate.basePrice * (rate.fuelSurcharge / 100))}</span>
+                                        </div>
+                                        <div className="flex justify-between font-medium pt-1 border-t">
+                                          <span>Total:</span>
+                                          <span>{formatCurrency(rate.displayBasePrice || rate.basePrice)}</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
                           )}
                           {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
                             <TableCell className="text-right">
@@ -1719,7 +1785,19 @@ export default function RateComparisonCard() {
                                         <TableHead className="w-[60px]">Select</TableHead>
                                         {/* Rimuovi colonne duplicate e mostra solo le informazioni essenziali */}
                                         <TableHead className="w-[120px]">Weight Range</TableHead>
-                                        <TableHead className="w-[100px] text-right">Base Rate</TableHead>
+                                        <TableHead className="w-[100px] text-right">
+                                          {includeFuelSurcharge ? (
+                                            <div className="whitespace-normal text-xs">
+                                              Base Rate
+                                              <br />
+                                              <span className="text-xs text-muted-foreground">
+                                                (+Fuel {Math.round((rates[0]?.fuelSurcharge || 0) * 10) / 10}%)
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            "Base Rate"
+                                          )}
+                                        </TableHead>
                                         <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
                                         <TableHead className="w-[100px] text-right">Final Price</TableHead>
                                         <TableHead className="w-[120px] text-center">Margin</TableHead>
@@ -1744,7 +1822,35 @@ export default function RateComparisonCard() {
                                           <TableCell className="font-medium">{weightRange.label}</TableCell>
                                           
                                           {/* Base Rate */}
-                                          <TableCell className="text-right">{formatCurrency(weightRange.basePrice || 0)}</TableCell>
+                                          <TableCell className="text-right relative group">
+                                            <div className="flex justify-end">
+                                              <span className="cursor-help">
+                                                {formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}
+                                              </span>
+                                              <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
+                                              <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
+                                                <p className="font-medium mb-1 border-b pb-1">Base Rate Calculation:</p>
+                                                <div className="space-y-1 text-xs">
+                                                  <div className="flex justify-between">
+                                                    <span>Base Price:</span>
+                                                    <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                                  </div>
+                                                  {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
+                                                    <>
+                                                      <div className="flex justify-between text-muted-foreground">
+                                                        <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
+                                                        <span>{formatCurrency((weightRange.basePrice || 0) * (rate.fuelSurcharge / 100))}</span>
+                                                      </div>
+                                                      <div className="flex justify-between font-medium pt-1 border-t">
+                                                        <span>Total:</span>
+                                                        <span>{formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}</span>
+                                                      </div>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </TableCell>
                                           
                                           {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
                                           <TableCell className="text-right">
