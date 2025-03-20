@@ -213,7 +213,7 @@ export default function RateComparisonCard() {
   const [filters, setFilters] = useState({
     sourceCountry: "", // Aggiungi questo campo per il market
     carrierId: "",
-    serviceType: "",
+    service: "",
     weight: "1",
     volume: "100",
     country: "",
@@ -497,8 +497,8 @@ export default function RateComparisonCard() {
       filteredRates = filteredRates.filter((rate) => rate.carrierId === filters.carrierId)
     }
 
-    if (filters.serviceType && filters.serviceType !== "all") {
-      filteredRates = filteredRates.filter((rate) => rate.id === filters.serviceType)
+    if (filters.service && filters.service !== "all") {
+      filteredRates = filteredRates.filter((rate) => rate.id === filters.service)
     }
 
     if (filters.country && (destinationType === "eu" || destinationType === "extra_eu")) {
@@ -662,7 +662,7 @@ export default function RateComparisonCard() {
         destinationType: activeTab,
         destinationCountry: filters.country,
         carrierId: filters.carrierId,
-        serviceType: filters.serviceType,
+        service: filters.service,
         volume: filters.volume,
         sourceCountry: filters.sourceCountry // Aggiungi il market/sourceCountry alla richiesta
       });
@@ -1435,9 +1435,9 @@ export default function RateComparisonCard() {
               {/* Service Type - larghezza ridotta */}
               <div className="space-y-2 w-[150px]">
                 <label htmlFor="service" className="text-sm font-medium">
-                  Service Type
+                  Service
                 </label>
-                <Select value={filters.serviceType} onValueChange={(value) => handleFilterChange("serviceType", value)}>
+                <Select value={filters.service} onValueChange={(value) => handleFilterChange("service", value)}>
                   <SelectTrigger id="service">
                     <SelectValue placeholder="All services" />
                   </SelectTrigger>

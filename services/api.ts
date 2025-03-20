@@ -90,7 +90,7 @@ export async function compareRates(filters: {
   destinationType: string;
   destinationCountry?: string;
   carrierId?: string;
-  serviceType?: string;
+  service?: string;
   volume?: string;
   sourceCountry?: string;
 }) {
@@ -121,8 +121,8 @@ export async function compareRates(filters: {
       queryParams.append('carrier', filters.carrierId);
     }
     
-    if (filters.serviceType) {
-      queryParams.append('serviceType', filters.serviceType);
+    if (filters.service) {
+      queryParams.append('service', filters.service);
     }
     
     // Aggiungi volume se presente
