@@ -286,11 +286,25 @@ export default function RateComparisonCard() {
 
   // Funzione per generare fasce di peso simulate
   const generateSimulatedWeightRanges = (serviceId: string): WeightRange[] => {
+    // Trova il servizio corrispondente per ottenere il fuel surcharge
+    const serviceRate = rates.find(rate => rate.service?._id === serviceId);
+    const fuelSurchargePercentage = serviceRate?.fuelSurcharge || 0;
+    
     // Usa le stesse fasce di peso definite in WEIGHT_RANGES
     return WEIGHT_RANGES.map(range => {
       // Base price increases with weight
       const basePrice = 5 + Math.random() * 20 + range.max * 0.5;
       const margin = basePrice * (Math.random() * 0.35); // Random margin up to 35% of base price
+      
+      // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
+      let finalPrice = basePrice;
+      let displayBasePrice = basePrice;
+      
+      if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
+        // Applica il fuel surcharge al prezzo base
+        finalPrice = basePrice * (1 + (fuelSurchargePercentage / 100));
+        displayBasePrice = finalPrice;
+      }
       
       return {
         id: `${serviceId}-${range.min}-${range.max}`,
@@ -299,11 +313,11 @@ export default function RateComparisonCard() {
         max: range.max,
         basePrice: basePrice,
         userDiscount: 0,
-        finalPrice: basePrice,
+        finalPrice: finalPrice,
         actualMargin: margin,
         volumeDiscount: Math.round(Math.random() * 15),
         promotionDiscount: Math.round(Math.random() * 10),
-        displayBasePrice: basePrice // Aggiungi questa proprietà
+        displayBasePrice: displayBasePrice
       };
     });
   };
@@ -598,13 +612,25 @@ export default function RateComparisonCard() {
             ? rate.weightRanges.map((weightRange: WeightRange) => {
               // Calculate the discount amount - applica lo sconto sul margine
               const discountAmount = weightRange.actualMargin * (clampedDiscount / 100);
+              
+              // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
+              let finalPrice;
+              if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
+                // Applica prima il fuel surcharge al prezzo base
+                const baseWithFuel = weightRange.basePrice * (1 + (rate.fuelSurcharge / 100));
+                // Poi sottrai lo sconto sul margine
+                finalPrice = baseWithFuel - discountAmount;
+              } else {
+                // Senza fuel surcharge
+                finalPrice = weightRange.basePrice - discountAmount;
+              }
 
               return {
                 ...weightRange,
                 // Aggiorniamo solo userDiscount, non modifichiamo altri parametri di sconto
                 userDiscount: clampedDiscount,
-                // Recalculate final price come basePrice meno lo sconto sul margine
-                finalPrice: weightRange.basePrice - discountAmount,
+                // Recalculate final price considerando il fuel surcharge se attivo
+                finalPrice: finalPrice,
                 // Adjust the margin based on the discount
                 adjustedMargin: weightRange.actualMargin - discountAmount,
               };
@@ -612,13 +638,25 @@ export default function RateComparisonCard() {
             : [];
 
           // Calculate the discount amount for the main rate - applica lo sconto sul margine
-          const discountAmount = rate.actualMargin * (clampedDiscount / 100)
+          const discountAmount = rate.actualMargin * (clampedDiscount / 100);
+          
+          // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
+          let finalPrice;
+          if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
+            // Applica prima il fuel surcharge al prezzo base
+            const baseWithFuel = rate.basePrice * (1 + (rate.fuelSurcharge / 100));
+            // Poi sottrai lo sconto sul margine
+            finalPrice = baseWithFuel - discountAmount;
+          } else {
+            // Senza fuel surcharge
+            finalPrice = rate.basePrice - discountAmount;
+          }
 
           return {
             ...rate,
             userDiscount: clampedDiscount,
-            // Recalculate final price come basePrice meno lo sconto sul margine
-            finalPrice: rate.basePrice - discountAmount,
+            // Recalculate final price considerando il fuel surcharge se attivo
+            finalPrice: finalPrice,
             // Adjust the margin based on the discount
             adjustedMargin: rate.actualMargin - discountAmount,
             weightRanges: updatedWeightRanges,
@@ -699,17 +737,28 @@ export default function RateComparisonCard() {
         // Utilizziamo solo le fasce di peso reali dal modello Mongoose se disponibili
         const weightRanges = rate.weightRanges?.length > 0 
           ? rate.weightRanges.map((range: any) => {
+              const basePrice = range.retailPrice;
+              let finalPrice = basePrice;
+              let displayBasePrice = basePrice;
+              
+              // Calcola il finalPrice e displayBasePrice considerando il fuel surcharge se il toggle è attivo
+              if (includeFuelSurcharge && carrier.fuelSurcharge > 0) {
+                finalPrice = basePrice * (1 + (carrier.fuelSurcharge / 100));
+                displayBasePrice = finalPrice;
+              }
+              
               return {
                 id: `${rate._id}-${range.weightMin}-${range.weightMax}`,
                 label: `${range.weightMin}-${range.weightMax} kg`,
                 min: range.weightMin,
                 max: range.weightMax,
-                basePrice: range.retailPrice,
+                basePrice: basePrice,
                 userDiscount: 0,
-                finalPrice: range.retailPrice,
+                finalPrice: finalPrice,
                 actualMargin: range.margin || (range.retailPrice - range.purchasePrice),
                 volumeDiscount: range.volumeDiscount || 0,
-                promotionDiscount: range.promotionDiscount || 0
+                promotionDiscount: range.promotionDiscount || 0,
+                displayBasePrice: displayBasePrice
               };
             })
           // Non generiamo più fasce simulative
@@ -743,6 +792,12 @@ export default function RateComparisonCard() {
           userDiscount: 0
         });
         
+        // Calcola il displayBasePrice considerando il fuel surcharge se il toggle è attivo
+        let displayBasePrice = rate.retailPrice || 0;
+        if (includeFuelSurcharge && carrier.fuelSurcharge > 0) {
+          displayBasePrice = displayBasePrice * (1 + (carrier.fuelSurcharge / 100));
+        }
+        
         // Crea l'oggetto Rate con tutti i campi richiesti dall'interfaccia
         const formattedRate: Rate = {
           id: rate._id || uuidv4(),
@@ -771,7 +826,7 @@ export default function RateComparisonCard() {
           margin: rate.margin || 0,
           weightMin: rate.weightMin || 0,
           weightMax: rate.weightMax || 0,
-          displayBasePrice: rate.retailPrice || 0, // Correggi questa proprietà usando retailPrice
+          displayBasePrice: displayBasePrice, // Usa il valore calcolato
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
