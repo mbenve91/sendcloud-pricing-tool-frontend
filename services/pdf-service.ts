@@ -40,6 +40,17 @@ interface QuoteOptions {
   accountExecutive: string;
   customerName: string;
   validUntil?: string;  // Data opzionale per la validità del preventivo
+  columns?: {
+    carrier?: boolean;
+    service?: boolean;
+    destination?: boolean;
+    weight?: boolean;
+    basePrice?: boolean;
+    discount?: boolean;
+    fuelSurcharge?: boolean;
+    totalPrice?: boolean;
+    deliveryTime?: boolean;
+  };
 }
 
 // Helper per formattare i valori monetari
@@ -186,6 +197,12 @@ const getTranslation = (key: string, language: string): string => {
       'german': 'Gültig bis:',
       'spanish': 'Válido hasta:'
     },
+    'omitted_columns': {
+      'english': 'Omitted columns:',
+      'italian': 'Colonne omesse:',
+      'german': 'Ausgelassene Spalten:',
+      'spanish': 'Columnas omitidas:'
+    },
   };
   
   return translations[key]?.[language] || translations[key]?.['english'] || '';
@@ -236,7 +253,20 @@ const generateSimplePDF = async (
   options: QuoteOptions
 ): Promise<any> => {
   try {
-    const { language, accountExecutive, customerName, validUntil } = options;
+    const { language, accountExecutive, customerName, validUntil, columns = {} } = options;
+    
+    // Imposta i valori predefiniti per le colonne se non specificati
+    const displayColumns = {
+      carrier: columns.carrier !== false, // Predefinito true
+      service: columns.service !== false, // Predefinito true
+      destination: columns.destination !== false, // Predefinito true
+      weight: columns.weight !== false, // Predefinito true
+      basePrice: columns.basePrice !== false, // Predefinito true
+      discount: columns.discount !== false, // Predefinito true
+      fuelSurcharge: columns.fuelSurcharge !== false, // Predefinito true
+      totalPrice: columns.totalPrice !== false, // Predefinito true
+      deliveryTime: columns.deliveryTime === true, // Predefinito false
+    };
     
     // Importiamo dinamicamente jsPDF
     const jsPDFModule = await import('jspdf');
@@ -263,17 +293,46 @@ const generateSimplePDF = async (
     // Riduciamo lo spazio riservato per il footer per aumentare lo spazio disponibile per la tabella
     const footerHeight = 25; // Ridotto da 40 a 25
     
-    // Ridistribuiamo lo spazio delle colonne in modo più equilibrato
-    let colWidths: number[] = [];
-    const hasCountry = rates.some(r => r.countryName);
+    // Conta quante colonne saranno visualizzate
+    const activeColumnsCount = Object.values(displayColumns).filter(Boolean).length;
     
-    if (hasCountry) {
-      // Con colonna paese - equilibriamo meglio le colonne senza delivery time
-      colWidths = [0.12, 0.12, 0.12, 0.13, 0.16, 0.14, 0.14, 0.07].map(w => tableWidth * w);
-    } else {
-      // Senza colonna paese - distribuiamo meglio le colonne senza delivery time
-      colWidths = [0.15, 0.15, 0.14, 0.16, 0.15, 0.14, 0.11].map(w => tableWidth * w);
+    // Calcola la larghezza di ciascuna colonna basata sulle colonne selezionate
+    const colWidthPercentages: Record<string, number> = {};
+    const hasCountry = rates.some(r => r.countryName) && displayColumns.destination;
+    
+    // Configurazione delle proporzioni
+    if (activeColumnsCount > 0) {
+      // Pesi di default per le colonne
+      const columnWeights: Record<string, number> = {
+        carrier: 0.15,
+        service: 0.15,
+        destination: 0.12,
+        weight: 0.14,
+        deliveryTime: 0.12,
+        basePrice: 0.14,
+        discount: 0.10,
+        fuelSurcharge: 0.10,
+        totalPrice: 0.12
+      };
+      
+      // Calcola il peso totale delle colonne attive
+      const totalWeight = Object.entries(displayColumns)
+        .filter(([_, isActive]) => isActive)
+        .reduce((sum, [col]) => sum + (columnWeights[col] || 0), 0);
+      
+      // Distribuisci le percentuali in base al peso
+      Object.entries(displayColumns).forEach(([col, isActive]) => {
+        if (isActive) {
+          colWidthPercentages[col] = (columnWeights[col] || 0) / totalWeight;
+        }
+      });
     }
+    
+    // Converti le percentuali in larghezze effettive
+    const colWidths: Record<string, number> = {};
+    Object.entries(colWidthPercentages).forEach(([col, percentage]) => {
+      colWidths[col] = tableWidth * percentage;
+    });
     
     // Utilizziamo un font size uniforme per le intestazioni
     const headerFontSize = 8;
@@ -302,46 +361,59 @@ const generateSimplePDF = async (
       // Testi delle intestazioni - abbassati leggermente per allinearsi con l'altezza riga ridotta
       let currentX = margin + 3; // Aggiungiamo un piccolo padding iniziale
       
-      // Carrier
-      const carrierText = getTranslation('carrier', language);
-      doc.text(carrierText, currentX, yPosition + 5.5); // Regolato da 6 a 5.5
-      currentX += colWidths[0];
-      
-      // Service
-      const serviceText = getTranslation('service', language);
-      doc.text(serviceText, currentX, yPosition + 5.5);
-      currentX += colWidths[1];
-      
-      // Country (opzionale)
-      if (hasCountry) {
-        const destText = getTranslation('destination', language);
-        doc.text(destText, currentX, yPosition + 5.5);
-        currentX += colWidths[2];
+      // Aggiungi solo le colonne che sono state selezionate
+      if (displayColumns.carrier) {
+        const carrierText = getTranslation('carrier', language);
+        doc.text(carrierText, currentX, yPosition + 5.5);
+        currentX += colWidths.carrier;
       }
       
-      // Weight
-      const weightText = getTranslation('weight', language);
-      doc.text(weightText, currentX, yPosition + 5.5);
-      currentX += colWidths[hasCountry ? 3 : 2];
+      if (displayColumns.service) {
+        const serviceText = getTranslation('service', language);
+        doc.text(serviceText, currentX, yPosition + 5.5);
+        currentX += colWidths.service;
+      }
       
-      // Base Price (rimuovendo la colonna Delivery Time)
-      const basePriceText = getTranslation('base_price', language);
-      doc.text(basePriceText, currentX, yPosition + 5.5);
-      currentX += colWidths[hasCountry ? 4 : 3];
+      if (displayColumns.destination && hasCountry) {
+        const destText = getTranslation('destination', language);
+        doc.text(destText, currentX, yPosition + 5.5);
+        currentX += colWidths.destination;
+      }
       
-      // Discount
-      const discountText = getTranslation('discount', language);
-      doc.text(discountText, currentX, yPosition + 5.5);
-      currentX += colWidths[hasCountry ? 5 : 4];
+      if (displayColumns.weight) {
+        const weightText = getTranslation('weight', language);
+        doc.text(weightText, currentX, yPosition + 5.5);
+        currentX += colWidths.weight;
+      }
       
-      // Fuel Surcharge
-      const fuelText = getTranslation('fuel_surcharge', language);
-      doc.text(fuelText, currentX, yPosition + 5.5);
-      currentX += colWidths[hasCountry ? 6 : 5];
+      if (displayColumns.deliveryTime) {
+        const deliveryText = getTranslation('delivery_time', language);
+        doc.text(deliveryText, currentX, yPosition + 5.5);
+        currentX += colWidths.deliveryTime;
+      }
       
-      // Total Price - Assicuriamo che sia allineato correttamente
-      const priceText = getTranslation('price', language);
-      doc.text(priceText, currentX, yPosition + 5.5);
+      if (displayColumns.basePrice) {
+        const basePriceText = getTranslation('base_price', language);
+        doc.text(basePriceText, currentX, yPosition + 5.5);
+        currentX += colWidths.basePrice;
+      }
+      
+      if (displayColumns.discount) {
+        const discountText = getTranslation('discount', language);
+        doc.text(discountText, currentX, yPosition + 5.5);
+        currentX += colWidths.discount;
+      }
+      
+      if (displayColumns.fuelSurcharge) {
+        const fuelText = getTranslation('fuel_surcharge', language);
+        doc.text(fuelText, currentX, yPosition + 5.5);
+        currentX += colWidths.fuelSurcharge;
+      }
+      
+      if (displayColumns.totalPrice) {
+        const priceText = getTranslation('price', language);
+        doc.text(priceText, currentX, yPosition + 5.5);
+      }
       
       return yPosition + rowHeight;
     };
@@ -468,6 +540,25 @@ const generateSimplePDF = async (
     doc.setFont('helvetica', 'normal');
     doc.text(customerName || 'Your Customer', 120, validUntil ? 80 : 75);
     
+    // Mostra quali colonne sono state omesse (se ce ne sono)
+    const omittedColumns = [];
+    if (!displayColumns.carrier) omittedColumns.push(getTranslation('carrier', language));
+    if (!displayColumns.service) omittedColumns.push(getTranslation('service', language));
+    if (!displayColumns.destination) omittedColumns.push(getTranslation('destination', language));
+    if (!displayColumns.weight) omittedColumns.push(getTranslation('weight', language));
+    if (!displayColumns.basePrice) omittedColumns.push(getTranslation('base_price', language));
+    if (!displayColumns.discount) omittedColumns.push(getTranslation('discount', language));
+    if (!displayColumns.fuelSurcharge) omittedColumns.push(getTranslation('fuel_surcharge', language));
+    if (!displayColumns.totalPrice) omittedColumns.push(getTranslation('price', language));
+    
+    if (omittedColumns.length > 0) {
+      const omittedY = validUntil ? startY - 5 : startY - 10;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 100, 100);
+      doc.text(`${getTranslation('omitted_columns', language)} ${omittedColumns.join(", ")}`, margin, omittedY);
+    }
+    
     // Intestazione tabella
     let currentY = addTableHeader(validUntil ? startY + 5 : startY);
     let isAlternateRow = false;
@@ -508,51 +599,75 @@ const generateSimplePDF = async (
       
       let currentX = margin + 3;
       
-      // Carrier - abbreviamo se troppo lungo
-      doc.text(truncateText(rate.carrierName, 14), currentX, currentY + 5.5); // Regolato a 5.5
-      currentX += colWidths[0];
-      
-      // Service - abbreviamo se troppo lungo
-      doc.text(truncateText(rate.serviceName, 14), currentX, currentY + 5.5);
-      currentX += colWidths[1];
-      
-      // Country (opzionale)
-      if (hasCountry) {
-        doc.text(truncateText(rate.countryName, 14), currentX, currentY + 5.5);
-        currentX += colWidths[2];
+      // Aggiungi solo le colonne che sono state selezionate
+      if (displayColumns.carrier) {
+        // Carrier - abbreviamo se troppo lungo
+        doc.text(truncateText(rate.carrierName, 14), currentX, currentY + 5.5);
+        currentX += colWidths.carrier;
       }
       
-      // Weight
-      const weightText = rate.currentWeightRange ? 
-        `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : 
-        (rate.weightMin !== undefined && rate.weightMax !== undefined ? 
-          `${rate.weightMin}-${rate.weightMax} kg` : "");
-      doc.text(weightText, currentX, currentY + 5.5);
-      currentX += colWidths[hasCountry ? 3 : 2];
+      if (displayColumns.service) {
+        // Service - abbreviamo se troppo lungo
+        doc.text(truncateText(rate.serviceName, 14), currentX, currentY + 5.5);
+        currentX += colWidths.service;
+      }
       
-      // Base Price (rimosso Delivery Time)
-      doc.text(formatCurrency(rate.basePrice, language), currentX, currentY + 5.5);
-      currentX += colWidths[hasCountry ? 4 : 3];
+      // Country (opzionale)
+      if (displayColumns.destination && hasCountry) {
+        doc.text(truncateText(rate.countryName, 14), currentX, currentY + 5.5);
+        currentX += colWidths.destination;
+      }
       
-      // Discount
-      const discountValue = rate.userDiscount > 0 
-        ? `${rate.userDiscount}%` 
-        : "0%";
-      doc.text(discountValue, currentX, currentY + 5.5);
-      currentX += colWidths[hasCountry ? 5 : 4];
+      if (displayColumns.weight) {
+        // Weight
+        const weightText = rate.currentWeightRange ? 
+          `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : 
+          (rate.weightMin !== undefined && rate.weightMax !== undefined ? 
+            `${rate.weightMin}-${rate.weightMax} kg` : "");
+        doc.text(weightText, currentX, currentY + 5.5);
+        currentX += colWidths.weight;
+      }
       
-      // Fuel Surcharge
-      const fuelValue = rate.fuelSurcharge > 0 
-        ? `${rate.fuelSurcharge}%` 
-        : "0%";
-      doc.text(fuelValue, currentX, currentY + 5.5);
-      currentX += colWidths[hasCountry ? 6 : 5];
+      if (displayColumns.deliveryTime) {
+        // Delivery Time
+        const deliveryText = rate.deliveryTimeMin && rate.deliveryTimeMax ? 
+          `${rate.deliveryTimeMin}-${rate.deliveryTimeMax} ${getTranslation('days', language)}` : 
+          "";
+        doc.text(deliveryText, currentX, currentY + 5.5);
+        currentX += colWidths.deliveryTime;
+      }
       
-      // Total Price (Final Price) - impostiamo in grassetto
-      const finalPriceText = formatCurrency(rate.finalPrice, language);
-      doc.setFont('helvetica', 'bold');
-      doc.text(finalPriceText, currentX, currentY + 5.5);
-      doc.setFont('helvetica', 'normal');
+      if (displayColumns.basePrice) {
+        // Base Price
+        doc.text(formatCurrency(rate.basePrice, language), currentX, currentY + 5.5);
+        currentX += colWidths.basePrice;
+      }
+      
+      if (displayColumns.discount) {
+        // Discount
+        const discountValue = rate.userDiscount > 0 
+          ? `${rate.userDiscount}%` 
+          : "0%";
+        doc.text(discountValue, currentX, currentY + 5.5);
+        currentX += colWidths.discount;
+      }
+      
+      if (displayColumns.fuelSurcharge) {
+        // Fuel Surcharge
+        const fuelValue = rate.fuelSurcharge > 0 
+          ? `${rate.fuelSurcharge}%` 
+          : "0%";
+        doc.text(fuelValue, currentX, currentY + 5.5);
+        currentX += colWidths.fuelSurcharge;
+      }
+      
+      if (displayColumns.totalPrice) {
+        // Total Price (Final Price) - impostiamo in grassetto
+        const finalPriceText = formatCurrency(rate.finalPrice, language);
+        doc.setFont('helvetica', 'bold');
+        doc.text(finalPriceText, currentX, currentY + 5.5);
+        doc.setFont('helvetica', 'normal');
+      }
       
       currentY += rowHeight;
       isAlternateRow = !isAlternateRow;
