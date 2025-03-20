@@ -293,7 +293,7 @@ export default function CartPage() {
       
       {/* Dialog for quote generation */}
       <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Quote</DialogTitle>
             <DialogDescription>
@@ -358,10 +358,10 @@ export default function CartPage() {
               />
             </div>
             
-            {/* Sezione per la personalizzazione delle colonne del PDF */}
-            <div className="border-t pt-4 mt-4">
+            {/* Customize columns section */}
+            <div className="border-t pt-4 mt-2">
               <div className="flex justify-between items-center">
-                <h4 className="font-medium mb-2">Personalizza le colonne del preventivo</h4>
+                <h4 className="font-medium mb-2">Customize Quote Columns</h4>
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
@@ -395,7 +395,7 @@ export default function CartPage() {
                       deliveryTime: true
                     })}
                   >
-                    Semplificato
+                    Simplified
                   </Button>
                   <Button 
                     variant="outline" 
@@ -412,16 +412,16 @@ export default function CartPage() {
                       deliveryTime: true
                     })}
                   >
-                    Tutte
+                    All
                   </Button>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-3">
-                Seleziona quali colonne mostrare nel PDF. Le colonne non selezionate saranno omesse.
+                Select which columns to display in the PDF. Unselected columns will be omitted.
               </p>
               
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="space-y-1">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -430,7 +430,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('carrier')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-carrier">Corriere</Label>
+                    <Label htmlFor="col-carrier">Carrier</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -441,7 +441,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('service')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-service">Servizio</Label>
+                    <Label htmlFor="col-service">Service</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -452,7 +452,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('destination')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-destination">Destinazione</Label>
+                    <Label htmlFor="col-destination">Destination</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -463,7 +463,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('weight')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-weight">Peso</Label>
+                    <Label htmlFor="col-weight">Weight</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -474,11 +474,11 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('deliveryTime')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-deliveryTime">Tempo di Consegna</Label>
+                    <Label htmlFor="col-deliveryTime">Delivery Time</Label>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -487,7 +487,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('basePrice')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-basePrice">Prezzo Base</Label>
+                    <Label htmlFor="col-basePrice">Base Price</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -498,7 +498,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('discount')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-discount">Sconto</Label>
+                    <Label htmlFor="col-discount">Discount</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -509,7 +509,7 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('fuelSurcharge')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-fuelSurcharge">Sovrapprezzo Carburante</Label>
+                    <Label htmlFor="col-fuelSurcharge">Fuel Surcharge</Label>
                   </div>
                   
                   <div className="flex items-center">
@@ -520,67 +520,67 @@ export default function CartPage() {
                       onChange={() => handleColumnToggle('totalPrice')}
                       className="mr-2 h-4 w-4"
                     />
-                    <Label htmlFor="col-totalPrice">Prezzo Totale</Label>
+                    <Label htmlFor="col-totalPrice">Total Price</Label>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Anteprima visiva delle colonne selezionate */}
-            <div className="mt-4 bg-muted p-2 rounded text-xs">
-              <p className="font-medium mb-1">Anteprima colonne:</p>
+            {/* Column preview */}
+            <div className="mt-2 bg-muted p-2 rounded text-xs">
+              <p className="font-medium mb-1">Column preview:</p>
               <div className="flex overflow-x-auto pb-1">
                 {selectedColumns.carrier && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Corriere
+                    Carrier
                   </div>
                 )}
                 
                 {selectedColumns.service && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Servizio
+                    Service
                   </div>
                 )}
                 
                 {selectedColumns.destination && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Destinazione
+                    Destination
                   </div>
                 )}
                 
                 {selectedColumns.weight && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Peso
+                    Weight
                   </div>
                 )}
                 
                 {selectedColumns.deliveryTime && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Tempo Consegna
+                    Delivery Time
                   </div>
                 )}
                 
                 {selectedColumns.basePrice && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Prezzo Base
+                    Base Price
                   </div>
                 )}
                 
                 {selectedColumns.discount && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Sconto
+                    Discount
                   </div>
                 )}
                 
                 {selectedColumns.fuelSurcharge && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Sovr. Carburante
+                    Fuel Surcharge
                   </div>
                 )}
                 
                 {selectedColumns.totalPrice && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 mr-1 whitespace-nowrap">
-                    Prezzo Totale
+                    Total Price
                   </div>
                 )}
               </div>
@@ -619,7 +619,7 @@ export default function CartPage() {
       
       {/* Aggiungiamo una nota sul prezzo IVA esclusa */}
       <div className="mt-4 text-sm text-muted-foreground text-right italic">
-        * Tutti i prezzi sono da intendersi IVA esclusa
+        * All prices are VAT excluded
       </div>
     </main>
   )
