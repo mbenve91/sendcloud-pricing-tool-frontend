@@ -27,6 +27,56 @@ export interface WeightRange {
   promotionDiscount: number;
 }
 
+// Definizione dell'interfaccia Carrier
+export interface Carrier {
+  _id: string;
+  name: string;
+  logoUrl: string;
+  isActive: boolean;
+  fuelSurcharge: number;
+  isVolumetric: boolean;
+  knowledgeBase?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Definizione dell'interfaccia Service
+export interface Service {
+  _id: string;
+  name: string;
+  code: string;
+  description?: string;
+  carrier: Carrier | string;
+  deliveryTimeMin?: number;
+  deliveryTimeMax?: number;
+  destinationType: 'national' | 'international' | 'both';
+  destinationCountry?: string[];
+  sourceCountry?: string;
+  isEU?: boolean;
+  isActive: boolean;
+  ratesCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Definizione dell'interfaccia Rate
+export interface Rate {
+  _id: string;
+  service: Service | string;
+  weightMin: number;
+  weightMax: number;
+  purchasePrice: number;
+  retailPrice: number;
+  margin?: number;
+  marginPercentage?: number;
+  volumeDiscount?: number;
+  promotionalDiscount?: number;
+  minimumVolume?: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // Funzione di utilità per aggiungere il token di autenticazione agli header
 function getAuthHeaders(): Record<string, string> {
   const token = authService.getToken();
@@ -67,16 +117,293 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit) {
   }
 }
 
+// ============= CARRIERS API =============
+
 /**
  * Recupera tutti i corrieri attivi dal backend
  */
 export async function getCarriers() {
   try {
     // Usa la funzione di utilità per fare la chiamata API
-    const data = await fetchWithErrorHandling(`${API_BASE_URL}/api/carriers`);
+    const data = await fetchWithErrorHandling(`${API_URL}/carriers`);
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio getCarriers:', error);
+    return []; // Restituisci un array vuoto in caso di errore
+  }
+}
+
+/**
+ * Recupera un corriere specifico dal backend
+ */
+export async function getCarrier(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/carriers/${id}`);
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nel recupero del corriere ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuovo corriere
+ */
+export async function createCarrier(carrier: Omit<Carrier, '_id'>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/carriers`, {
+      method: 'POST',
+      body: JSON.stringify(carrier)
+    });
+    return data.data;
+  } catch (error) {
+    console.error('Errore nella creazione del corriere:', error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna un corriere esistente
+ */
+export async function updateCarrier(id: string, carrier: Partial<Carrier>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/carriers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(carrier)
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'aggiornamento del corriere ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un corriere (soft delete impostando isActive = false)
+ */
+export async function deleteCarrier(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/carriers/${id}`, {
+      method: 'DELETE'
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'eliminazione del corriere ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna il fuel surcharge per più corrieri
+ */
+export async function updateBulkFuelSurcharge(ids: string[], fuelSurcharge: number) {
+  try {
+    const promises = ids.map(id => 
+      updateCarrier(id, { fuelSurcharge })
+    );
+    return await Promise.all(promises);
+  } catch (error) {
+    console.error('Errore nell\'aggiornamento del fuel surcharge per più corrieri:', error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna lo stato di attività per più corrieri
+ */
+export async function toggleBulkCarrierStatus(ids: string[], isActive: boolean) {
+  try {
+    const promises = ids.map(id => 
+      updateCarrier(id, { isActive })
+    );
+    return await Promise.all(promises);
+  } catch (error) {
+    console.error('Errore nell\'aggiornamento dello stato per più corrieri:', error);
+    throw error;
+  }
+}
+
+// ============= SERVICES API =============
+
+/**
+ * Recupera tutti i servizi o i servizi di un corriere specifico
+ * @param carrierId - ID del corriere (opzionale)
+ */
+export async function getServices(carrierId?: string) {
+  try {
+    let url = `${API_URL}/services`;
+    
+    if (carrierId && carrierId !== 'all') {
+      url = `${API_URL}/services?carrier=${carrierId}`;
+    }
+    
+    const data = await fetchWithErrorHandling(url);
+    return data.data;
+  } catch (error) {
+    console.error('Errore nel servizio getServices:', error);
+    return []; // Restituisci un array vuoto in caso di errore
+  }
+}
+
+/**
+ * Recupera un servizio specifico
+ */
+export async function getService(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/services/${id}`);
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nel recupero del servizio ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuovo servizio
+ */
+export async function createService(service: Omit<Service, '_id'>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/services`, {
+      method: 'POST',
+      body: JSON.stringify(service)
+    });
+    return data.data;
+  } catch (error) {
+    console.error('Errore nella creazione del servizio:', error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna un servizio esistente
+ */
+export async function updateService(id: string, service: Partial<Service>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/services/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(service)
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'aggiornamento del servizio ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un servizio
+ */
+export async function deleteService(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/services/${id}`, {
+      method: 'DELETE'
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'eliminazione del servizio ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna il market (sourceCountry) di un servizio
+ */
+export async function updateServiceMarket(id: string, sourceCountry: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/services/${id}/market`, {
+      method: 'PUT',
+      body: JSON.stringify({ sourceCountry })
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'aggiornamento del market per il servizio ${id}:`, error);
+    throw error;
+  }
+}
+
+// ============= RATES API =============
+
+/**
+ * Recupera tutte le tariffe o filtra per carrier/service
+ */
+export async function getRates(filters?: { carrier?: string, service?: string }) {
+  try {
+    let url = `${API_URL}/rates`;
+    
+    if (filters) {
+      const params = new URLSearchParams();
+      if (filters.carrier) params.append('carrier', filters.carrier);
+      if (filters.service) params.append('service', filters.service);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+    }
+    
+    const data = await fetchWithErrorHandling(url);
+    return data.data;
+  } catch (error) {
+    console.error('Errore nel recupero delle tariffe:', error);
+    return []; // Restituisci un array vuoto in caso di errore
+  }
+}
+
+/**
+ * Recupera una tariffa specifica
+ */
+export async function getRate(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/${id}`);
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nel recupero della tariffa ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Crea una nuova tariffa
+ */
+export async function createRate(rate: Omit<Rate, '_id'>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/rates`, {
+      method: 'POST',
+      body: JSON.stringify(rate)
+    });
+    return data.data;
+  } catch (error) {
+    console.error('Errore nella creazione della tariffa:', error);
+    throw error;
+  }
+}
+
+/**
+ * Aggiorna una tariffa esistente
+ */
+export async function updateRate(id: string, rate: Partial<Rate>) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(rate)
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'aggiornamento della tariffa ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina una tariffa
+ */
+export async function deleteRate(id: string) {
+  try {
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/${id}`, {
+      method: 'DELETE'
+    });
+    return data.data;
+  } catch (error) {
+    console.error(`Errore nell'eliminazione della tariffa ${id}:`, error);
     throw error;
   }
 }
@@ -140,7 +467,7 @@ export async function compareRates(filters: {
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio compareRates:', error);
-    throw error;
+    return []; // Restituisci un array vuoto in caso di errore
   }
 }
 
@@ -159,26 +486,6 @@ export async function getRateDetails(id: string) {
 }
 
 /**
- * Recupera tutti i servizi o i servizi di un corriere specifico
- * @param carrierId - ID del corriere (opzionale)
- */
-export async function getServices(carrierId?: string) {
-  try {
-    let url = `${API_URL}/services`;
-    
-    if (carrierId) {
-      url = `${API_URL}/services?carrier=${carrierId}`;
-    }
-    
-    const data = await fetchWithErrorHandling(url);
-    return data.data;
-  } catch (error) {
-    console.error('Errore nel servizio getServices:', error);
-    throw error;
-  }
-}
-
-/**
  * Recupera tutte le fasce di peso per un servizio specifico
  * @param serviceId - ID del servizio per cui recuperare le fasce di peso
  * @returns Una lista di fasce di peso con i relativi prezzi
@@ -192,6 +499,6 @@ export async function getWeightRangesByService(serviceId: string): Promise<Weigh
     return result.data || [];
   } catch (error) {
     console.error('Errore nel servizio getWeightRangesByService:', error);
-    throw error;
+    return []; // Restituisci un array vuoto in caso di errore
   }
 } 
