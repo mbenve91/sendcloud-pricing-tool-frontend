@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/providers/AuthProvider'
+import { ToastProvider } from '@/components/ui/toast'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
   title: 'SendCloud Pricing Tool',
@@ -17,11 +19,14 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <div className="min-h-screen flex flex-col">
-            <main className="flex-grow">
-              {children}
-            </main>
-          </div>
+          <ToastProvider>
+            <div className="min-h-screen flex flex-col">
+              <main className="flex-grow">
+                {children}
+              </main>
+            </div>
+            <Toaster />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

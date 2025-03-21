@@ -8,7 +8,7 @@ import { createContext, useContext, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-const ToastProvider = ToastPrimitives.Provider
+const PrimitiveToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -187,7 +187,7 @@ export const useToast = () => {
 export {
   type ToastProps,
   type ToastActionElement,
-  ToastProvider,
+  PrimitiveToastProvider,
   ToastViewport,
   Toast,
   ToastTitle,
