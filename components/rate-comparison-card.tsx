@@ -1109,7 +1109,8 @@ export default function RateComparisonCard() {
     
     // Ora per ciascuna tariffa filtrata, calcoliamo lo sconto necessario
     return filteredRates.map(rate => {
-      // Usiamo il prezzo base VISUALIZZATO, senza modificarlo
+      // Preserva sempre il prezzo base originale e il prezzo base visualizzato
+      const originalBasePrice = rate.basePrice;
       const displayedBasePrice = rate.displayBasePrice || rate.basePrice;
       
       // Se il prezzo finale attuale è già inferiore al prezzo massimo, mantieni lo sconto attuale
@@ -1133,9 +1134,11 @@ export default function RateComparisonCard() {
       const newDiscountAmount = rate.actualMargin * (requiredDiscountPercentage / 100);
       const finalPrice = displayedBasePrice - newDiscountAmount;
       
-      // Aggiorna SOLO lo sconto e i valori correlati, NON il prezzo base
+      // Aggiorna SOLO lo sconto e i valori correlati, preservando il prezzo base originale e quello visualizzato
       const discountedRate = {
         ...rate,
+        basePrice: originalBasePrice, // Mantieni il prezzo base originale
+        displayBasePrice: displayedBasePrice, // Mantieni il prezzo base visualizzato
         userDiscount: requiredDiscountPercentage,
         finalPrice: finalPrice,
         adjustedMargin: rate.actualMargin - newDiscountAmount
@@ -1144,7 +1147,8 @@ export default function RateComparisonCard() {
       // Aggiorna anche tutte le fasce di peso con la stessa logica
       if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
         discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
-          // Usiamo il prezzo base VISUALIZZATO della fascia di peso, senza modificarlo
+          // Preserva il prezzo base originale e quello visualizzato della fascia di peso
+          const weightOriginalBasePrice = weightRange.basePrice;
           const weightDisplayedBasePrice = weightRange.displayBasePrice || weightRange.basePrice;
           
           // Verifica se il prezzo attuale è già sotto il massimo
@@ -1166,9 +1170,11 @@ export default function RateComparisonCard() {
           const weightNewDiscountAmount = weightRange.actualMargin * (weightRequiredDiscountPercentage / 100);
           const weightFinalPrice = weightDisplayedBasePrice - weightNewDiscountAmount;
           
-          // Aggiorna SOLO lo sconto e i valori correlati, NON il prezzo base
+          // Aggiorna SOLO lo sconto e i valori correlati, preservando i prezzi base
           return {
             ...weightRange,
+            basePrice: weightOriginalBasePrice, // Mantieni il prezzo base originale
+            displayBasePrice: weightDisplayedBasePrice, // Mantieni il prezzo base visualizzato
             userDiscount: weightRequiredDiscountPercentage,
             finalPrice: weightFinalPrice,
             adjustedMargin: weightRange.actualMargin - weightNewDiscountAmount
@@ -1313,19 +1319,19 @@ export default function RateComparisonCard() {
 
   // Aggiungi una funzione per calcolare il prezzo finale considerando il fuel surcharge
   const calculateFinalPrice = (basePrice: number, fuelSurcharge: number, discounts: any) => {
-    let finalPrice = basePrice;
+    // Usiamo il prezzo base originale come punto di partenza
+    const originalBasePrice = basePrice;
     
-    // Applica il fuel surcharge solo se attivato
-    if (includeFuelSurcharge && fuelSurcharge > 0) {
-      finalPrice += basePrice * (fuelSurcharge / 100);
-    }
+    // Calcola il prezzo base visualizzato (che include il fuel surcharge se necessario)
+    const displayedBasePrice = includeFuelSurcharge && fuelSurcharge > 0
+      ? originalBasePrice * (1 + (fuelSurcharge / 100))
+      : originalBasePrice;
     
-    // Applica gli sconti
-    if (discounts.userDiscount) {
-      finalPrice -= discounts.actualMargin * (discounts.userDiscount / 100);
-    }
+    // Calcola lo sconto applicato al margine
+    const discountAmount = discounts.actualMargin * (discounts.userDiscount / 100);
     
-    return finalPrice;
+    // Il prezzo finale è il prezzo base visualizzato meno lo sconto
+    return displayedBasePrice - discountAmount;
   };
 
   // Aggiungi questa funzione di utilità
@@ -1538,6 +1544,18 @@ export default function RateComparisonCard() {
     const fuelSurchargeOnPurchase = purchasePrice * (rate.fuelSurcharge / 100);
     
     return baseMargin + (fuelSurchargeOnRetail - fuelSurchargeOnPurchase);
+  };
+
+  // Funzione di supporto per assicurare la visualizzazione del prezzo base originale
+  const getOriginalBasePrice = (rate: Rate): number => {
+    // Ritorna sempre il basePrice originale per la visualizzazione
+    return rate.basePrice;
+  };
+
+  // Funzione di supporto per ottenere il prezzo base originale delle fasce di peso
+  const getOriginalWeightRangeBasePrice = (weightRange: WeightRange): number => {
+    // Ritorna sempre il basePrice originale per la visualizzazione
+    return weightRange.basePrice;
   };
 
   return (
@@ -2027,23 +2045,23 @@ export default function RateComparisonCard() {
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Original Retail Price:</span>
-                                            <span>{formatCurrency(rate.basePrice)}</span>
+                                            <span>{formatCurrency(getOriginalBasePrice(rate))}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Discounted Retail Price:</span>
-                                            <span>{formatCurrency(rate.basePrice - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
+                                            <span>{formatCurrency(getOriginalBasePrice(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
-                                            <span>{formatCurrency((rate.basePrice - rate.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
+                                            <span>{formatCurrency((getOriginalBasePrice(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Purchase Price:</span>
-                                            <span>{formatCurrency(rate.purchasePrice || (rate.basePrice - rate.actualMargin))}</span>
+                                            <span>{formatCurrency(rate.purchasePrice || (getOriginalBasePrice(rate) - rate.actualMargin))}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Fuel on Purchase ({rate.fuelSurcharge}%):</span>
-                                            <span>{formatCurrency((rate.purchasePrice || (rate.basePrice - rate.actualMargin)) * (rate.fuelSurcharge / 100))}</span>
+                                            <span>{formatCurrency((rate.purchasePrice || (getOriginalBasePrice(rate) - rate.actualMargin)) * (rate.fuelSurcharge / 100))}</span>
                                           </div>
                                           <div className="flex justify-between text-amber-600 font-medium">
                                             <span>Extra Margin on Fuel:</span>
@@ -2297,23 +2315,23 @@ export default function RateComparisonCard() {
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Original Retail Price:</span>
-                                                            <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                                            <span>{formatCurrency(getOriginalWeightRangeBasePrice(weightRange))}</span>
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Discounted Retail Price:</span>
-                                                            <span>{formatCurrency((weightRange.basePrice || 0) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
+                                                            <span>{formatCurrency(getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
-                                                            <span>{formatCurrency(((weightRange.basePrice || 0) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
+                                                            <span>{formatCurrency((getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Purchase Price:</span>
-                                                            <span>{formatCurrency((weightRange.basePrice || 0) - (weightRange.actualMargin || 0))}</span>
+                                                            <span>{formatCurrency(rate.purchasePrice || (getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin))}</span>
                                                           </div>
                                                           <div className="flex justify-between">
                                                             <span>Fuel on Purchase ({rate.fuelSurcharge}%):</span>
-                                                            <span>{formatCurrency(((weightRange.basePrice || 0) - (weightRange.actualMargin || 0)) * (rate.fuelSurcharge / 100))}</span>
+                                                            <span>{formatCurrency((rate.purchasePrice || (getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin)) * (rate.fuelSurcharge / 100))}</span>
                                                           </div>
                                                           <div className="flex justify-between text-amber-600 font-medium">
                                                             <span>Extra Margin on Fuel:</span>
