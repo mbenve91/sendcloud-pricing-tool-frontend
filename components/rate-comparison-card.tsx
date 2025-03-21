@@ -1094,76 +1094,68 @@ export default function RateComparisonCard() {
     const maxPrice = parseFloat(filters.maxPrice);
     
     return rates.map(rate => {
-      // Manteniamo il prezzo base originale per la visualizzazione
-      const originalBasePrice = rate.basePrice;
-      const displayBasePrice = rate.displayBasePrice || rate.basePrice;
+      // Calcola il prezzo base con fuel surcharge come mostrato nella UI
+      const baseRate = includeFuelSurcharge && rate.fuelSurcharge > 0
+        ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
+        : rate.basePrice;
       
-      // Calcola il prezzo finale come sarà calcolato da calculateFinalPrice
-      const finalPriceWithoutDiscount = includeFuelSurcharge 
-        ? originalBasePrice + (originalBasePrice * (rate.fuelSurcharge / 100))
-        : originalBasePrice;
+      // Se il prezzo base meno sconto attuale è già inferiore al prezzo massimo, non serve modificare
+      const currentDiscount = rate.userDiscount || 0;
+      const currentDiscountAmount = rate.actualMargin * (currentDiscount / 100);
+      const currentFinalPrice = baseRate - currentDiscountAmount;
       
-      // Se il prezzo finale è già inferiore al prezzo massimo, non serve applicare sconti
-      if (finalPriceWithoutDiscount <= maxPrice) {
+      if (currentFinalPrice <= maxPrice) {
         return rate;
       }
       
-      // Calcola la differenza che deve essere coperta dallo sconto
-      const priceDifference = finalPriceWithoutDiscount - maxPrice;
-      
-      // Calcola lo sconto necessario rispetto al margine attuale
+      // Calcola lo sconto necessario per raggiungere il prezzo massimo
+      // La formula è: baseRate - (marginAmount * discountPercentage/100) = maxPrice
+      // Quindi: discountPercentage = ((baseRate - maxPrice) / marginAmount) * 100
       const requiredDiscount = Math.min(90, Math.max(0, 
-        Math.round((priceDifference / rate.actualMargin) * 100 * 100) / 100
+        Math.round(((baseRate - maxPrice) / rate.actualMargin) * 100 * 100) / 100
       ));
       
-      // Calcola il prezzo raggiungibile considerando come calculateFinalPrice lo calcolerà
-      const achievablePrice = includeFuelSurcharge
-        ? originalBasePrice + (originalBasePrice * (rate.fuelSurcharge / 100)) - (rate.actualMargin * (requiredDiscount / 100))
-        : originalBasePrice - (rate.actualMargin * (requiredDiscount / 100));
+      // Ricalcola il prezzo finale con il nuovo sconto
+      const newDiscountAmount = rate.actualMargin * (requiredDiscount / 100);
+      const achievablePrice = baseRate - newDiscountAmount;
       
-      // Aggiorna la tariffa con lo sconto calcolato, mantenendo il displayBasePrice originale
+      // Aggiorna la tariffa con SOLO lo sconto calcolato (non modificare displayBasePrice)
       const discountedRate = {
         ...rate,
         userDiscount: requiredDiscount,
         finalPrice: achievablePrice,
-        adjustedMargin: rate.actualMargin - (rate.actualMargin * (requiredDiscount / 100)),
-        // Manteniamo il displayBasePrice originale per non alterare la visualizzazione della colonna Base Rate
-        displayBasePrice: displayBasePrice
+        adjustedMargin: rate.actualMargin - newDiscountAmount
       };
       
       // Aggiorna anche tutte le fasce di peso
       if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
         discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
-          const originalWeightBasePrice = weightRange.basePrice;
-          const weightDisplayBasePrice = weightRange.displayBasePrice || weightRange.basePrice;
+          // Calcola il prezzo base della fascia con fuel surcharge come mostrato nella UI
+          const weightBaseRate = includeFuelSurcharge && rate.fuelSurcharge > 0
+            ? weightRange.basePrice * (1 + (rate.fuelSurcharge / 100))
+            : weightRange.basePrice;
           
-          const weightFinalPriceWithoutDiscount = includeFuelSurcharge
-            ? originalWeightBasePrice + (originalWeightBasePrice * (rate.fuelSurcharge / 100))
-            : originalWeightBasePrice;
-            
-          // Se questo range è già sotto il prezzo massimo, non serve sconto
-          if (weightFinalPriceWithoutDiscount <= maxPrice) {
+          // Se già sotto il prezzo massimo, mantieni lo sconto attuale
+          const weightCurrentDiscount = weightRange.userDiscount || currentDiscount;
+          const currentWeightFinalPrice = weightBaseRate - (weightRange.actualMargin * (weightCurrentDiscount / 100));
+          if (currentWeightFinalPrice <= maxPrice) {
             return weightRange;
           }
           
-          const weightPriceDifference = weightFinalPriceWithoutDiscount - maxPrice;
-          
-          // MODIFICA: Arrotonda a massimo 2 decimali
-          const rangeDiscount = Math.min(90, Math.max(0, 
-            Math.round((weightPriceDifference / weightRange.actualMargin) * 100 * 100) / 100
+          // Calcola lo sconto necessario per la fascia di peso
+          const rangeRequiredDiscount = Math.min(90, Math.max(0, 
+            Math.round(((weightBaseRate - maxPrice) / weightRange.actualMargin) * 100 * 100) / 100
           ));
           
-          const rangeAchievablePrice = includeFuelSurcharge
-            ? originalWeightBasePrice + (originalWeightBasePrice * (rate.fuelSurcharge / 100)) - (weightRange.actualMargin * (rangeDiscount / 100))
-            : originalWeightBasePrice - (weightRange.actualMargin * (rangeDiscount / 100));
+          // Ricalcola il prezzo finale con il nuovo sconto
+          const newRangeDiscountAmount = weightRange.actualMargin * (rangeRequiredDiscount / 100);
+          const rangeAchievablePrice = weightBaseRate - newRangeDiscountAmount;
           
           return {
             ...weightRange,
-            userDiscount: rangeDiscount,
+            userDiscount: rangeRequiredDiscount,
             finalPrice: rangeAchievablePrice,
-            adjustedMargin: weightRange.actualMargin - (weightRange.actualMargin * (rangeDiscount / 100)),
-            // Manteniamo il displayBasePrice originale anche per le fasce di peso
-            displayBasePrice: weightDisplayBasePrice
+            adjustedMargin: weightRange.actualMargin - newRangeDiscountAmount
           };
         });
       }
