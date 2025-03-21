@@ -1094,24 +1094,31 @@ export default function RateComparisonCard() {
     const maxPrice = parseFloat(filters.maxPrice);
     
     return rates.map(rate => {
-      // Calcola il prezzo base considerando il fuel surcharge
-      const basePriceWithFuel = includeFuelSurcharge 
-        ? rate.basePrice + (rate.basePrice * (rate.fuelSurcharge / 100))
-        : rate.basePrice;
+      // Prendiamo solo il prezzo base senza fuel surcharge per calcolare lo sconto correttamente
+      const basePrice = rate.basePrice;
       
-      // Se il prezzo base è già inferiore al prezzo massimo, non serve applicare sconti
-      if (basePriceWithFuel <= maxPrice) {
+      // Calcola il prezzo finale come sarà calcolato da calculateFinalPrice
+      const finalPriceWithoutDiscount = includeFuelSurcharge 
+        ? basePrice + (basePrice * (rate.fuelSurcharge / 100))
+        : basePrice;
+      
+      // Se il prezzo finale è già inferiore al prezzo massimo, non serve applicare sconti
+      if (finalPriceWithoutDiscount <= maxPrice) {
         return rate;
       }
       
-      // Calcola lo sconto necessario per raggiungere il prezzo massimo
+      // Calcola la differenza che deve essere coperta dallo sconto
+      const priceDifference = finalPriceWithoutDiscount - maxPrice;
+      
+      // Calcola lo sconto necessario rispetto al margine attuale
       const requiredDiscount = Math.min(90, Math.max(0, 
-        Math.round(((basePriceWithFuel - maxPrice) / rate.actualMargin) * 100 * 100) / 100
+        Math.round((priceDifference / rate.actualMargin) * 100 * 100) / 100
       ));
       
-      // Se anche applicando lo sconto massimo non si raggiunge il prezzo desiderato,
-      // conserviamo lo sconto massimo del 90%
-      const achievablePrice = basePriceWithFuel - (rate.actualMargin * (requiredDiscount / 100));
+      // Calcola il prezzo raggiungibile considerando come calculateFinalPrice lo calcolerà
+      const achievablePrice = includeFuelSurcharge
+        ? basePrice + (basePrice * (rate.fuelSurcharge / 100)) - (rate.actualMargin * (requiredDiscount / 100))
+        : basePrice - (rate.actualMargin * (requiredDiscount / 100));
       
       // Aggiorna la tariffa con lo sconto calcolato
       const discountedRate = {
@@ -1124,11 +1131,26 @@ export default function RateComparisonCard() {
       // Aggiorna anche tutte le fasce di peso
       if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
         discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
+          const weightBasePrice = weightRange.basePrice;
+          const weightFinalPriceWithoutDiscount = includeFuelSurcharge
+            ? weightBasePrice + (weightBasePrice * (rate.fuelSurcharge / 100))
+            : weightBasePrice;
+            
+          // Se questo range è già sotto il prezzo massimo, non serve sconto
+          if (weightFinalPriceWithoutDiscount <= maxPrice) {
+            return weightRange;
+          }
+          
+          const weightPriceDifference = weightFinalPriceWithoutDiscount - maxPrice;
+          
           // MODIFICA: Arrotonda a massimo 2 decimali
           const rangeDiscount = Math.min(90, Math.max(0, 
-            Math.round(((weightRange.basePrice - maxPrice) / weightRange.actualMargin) * 100 * 100) / 100
+            Math.round((weightPriceDifference / weightRange.actualMargin) * 100 * 100) / 100
           ));
-          const rangeAchievablePrice = weightRange.basePrice - (weightRange.actualMargin * (rangeDiscount / 100));
+          
+          const rangeAchievablePrice = includeFuelSurcharge
+            ? weightBasePrice + (weightBasePrice * (rate.fuelSurcharge / 100)) - (weightRange.actualMargin * (rangeDiscount / 100))
+            : weightBasePrice - (weightRange.actualMargin * (rangeDiscount / 100));
           
           return {
             ...weightRange,
