@@ -1910,7 +1910,7 @@ export default function RateComparisonCard() {
                                       <>
                                         <div className="flex justify-between text-muted-foreground">
                                           <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                          <span>{formatCurrency(((weightRange.basePrice || 0) - ((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
+                                          <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
                                         </div>
                                         <div className="flex justify-between font-medium pt-1 border-t">
                                           <span>Total:</span>
@@ -1957,7 +1957,7 @@ export default function RateComparisonCard() {
                                     {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                       <div className="flex justify-between text-muted-foreground">
                                         <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                        <span>{formatCurrency(((weightRange.basePrice || 0) - ((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
+                                        <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between font-medium">
@@ -2191,7 +2191,7 @@ export default function RateComparisonCard() {
                                                     <>
                                                       <div className="flex justify-between text-muted-foreground">
                                                         <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                                        <span>{formatCurrency(((weightRange.basePrice || 0) - ((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
+                                                        <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
                                                       </div>
                                                       <div className="flex justify-between font-medium pt-1 border-t">
                                                         <span>Total:</span>
@@ -2228,7 +2228,7 @@ export default function RateComparisonCard() {
                                                   {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
                                                     <div className="flex justify-between text-muted-foreground">
                                                       <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                                      <span>{formatCurrency(((weightRange.basePrice || 0) - ((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
+                                                      <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
                                                     </div>
                                                   )}
                                                   <div className="flex justify-between font-medium">
