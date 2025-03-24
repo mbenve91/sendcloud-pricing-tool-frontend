@@ -287,10 +287,9 @@ export default function RateComparisonCard() {
   // Correggiamo il problema della dichiarazione di generateSimulatedWeightRanges
   // spostando la sua definizione prima che venga utilizzata
   // Funzione per generare fasce di peso simulate
-  const generateSimulatedWeightRanges = (serviceId: string): WeightRange[] => {
-    // Trova il servizio corrispondente per ottenere il fuel surcharge
-    const serviceRate = rates.find(rate => rate.service?._id === serviceId);
-    const fuelSurchargePercentage = serviceRate?.fuelSurcharge || 0;
+  const generateSimulatedWeightRanges = useCallback((serviceId: string, fuelSurchargePercentage: number = 0): WeightRange[] => {
+    // Non cerchiamo più la tariffa corrispondente per ottenere il fuel surcharge
+    // ma usiamo il valore passato come parametro
     
     // Usa le stesse fasce di peso definite in WEIGHT_RANGES
     return WEIGHT_RANGES.map(range => {
@@ -322,8 +321,8 @@ export default function RateComparisonCard() {
         displayBasePrice: displayBasePrice
       };
     });
-  };
-
+  }, [includeFuelSurcharge]);
+  
   // Ora definiamo loadServiceWeightRanges dopo generateSimulatedWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
     if (!serviceId) {
@@ -377,7 +376,11 @@ export default function RateComparisonCard() {
         return processedWeightRanges;
       } else {
         console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}, generando fasce simulate`);
-        const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
+        // Trova la tariffa corrispondente per ottenere il fuel surcharge
+        const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
+        const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+        
+        const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId, fuelSurchargePercentage);
         
         setServiceWeightRanges(prev => ({
           ...prev,
@@ -388,7 +391,11 @@ export default function RateComparisonCard() {
       }
     } catch (error) {
       console.error('Errore nel caricamento delle fasce di peso:', error);
-      const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
+      // Trova la tariffa corrispondente per ottenere il fuel surcharge
+      const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
+      const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+      
+      const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId, fuelSurchargePercentage);
       
       setServiceWeightRanges(prev => ({
         ...prev,
@@ -1234,16 +1241,13 @@ export default function RateComparisonCard() {
             
             if (weightRange) {
               // Calcola il prezzo finale considerando il fuel surcharge se il toggle è attivo
-              let finalPrice;
-              if (includeFuelSurcharge && parentRate.fuelSurcharge > 0) {
-                // Applica prima il fuel surcharge al prezzo base
-                const baseWithFuel = weightRange.basePrice * (1 + (parentRate.fuelSurcharge / 100));
-                // Poi sottrai lo sconto sul margine
-                finalPrice = baseWithFuel - (weightRange.actualMargin * (parentRate.userDiscount / 100));
-              } else {
-                // Senza fuel surcharge
-                finalPrice = weightRange.basePrice - (weightRange.actualMargin * (parentRate.userDiscount / 100));
-              }
+              const finalPrice = calculateFinalPrice(
+                weightRange.basePrice,
+                weightRange.actualMargin,
+                parentRate.userDiscount || 0,
+                parentRate.fuelSurcharge,
+                includeFuelSurcharge
+              );
               
               ratesToAdd.push({
                 ...parentRate,
@@ -1254,7 +1258,7 @@ export default function RateComparisonCard() {
                   max: weightRange.max,
                   label: weightRange.label,
                   basePrice: weightRange.basePrice,
-                  userDiscount: weightRange.userDiscount,
+                  userDiscount: parentRate.userDiscount || 0, // Utilizza lo sconto della tariffa principale
                   finalPrice: weightRange.finalPrice,
                   actualMargin: weightRange.actualMargin,
                   volumeDiscount: weightRange.volumeDiscount,
@@ -1274,17 +1278,14 @@ export default function RateComparisonCard() {
         // Se non ci sono fasce di peso selezionate, aggiungiamo la tariffa principale
         const rate = rates.find(rate => rate.id === parentId);
         if (rate) {
-          // Calcola il prezzo finale considerando il fuel surcharge se il toggle è attivo
-          let finalPrice;
-          if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
-            // Applica prima il fuel surcharge al prezzo base
-            const baseWithFuel = rate.basePrice * (1 + (rate.fuelSurcharge / 100));
-            // Poi sottrai lo sconto sul margine
-            finalPrice = baseWithFuel - (rate.actualMargin * (rate.userDiscount / 100));
-          } else {
-            // Senza fuel surcharge
-            finalPrice = rate.basePrice - (rate.actualMargin * (rate.userDiscount / 100));
-          }
+          // Usiamo il calcolo standard per il prezzo finale
+          const finalPrice = calculateFinalPrice(
+            rate.basePrice,
+            rate.actualMargin,
+            rate.userDiscount || 0,
+            rate.fuelSurcharge,
+            includeFuelSurcharge
+          );
           
           ratesToAdd.push({
             ...rate,
@@ -1307,7 +1308,7 @@ export default function RateComparisonCard() {
     // Resetta la selezione
     setSelectedRows({});
     
-  }, [selectedRows, rates, serviceWeightRanges, addToCart, toast]);
+  }, [selectedRows, rates, serviceWeightRanges, includeFuelSurcharge, addToCart, toast, calculateFinalPrice]);
   
   // Manteniamo solo questa definizione di hasSelectedItems
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
@@ -1316,8 +1317,10 @@ export default function RateComparisonCard() {
   useEffect(() => {
     if (rates.length === 0) return;
     
-    setRates(prevRates => {
-      return prevRates.map(rate => {
+    // Aggiorna le tariffe principali usando una funzione callback
+    // che non ha bisogno di accedere al valore attuale di rates
+    setRates(prevRates => 
+      prevRates.map(rate => {
         // Calcola il prezzo base con fuel surcharge se necessario
         const displayBasePrice = calculateBasePrice(
           rate.basePrice, 
@@ -1339,28 +1342,32 @@ export default function RateComparisonCard() {
           finalPrice,
           displayBasePrice,
         };
-      });
-    });
+      })
+    );
     
-    // Aggiorna anche le fasce di peso
-    Object.keys(serviceWeightRanges).forEach(serviceId => {
-      const rate = rates.find(r => r.service?._id === serviceId);
-      if (!rate) return;
+    // Aggiorna anche le fasce di peso in modo similare
+    // Qui usiamo tutte funzioni callback per evitare dipendenze circolari
+    setServiceWeightRanges(prevWeightRanges => {
+      const updatedWeightRanges = { ...prevWeightRanges };
       
-      setServiceWeightRanges(prev => ({
-        ...prev,
-        [serviceId]: prev[serviceId].map(weightRange => {
+      Object.keys(prevWeightRanges).forEach(serviceId => {
+        // Troviamo la tariffa corrispondente a questo serviceId
+        const matchingRate = rates.find(r => r.service?._id === serviceId);
+        if (!matchingRate) return;
+        
+        // Aggiorniamo tutte le fasce di peso per questo servizio
+        updatedWeightRanges[serviceId] = prevWeightRanges[serviceId].map(weightRange => {
           const displayBasePrice = calculateBasePrice(
             weightRange.basePrice, 
-            rate.fuelSurcharge, 
+            matchingRate.fuelSurcharge, 
             includeFuelSurcharge
           );
           
           const finalPrice = calculateFinalPrice(
             weightRange.basePrice,
             weightRange.actualMargin,
-            rate.userDiscount || 0,
-            rate.fuelSurcharge,
+            matchingRate.userDiscount || 0,
+            matchingRate.fuelSurcharge,
             includeFuelSurcharge
           );
           
@@ -1369,10 +1376,12 @@ export default function RateComparisonCard() {
             finalPrice,
             displayBasePrice
           };
-        })
-      }));
+        });
+      });
+      
+      return updatedWeightRanges;
     });
-  }, [includeFuelSurcharge, rates, serviceWeightRanges]);
+  }, [includeFuelSurcharge]); // Rimuoviamo rates e serviceWeightRanges dalle dipendenze
 
   // Add this function to generate page numbers with ellipsis
   const getVisiblePageNumbers = useCallback((currentPage: number, totalPages: number) => {
@@ -1511,11 +1520,14 @@ export default function RateComparisonCard() {
 
   // Rate ordinate in base al sortConfig
   const sortedRates = useMemo(() => {
+    // Utilizziamo solo le tariffe già filtrate per la pagina corrente
+    const ratesToSort = displayedRates;
+    
     if (!sortConfig.key || !sortConfig.direction) {
-      return displayedRates;
+      return ratesToSort;
     }
 
-    return [...displayedRates].sort((a, b) => {
+    return [...ratesToSort].sort((a, b) => {
       // Gestire i casi specifici come prezzo e margine in modo numerico
       if (sortConfig.key === 'finalPrice' || sortConfig.key === 'basePrice' || 
           sortConfig.key === 'actualMargin' || sortConfig.key === 'marginPercentage') {
@@ -1534,7 +1546,7 @@ export default function RateComparisonCard() {
         return bValue.localeCompare(aValue);
       }
     });
-  }, [displayedRates, sortConfig]);
+  }, [displayedRates, sortConfig.key, sortConfig.direction]);
 
   // Funzione per aprire il dialog delle colonne
   const openColumnsDialog = () => {
