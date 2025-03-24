@@ -588,11 +588,21 @@ const RateTableRow = React.memo(({
                                   <div className="flex items-center justify-center cursor-help">
                                     <Badge
                                       variant={getMarginColor(
-                                        weightRange.actualMargin - (weightRange.actualMargin * ((rate.userDiscount || 0) / 100))
+                                        includeFuelSurcharge 
+                                          ? weightRange.actualMargin + (
+                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
+                                            ) 
+                                          : weightRange.actualMargin
                                       ) as any}
                                     >
                                       {formatCurrency(
-                                        weightRange.actualMargin - (weightRange.actualMargin * ((rate.userDiscount || 0) / 100))
+                                        includeFuelSurcharge 
+                                          ? weightRange.actualMargin + (
+                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
+                                            ) 
+                                          : weightRange.actualMargin
                                       )}
                                     </Badge>
                                     <Info className="ml-1 h-4 w-4 text-muted-foreground" />
