@@ -486,13 +486,23 @@ export async function getRateDetails(id: string) {
 }
 
 /**
- * Recupera tutte le fasce di peso per un servizio specifico
+ * Recupera le fasce di peso per un servizio specifico
  * @param serviceId - ID del servizio per cui recuperare le fasce di peso
  * @returns Una lista di fasce di peso con i relativi prezzi
  */
 export async function getWeightRangesByService(serviceId: string): Promise<WeightRange[]> {
   try {
-    const result = await fetchWithErrorHandling(`${API_URL}/rates/service/${serviceId}/weightRanges`);
+    if (!serviceId) {
+      console.error('ERRORE: ServiceID mancante in getWeightRangesByService');
+      return [];
+    }
+    
+    console.log(`Richiesta fasce di peso per il servizio ID: ${serviceId}`);
+    // URL corretto per la rotta definita in rateRoutes.js
+    const url = `${API_URL}/rates/service/${serviceId}/weightRanges`;
+    console.log(`URL richiesta: ${url}`);
+    
+    const result = await fetchWithErrorHandling(url);
     console.log('Risposta API fasce di peso:', result);
     
     // Assicuriamoci di restituire l'array di dati, non l'oggetto di risposta

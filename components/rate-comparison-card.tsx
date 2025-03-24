@@ -284,50 +284,11 @@ export default function RateComparisonCard() {
   // Aggiunto uno stato per tracciare lo stato di caricamento
   const [loadingStage, setLoadingStage] = useState<string>("");
 
-  // Correggiamo il problema della dichiarazione di generateSimulatedWeightRanges
-  // spostando la sua definizione prima che venga utilizzata
-  // Funzione per generare fasce di peso simulate
-  const generateSimulatedWeightRanges = useCallback((serviceId: string, fuelSurchargePercentage: number = 0): WeightRange[] => {
-    // Non cerchiamo più la tariffa corrispondente per ottenere il fuel surcharge
-    // ma usiamo il valore passato come parametro
-    
-    // Usa le stesse fasce di peso definite in WEIGHT_RANGES
-    return WEIGHT_RANGES.map(range => {
-      // Base price increases with weight
-      const basePrice = 5 + Math.random() * 20 + range.max * 0.5;
-      const margin = basePrice * (Math.random() * 0.35); // Random margin up to 35% of base price
-      
-      // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
-      let finalPrice = basePrice;
-      let displayBasePrice = basePrice;
-      
-      if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
-        // Applica il fuel surcharge al prezzo base
-        finalPrice = basePrice * (1 + (fuelSurchargePercentage / 100));
-        displayBasePrice = finalPrice;
-      }
-      
-      return {
-        id: `${serviceId}-${range.min}-${range.max}`,
-        label: range.label,
-        min: range.min,
-        max: range.max,
-        basePrice: basePrice,
-        userDiscount: 0,
-        finalPrice: finalPrice,
-        actualMargin: margin,
-        volumeDiscount: Math.round(Math.random() * 15),
-        promotionDiscount: Math.round(Math.random() * 10),
-        displayBasePrice: displayBasePrice
-      };
-    });
-  }, [includeFuelSurcharge]);
-  
-  // Ora definiamo loadServiceWeightRanges dopo generateSimulatedWeightRanges
+  // Modifichiamo la funzione loadServiceWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
     if (!serviceId) {
       console.error('ERRORE: ServiceID mancante, impossibile caricare le fasce di peso');
-      return;
+      return [];
     }
     
     // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
@@ -347,7 +308,7 @@ export default function RateComparisonCard() {
       
       if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
         // Trova la tariffa corrispondente per ottenere il fuel surcharge
-        const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
+        const correspondingRate = rates.find(r => r.service?._id === serviceId);
         const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
         
         const processedWeightRanges = weightRangesData.map((weightRange: WeightRange) => {
@@ -375,249 +336,28 @@ export default function RateComparisonCard() {
         
         return processedWeightRanges;
       } else {
-        console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}, generando fasce simulate`);
-        // Trova la tariffa corrispondente per ottenere il fuel surcharge
-        const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
-        const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+        console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}`);
         
-        const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId, fuelSurchargePercentage);
-        
+        // Ritorniamo un array vuoto invece di generare fasce simulate
         setServiceWeightRanges(prev => ({
           ...prev,
-          [serviceId]: simulatedWeightRanges
+          [serviceId]: []
         }));
         
-        return simulatedWeightRanges;
+        return [];
       }
     } catch (error) {
       console.error('Errore nel caricamento delle fasce di peso:', error);
-      // Trova la tariffa corrispondente per ottenere il fuel surcharge
-      const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
-      const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
       
-      const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId, fuelSurchargePercentage);
-      
+      // Ritorniamo un array vuoto invece di generare fasce simulate
       setServiceWeightRanges(prev => ({
         ...prev,
-        [serviceId]: simulatedWeightRanges
+        [serviceId]: []
       }));
       
-      return simulatedWeightRanges;
+      return [];
     }
-  }, [serviceWeightRanges, rates, includeFuelSurcharge, generateSimulatedWeightRanges]);
-
-  // Update the generateMockRates function to include sourceCountry filter
-  const generateMockRates = useCallback((destinationType: string, filters: any) => {
-    const services = ["Standard", "Express", "Premium"]
-    const mockRates = []
-
-    // Get the appropriate country list based on destination type
-    const countryList =
-      destinationType === "eu" ? EU_COUNTRIES : destinationType === "extra_eu" ? EXTRA_EU_COUNTRIES : []
-
-    for (let i = 0; i < CARRIERS.length; i++) {
-      for (let j = 0; j < services.length; j++) {
-        // Assegna un sourceCountry casuale a ogni servizio (simulando il database)
-        // Se sourceCountry è specificato nei filtri, usa solo quello
-        const serviceSourceCountry = MARKETS[Math.floor(Math.random() * MARKETS.length)].id;
-        
-        // Se è specificato un sourceCountry nei filtri, salta i servizi che non corrispondono
-        if (filters.sourceCountry && serviceSourceCountry !== filters.sourceCountry.toLowerCase()) {
-          continue;
-        }
-        
-        // For international shipments, create rates for each country or a subset
-        if (destinationType !== "national") {
-          // Create rates for a subset of countries to make data more realistic
-          const countries = filters.country
-            ? [countryList.find((c) => c.id === filters.country)]
-            : countryList.filter(() => Math.random() > 0.5)
-
-          for (const country of countries) {
-            if (!country) continue
-
-            // Skip some combinations to make data more realistic
-            if (Math.random() > 0.7) continue
-
-            // Generate a unique service ID
-            const serviceId = `${CARRIERS[i].id}-${services[j].toLowerCase()}-${country.id}-${Math.random().toString(36).substring(2, 7)}`
-
-            // Generate weight ranges for this service
-            const weightRanges = WEIGHT_RANGES.map((range) => {
-              // Base price increases with weight
-              const basePrice = 5 + Math.random() * 20 + (destinationType === "extra_eu" ? 15 : 5) + range.max * 0.5
-              const fuelSurcharge = Math.round(Math.random() * 10)
-              const totalBasePrice = basePrice * (1 + fuelSurcharge / 100)
-
-              const volumeDiscount = Math.round(Math.random() * 15)
-              const promotionDiscount = Math.round(Math.random() * 10)
-              const totalDiscountPercentage = volumeDiscount + promotionDiscount
-
-              // Change from percentage to monetary value
-              const finalPrice = totalBasePrice * (1 - totalDiscountPercentage / 100)
-              // Calculate margin as a monetary value in euros
-              const actualMargin = finalPrice * (Math.random() * 0.35) // Random margin up to 35% of final price
-
-              return {
-                rangeId: `${serviceId}-${range.min}-${range.max}`,
-                weightRange: range,
-                basePrice,
-                fuelSurcharge,
-                totalBasePrice,
-                volumeDiscount,
-                promotionDiscount,
-                totalDiscountPercentage,
-                finalPrice,
-                actualMargin,
-              }
-            })
-
-            // Use the first weight range as the default display
-            const defaultRange =
-              weightRanges.find(
-                (range) =>
-                  Number.parseFloat(filters.weight) >= range.weightRange.min &&
-                  Number.parseFloat(filters.weight) < range.weightRange.max,
-              ) || weightRanges[0]
-
-            const deliveryTimeMin = 24 + Math.round(Math.random() * 48) + (destinationType === "extra_eu" ? 48 : 24) // Extra EU takes longer
-            const deliveryTimeMax = deliveryTimeMin + Math.round(Math.random() * 24)
-
-            mockRates.push({
-              id: serviceId,
-              carrierId: CARRIERS[i].id,
-              carrierName: CARRIERS[i].name,
-              carrierLogo: CARRIERS[i].logoUrl,
-              serviceCode: services[j].toLowerCase(),
-              serviceName: services[j],
-              basePrice: defaultRange.basePrice,
-              fuelSurcharge: defaultRange.fuelSurcharge,
-              totalBasePrice: defaultRange.totalBasePrice,
-              volumeDiscount: defaultRange.volumeDiscount,
-              promotionDiscount: defaultRange.promotionDiscount,
-              totalDiscountPercentage: defaultRange.totalDiscountPercentage,
-              finalPrice: defaultRange.finalPrice,
-              actualMargin: defaultRange.actualMargin,
-              userDiscount: 0, // Add user discount field
-              weight: Number.parseFloat(filters.weight),
-              destinationType,
-              countryId: country.id,
-              countryName: country.name,
-              deliveryTimeMin,
-              deliveryTimeMax,
-              weightRanges, // Add all weight ranges
-              currentWeightRange: defaultRange.weightRange, // Add current weight range
-              weightMin: defaultRange.weightRange.min,
-              weightMax: defaultRange.weightRange.max,
-              displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
-              service: {
-                _id: serviceId, // Usa serviceId invece di service._id
-                name: services[j] // Usa services[j] invece di service.name
-              }
-            })
-          }
-        } else {
-          // For national shipments, keep the original logic
-          // Skip some combinations to make data more realistic
-          if (Math.random() > 0.7) continue
-
-          // Generate a unique service ID
-          const serviceId = `${CARRIERS[i].id}-${services[j].toLowerCase()}-it-${Math.random().toString(36).substring(2, 7)}`
-
-          // Generate weight ranges for this service
-          const weightRanges = WEIGHT_RANGES.map((range) => {
-            // Base price increases with weight
-            const basePrice = 5 + Math.random() * 20 + range.max * 0.5
-            const fuelSurcharge = Math.round(Math.random() * 10)
-            const totalBasePrice = basePrice * (1 + fuelSurcharge / 100)
-
-            const volumeDiscount = Math.round(Math.random() * 15)
-            const promotionDiscount = Math.round(Math.random() * 10)
-            const totalDiscountPercentage = volumeDiscount + promotionDiscount
-
-            // Change from percentage to monetary value
-            const finalPrice = totalBasePrice * (1 - totalDiscountPercentage / 100)
-            // Calculate margin as a monetary value in euros
-            const actualMargin = finalPrice * (Math.random() * 0.35) // Random margin up to 35% of final price
-
-            return {
-              rangeId: `${serviceId}-${range.min}-${range.max}`,
-              weightRange: range,
-              basePrice,
-              fuelSurcharge,
-              totalBasePrice,
-              volumeDiscount,
-              promotionDiscount,
-              totalDiscountPercentage,
-              finalPrice,
-              actualMargin,
-            }
-          })
-
-          // Use the first weight range as the default display
-          const defaultRange =
-            weightRanges.find(
-              (range) =>
-                Number.parseFloat(filters.weight) >= range.weightRange.min &&
-                Number.parseFloat(filters.weight) < range.weightRange.max,
-            ) || weightRanges[0]
-
-          const deliveryTimeMin = 24 + Math.round(Math.random() * 48)
-          const deliveryTimeMax = deliveryTimeMin + Math.round(Math.random() * 24)
-
-          mockRates.push({
-            id: serviceId,
-            carrierId: CARRIERS[i].id,
-            carrierName: CARRIERS[i].name,
-            carrierLogo: CARRIERS[i].logoUrl,
-            serviceCode: services[j].toLowerCase(),
-            serviceName: services[j],
-            basePrice: defaultRange.basePrice,
-            fuelSurcharge: defaultRange.fuelSurcharge,
-            totalBasePrice: defaultRange.totalBasePrice,
-            volumeDiscount: defaultRange.volumeDiscount,
-            promotionDiscount: defaultRange.promotionDiscount,
-            totalDiscountPercentage: defaultRange.totalDiscountPercentage,
-            finalPrice: defaultRange.finalPrice,
-            actualMargin: defaultRange.actualMargin,
-            userDiscount: 0, // Add user discount field
-            weight: Number.parseFloat(filters.weight),
-            destinationType,
-            countryId: "it", // Default to Italy for national
-            countryName: "Italy",
-            deliveryTimeMin,
-            deliveryTimeMax,
-            weightRanges, // Add all weight ranges
-            currentWeightRange: defaultRange.weightRange, // Add current weight range
-            weightMin: defaultRange.weightRange.min,
-            weightMax: defaultRange.weightRange.max,
-            displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
-            service: {
-              _id: serviceId, // Usa serviceId invece di service._id
-              name: services[j] // Usa services[j] invece di service.name
-            }
-          })
-        }
-      }
-    }
-
-    // Apply filters
-    let filteredRates = mockRates
-
-    if (filters.carrierId && filters.carrierId !== "all") {
-      filteredRates = filteredRates.filter((rate) => rate.carrierId === filters.carrierId)
-    }
-
-    if (filters.service && filters.service !== "all") {
-      filteredRates = filteredRates.filter((rate) => rate.id === filters.service)
-    }
-
-    if (filters.country && (destinationType === "eu" || destinationType === "extra_eu")) {
-      filteredRates = filteredRates.filter((rate) => rate.countryId === filters.country)
-    }
-
-    return filteredRates
-  }, [])
+  }, [serviceWeightRanges, rates, includeFuelSurcharge]);
 
   // Mock data for AI suggestions
   const generateMockSuggestions = useCallback((destinationType: string, filters: any) => {
@@ -859,29 +599,21 @@ export default function RateComparisonCard() {
       
       setRates(formattedRates);
       
-      // Per ora continuiamo a usare suggerimenti simulati
+      // Per le suggestioni, per ora lasciamo quelle simulate (potrebbero essere gestite separatamente)
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
     } catch (error) {
       console.error('Errore durante il caricamento delle tariffe:', error);
       setError(error instanceof Error ? error.message : "Si è verificato un errore sconosciuto");
-      // In caso di errore, mostriamo tariffe simulate se siamo in modalità sviluppo
-      if (process.env.NODE_ENV === 'development') {
-        const newRates = generateMockRates(activeTab, filters);
-        setRates(newRates as any);
-        
-        const newSuggestions = generateMockSuggestions(activeTab, filters);
-        setSuggestions(newSuggestions);
-      } else {
-        // In produzione, meglio mostrare l'errore all'utente
-        setRates([]);
-        setSuggestions([]);
-      }
+      
+      // Non generiamo più tariffe simulate, mostriamo solo l'errore
+      setRates([]);
+      setSuggestions([]);
     } finally {
       setLoading(false);
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockRates, generateMockSuggestions]);
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions]);
 
   useEffect(() => {
     loadRates()
@@ -993,21 +725,31 @@ export default function RateComparisonCard() {
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
 
   // Funzione per gestire l'espansione/collasso di una riga
-  const toggleRowExpansion = useCallback(async (serviceId: string) => {
+  const toggleRowExpansion = useCallback(async (rateId: string) => {
     setExpandedRows(prev => {
       const newState = { ...prev };
       
-      // Se la riga non è già espansa, carica le fasce di peso
-      if (!newState[serviceId]) {
-        // Carica le fasce di peso per questo servizio se non sono già caricate
-        loadServiceWeightRanges(serviceId);
+      // Inverti lo stato di espansione
+      newState[rateId] = !newState[rateId];
+      
+      // Se la riga viene espansa, carica le fasce di peso
+      if (newState[rateId]) {
+        // Trova la tariffa corrispondente
+        const rate = rates.find(r => r.id === rateId);
+        
+        if (rate && rate.service && rate.service._id) {
+          console.log(`Espansione tariffa ID: ${rateId}, Service ID: ${rate.service._id}`);
+          // Carica le fasce di peso per questo servizio
+          loadServiceWeightRanges(rate.service._id);
+        } else {
+          console.error(`ERRORE: Impossibile caricare le fasce di peso. Rate.service._id mancante per la tariffa ${rateId}`);
+          console.log('Dettagli tariffa:', rate);
+        }
       }
       
-      // Inverti lo stato di espansione
-      newState[serviceId] = !newState[serviceId];
       return newState;
     });
-  }, [loadServiceWeightRanges]);
+  }, [rates, loadServiceWeightRanges]);
 
   // Trova e sostituisci la funzione handleDiscountChange attuale con questa versione ottimizzata
   const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
