@@ -226,6 +226,12 @@ const ErrorDisplay = ({ message, onRetry }: { message: string, onRetry: () => vo
   </div>
 );
 
+// Interface for country object
+interface CountryObject {
+  id: string;
+  name: string;
+}
+
 export default function RateComparisonCard() {
   // States
   const [activeTab, setActiveTab] = useState("national")
@@ -392,9 +398,16 @@ export default function RateComparisonCard() {
 
   // Add a function to get the appropriate country list
   const getCountryList = () => {
-    if (activeTab === "eu") return EU_COUNTRIES
-    if (activeTab === "extra_eu") return EXTRA_EU_COUNTRIES
-    return []
+    if (activeTab === "international") {
+      // Per spedizioni internazionali, ritorniamo una lista manuale di paesi comuni
+      return [
+        "fr", "de", "it", "es", "nl", "be", "at", "pt", "pl", "se", // EU
+        "us", "ca", "uk", "ch", "au", "jp", "cn", "sg", "ae", "br"  // Extra EU
+      ];
+    }
+    
+    // Per la tab nazionale, ritorna una lista vuota
+    return [];
   }
 
   // Update the handleTabChange function to reset the country filter when changing tabs
@@ -623,17 +636,17 @@ export default function RateComparisonCard() {
   // Handle filter change
   const handleFilterChange = (name: string, value: string) => {
     // Convert 'all' to empty string for API compatibility
-    let apiValue = value === 'all' ? '' : value; // Cambiato da const a let
+    let apiValue = value === 'all' ? '' : value;
     
-    // Per sourceCountry, converti sempre in minuscolo per corrispondere al formato del database
-    if (name === 'sourceCountry' && apiValue) {
+    // Per sourceCountry e country, converti sempre in minuscolo
+    if ((name === 'sourceCountry' || name === 'country') && apiValue) {
       apiValue = apiValue.toLowerCase();
     }
     
     setFilters((prev) => ({
       ...prev,
       [name]: apiValue,
-    }))
+    }));
   }
 
   // Open rate detail
@@ -1339,7 +1352,7 @@ export default function RateComparisonCard() {
               carriers={carriers}
               services={services}
               activeTab={activeTab}
-              countryList={getCountryList().map(country => country.id)}
+              countryList={getCountryList()}
               onColumnsDialogOpen={openColumnsDialog}
               includeFuelSurcharge={includeFuelSurcharge}
               onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}

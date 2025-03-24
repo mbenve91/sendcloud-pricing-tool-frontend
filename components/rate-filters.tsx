@@ -8,6 +8,36 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
+// Funzione per formattare i nomi dei paesi
+const formatCountryName = (countryCode: string): string => {
+  // Mappa dei codici paese ai nomi completi
+  const countryNames: Record<string, string> = {
+    'fr': 'Francia',
+    'de': 'Germania',
+    'it': 'Italia',
+    'es': 'Spagna',
+    'nl': 'Paesi Bassi',
+    'be': 'Belgio',
+    'at': 'Austria',
+    'pt': 'Portogallo',
+    'pl': 'Polonia',
+    'se': 'Svezia',
+    'us': 'Stati Uniti',
+    'ca': 'Canada',
+    'uk': 'Regno Unito',
+    'ch': 'Svizzera',
+    'au': 'Australia',
+    'jp': 'Giappone',
+    'cn': 'Cina',
+    'sg': 'Singapore',
+    'ae': 'Emirati Arabi Uniti',
+    'br': 'Brasile'
+  };
+  
+  // Restituisci il nome del paese se disponibile, altrimenti il codice in maiuscolo
+  return countryNames[countryCode.toLowerCase()] || countryCode.toUpperCase();
+};
+
 // Tipi per le props
 interface RateFiltersProps {
   filters: Record<string, string>;
@@ -32,6 +62,9 @@ const RateFilters = React.memo(({
   includeFuelSurcharge,
   onFuelSurchargeChange
 }: RateFiltersProps) => {
+  // Determina se mostrare il filtro paese in base alla tab attiva
+  const shouldShowCountryFilter = activeTab === "international";
+  
   return (
     <Card>
       <CardContent className="pt-6">
@@ -68,11 +101,11 @@ const RateFilters = React.memo(({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti i mercati</SelectItem>
-                <SelectItem value="IT">Italia</SelectItem>
-                <SelectItem value="ES">Spagna</SelectItem>
-                <SelectItem value="FR">Francia</SelectItem>
-                <SelectItem value="DE">Germania</SelectItem>
-                <SelectItem value="NL">Paesi Bassi</SelectItem>
+                <SelectItem value="it">Italia</SelectItem>
+                <SelectItem value="es">Spagna</SelectItem>
+                <SelectItem value="fr">Francia</SelectItem>
+                <SelectItem value="de">Germania</SelectItem>
+                <SelectItem value="nl">Paesi Bassi</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -123,28 +156,30 @@ const RateFilters = React.memo(({
             </Select>
           </div>
 
-          {/* Country */}
-          <div className="space-y-2 w-[150px]">
-            <label htmlFor="country" className="text-sm font-medium">
-              Paese
-            </label>
-            <Select 
-              value={filters.country || "all"} 
-              onValueChange={(value) => onFilterChange("country", value)}
-            >
-              <SelectTrigger id="country">
-                <SelectValue placeholder="Tutti i paesi" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti i paesi</SelectItem>
-                {countryList.map(country => (
-                  <SelectItem key={country} value={country}>
-                    {country}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Country - mostrato solo per spedizioni internazionali */}
+          {shouldShowCountryFilter && (
+            <div className="space-y-2 w-[150px]">
+              <label htmlFor="country" className="text-sm font-medium">
+                Paese
+              </label>
+              <Select 
+                value={filters.country || "all"} 
+                onValueChange={(value) => onFilterChange("country", value)}
+              >
+                <SelectTrigger id="country">
+                  <SelectValue placeholder="Tutti i paesi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i paesi</SelectItem>
+                  {countryList.map(country => (
+                    <SelectItem key={country} value={country}>
+                      {formatCountryName(country)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Weight */}
           <div className="space-y-2 w-[120px]">
