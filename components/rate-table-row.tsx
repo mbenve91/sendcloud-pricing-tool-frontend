@@ -152,7 +152,7 @@ const RateTableRow = React.memo(({
                             <span>{formatCurrency(rate.basePrice)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>+ Supplemento Carburante:</span>
+                            <span>+ Supplemento Carburante ({rate.fuelSurchargePercentage || 0}%):</span>
                             <span>{formatCurrency(rate.fuelSurcharge || 0)}</span>
                           </div>
                           <div className="border-t pt-1 flex justify-between font-medium">
@@ -167,7 +167,7 @@ const RateTableRow = React.memo(({
                             <span>{formatCurrency(rate.basePrice)}</span>
                           </div>
                           <div className="text-muted-foreground text-xs mt-1">
-                            <em>Supplemento carburante non incluso ({formatCurrency(rate.fuelSurcharge || 0)})</em>
+                            <em>Supplemento carburante non incluso ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                           </div>
                         </>
                       )}
@@ -229,7 +229,7 @@ const RateTableRow = React.memo(({
                             <span className="text-destructive">-{formatCurrency((rate.basePrice * (rate.userDiscount || 0) / 100))}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>+ Supplemento Carburante:</span>
+                            <span>+ Supplemento Carburante ({rate.fuelSurchargePercentage || 0}%):</span>
                             <span>{formatCurrency(rate.fuelSurcharge || 0)}</span>
                           </div>
                           <div className="border-t pt-1 flex justify-between font-medium">
@@ -252,7 +252,7 @@ const RateTableRow = React.memo(({
                             <span>{formatCurrency(rate.finalPrice)}</span>
                           </div>
                           <div className="text-muted-foreground text-xs mt-1">
-                            <em>Supplemento carburante non incluso ({formatCurrency(rate.fuelSurcharge || 0)})</em>
+                            <em>Supplemento carburante non incluso ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                           </div>
                         </>
                       )}
@@ -298,16 +298,22 @@ const RateTableRow = React.memo(({
                             <span className="text-destructive">-{formatCurrency(rate.purchasePrice || (rate.basePrice - rate.actualMargin))}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>- Fuel Surcharge Pagato:</span>
+                            <span>- Fuel Surcharge Pagato ({rate.fuelSurchargePercentage || 0}%):</span>
                             <span className="text-destructive">-{formatCurrency(rate.fuelSurcharge || 0)}</span>
                           </div>
                           <div className="border-t pt-1 flex justify-between font-medium">
                             <span>= Margine Totale:</span>
                             <span>{formatCurrency(finalMargin)}</span>
                           </div>
-                          <div className="text-xs mt-1">
-                            <em>Di cui Margine sul Fuel: {formatCurrency(0)}</em>
-                          </div>
+                          {rate.fuelSurchargeMargin !== undefined ? (
+                            <div className="text-xs mt-1">
+                              <em>Di cui Margine sul Fuel: {formatCurrency(rate.fuelSurchargeMargin || 0)}</em>
+                            </div>
+                          ) : (
+                            <div className="text-xs mt-1">
+                              <em>Di cui Margine sul Fuel: {formatCurrency(0)}</em>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -328,7 +334,7 @@ const RateTableRow = React.memo(({
                             <span>{formatCurrency(finalMargin)}</span>
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            <em>Calcolo senza supplemento carburante</em>
+                            <em>Calcolo senza supplemento carburante ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                           </div>
                         </>
                       )}
@@ -421,7 +427,7 @@ const RateTableRow = React.memo(({
                                           <span>{formatCurrency(weightRange.basePrice || 0)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                          <span>+ Supplemento Carburante:</span>
+                                          <span>+ Supplemento Carburante ({rate.fuelSurchargePercentage || 0}%):</span>
                                           <span>{formatCurrency(rate.fuelSurcharge || 0)}</span>
                                         </div>
                                         <div className="border-t pt-1 flex justify-between font-medium">
@@ -436,7 +442,7 @@ const RateTableRow = React.memo(({
                                           <span>{formatCurrency(weightRange.basePrice || 0)}</span>
                                         </div>
                                         <div className="text-muted-foreground text-xs mt-1">
-                                          <em>Supplemento carburante non incluso ({formatCurrency(rate.fuelSurcharge || 0)})</em>
+                                          <em>Supplemento carburante non incluso ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                                         </div>
                                       </>
                                     )}
@@ -475,7 +481,7 @@ const RateTableRow = React.memo(({
                                           <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) * (rate.userDiscount || 0) / 100)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                          <span>+ Supplemento Carburante:</span>
+                                          <span>+ Supplemento Carburante ({rate.fuelSurchargePercentage || 0}%):</span>
                                           <span>{formatCurrency(rate.fuelSurcharge || 0)}</span>
                                         </div>
                                         <div className="border-t pt-1 flex justify-between font-medium">
@@ -498,7 +504,7 @@ const RateTableRow = React.memo(({
                                           <span>{formatCurrency(weightRange.finalPrice || 0)}</span>
                                         </div>
                                         <div className="text-muted-foreground text-xs mt-1">
-                                          <em>Supplemento carburante non incluso ({formatCurrency(rate.fuelSurcharge || 0)})</em>
+                                          <em>Supplemento carburante non incluso ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                                         </div>
                                       </>
                                     )}
@@ -545,7 +551,7 @@ const RateTableRow = React.memo(({
                                             <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}</span>
                                           </div>
                                           <div className="flex justify-between">
-                                            <span>- Fuel Surcharge Pagato:</span>
+                                            <span>- Fuel Surcharge Pagato ({rate.fuelSurchargePercentage || 0}%):</span>
                                             <span className="text-destructive">-{formatCurrency(rate.fuelSurcharge || 0)}</span>
                                           </div>
                                           <div className="border-t pt-1 flex justify-between font-medium">
@@ -554,9 +560,15 @@ const RateTableRow = React.memo(({
                                               weightRange.actualMargin - (weightRange.actualMargin * ((rate.userDiscount || 0) / 100))
                                             )}</span>
                                           </div>
-                                          <div className="text-xs mt-1">
-                                            <em>Di cui Margine sul Fuel: {formatCurrency(0)}</em>
-                                          </div>
+                                          {rate.fuelSurchargeMargin !== undefined ? (
+                                            <div className="text-xs mt-1">
+                                              <em>Di cui Margine sul Fuel: {formatCurrency(rate.fuelSurchargeMargin || 0)}</em>
+                                            </div>
+                                          ) : (
+                                            <div className="text-xs mt-1">
+                                              <em>Di cui Margine sul Fuel: {formatCurrency(0)}</em>
+                                            </div>
+                                          )}
                                         </>
                                       ) : (
                                         <>
@@ -579,7 +591,7 @@ const RateTableRow = React.memo(({
                                             )}</span>
                                           </div>
                                           <div className="text-xs text-muted-foreground mt-1">
-                                            <em>Calcolo senza supplemento carburante</em>
+                                            <em>Calcolo senza supplemento carburante ({rate.fuelSurchargePercentage || 0}% = {formatCurrency(rate.fuelSurcharge || 0)})</em>
                                           </div>
                                         </>
                                       )}
