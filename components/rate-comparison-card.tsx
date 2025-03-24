@@ -284,8 +284,8 @@ export default function RateComparisonCard() {
   });
 
   const router = useRouter()
-  const { addToCart, isInCart, cartItems } = useCart()
   const { toast } = useToast()
+  const { addToCart, cartItems, isInCart } = useCart()
   const [error, setError] = useState<string | null>(null)
 
   // Aggiunto uno stato per tracciare lo stato di caricamento
@@ -415,10 +415,15 @@ export default function RateComparisonCard() {
     setActiveTab(value)
     setCurrentPage(1)
     // Reset country filter when changing tabs
-    setFilters((prev) => ({
-      ...prev,
+    setFilters({
+      sourceCountry: "",
+      carrierId: "",
+      service: "",
+      weight: "1", // Manteniamo i valori predefiniti per weight e volume
+      volume: "100",
       country: "",
-    }))
+      maxPrice: "",
+    })
     // Reset selected rows when changing tabs
     setSelectedRows({})
   }
@@ -968,118 +973,84 @@ export default function RateComparisonCard() {
       .length;
   };
 
-  // Modifica la funzione addSelectedToCart per gestire anche le fasce di peso selezionate
-  const addSelectedToCart = useCallback(() => {
-    // Prima identifichiamo le tariffe principali e le loro fasce di peso selezionate
-    const mainRatesSelected = new Set<string>();
-    const weightRangesSelected = new Map<string, string[]>(); // mappa parentId -> [rangeIds]
-    
-    Object.entries(selectedRows)
+  // Funzione per gestire l'aggiunta delle tariffe selezionate al carrello
+  const handleAddToCart = () => {
+    // Trova le tariffe selezionate
+    const selectedRateIds = Object.entries(selectedRows)
       .filter(([_, isSelected]) => isSelected)
-      .forEach(([id, _]) => {
-        if (id.includes('-')) {
-          // È una fascia di peso
-          const [parentId, _] = id.split('-');
-          if (!weightRangesSelected.has(parentId)) {
-            weightRangesSelected.set(parentId, []);
-          }
-          weightRangesSelected.get(parentId)?.push(id);
-        } else {
-          // È una tariffa principale
-          mainRatesSelected.add(id);
-        }
-      });
+      .map(([id]) => id);
     
-    // Array finale di tariffe da aggiungere
-    const ratesToAdd: Rate[] = [];
+    if (selectedRateIds.length === 0) return;
     
-    // Per ogni tariffa principale selezionata
-    mainRatesSelected.forEach(parentId => {
-      const rangeIds = weightRangesSelected.get(parentId) || [];
+    // Per ogni tariffa selezionata
+    selectedRateIds.forEach(id => {
+      // Controllo se è una fascia di peso (formato: 'rateId-weightRangeId')
+      const isWeightRange = id.includes('-');
       
-      if (rangeIds.length > 0) {
-        // Se ci sono fasce di peso selezionate per questa tariffa principale,
-        // aggiungiamo SOLO le fasce di peso e NON la tariffa principale
-        rangeIds.forEach(rangeId => {
-          const [parentRateId, weightRangeId] = rangeId.split('-');
-          const parentRate = rates.find(rate => rate.id === parentRateId);
+      if (isWeightRange) {
+        const [parentId, weightRangeId] = id.split('-');
+        const parentRate = rates.find(r => r.id === parentId);
+        const serviceId = parentRate?.service?._id;
+        
+        if (parentRate && serviceId && serviceWeightRanges[serviceId]) {
+          const weightRange = serviceWeightRanges[serviceId].find(wr => wr.id === weightRangeId);
           
-          if (parentRate) {
-            const serviceId = parentRate.service?._id || '';
-            const weightRanges = serviceWeightRanges[serviceId] || [];
-            const weightRange = weightRanges.find(wr => wr.id === weightRangeId);
+          if (weightRange) {
+            // Crea un oggetto tariffa specifico per questa fascia di peso
+            const weightRangeRate = {
+              ...parentRate,
+              id: id, // Usa l'ID composto
+              weightMin: weightRange.min,
+              weightMax: weightRange.max,
+              basePrice: weightRange.basePrice,
+              userDiscount: weightRange.userDiscount,
+              finalPrice: weightRange.finalPrice,
+              actualMargin: weightRange.actualMargin,
+              isWeightRange: true,
+              parentRateId: parentId
+            };
             
-            if (weightRange) {
-              // Calcola il prezzo finale considerando il fuel surcharge se il toggle è attivo
-              const finalPrice = calculateFinalPrice(
-                weightRange.basePrice,
-                weightRange.actualMargin,
-                parentRate.userDiscount || 0,
-                parentRate.fuelSurcharge,
-                includeFuelSurcharge
-              );
-              
-              ratesToAdd.push({
-                ...parentRate,
-                id: rangeId,
-                currentWeightRange: {
-                  id: weightRange.id,
-                  min: weightRange.min,
-                  max: weightRange.max,
-                  label: weightRange.label,
-                  basePrice: weightRange.basePrice,
-                  userDiscount: parentRate.userDiscount || 0, // Utilizza lo sconto della tariffa principale
-                  finalPrice: weightRange.finalPrice,
-                  actualMargin: weightRange.actualMargin,
-                  volumeDiscount: weightRange.volumeDiscount,
-                  promotionDiscount: weightRange.promotionDiscount,
-                  displayBasePrice: weightRange.displayBasePrice
-                },
-                basePrice: weightRange.basePrice,
-                finalPrice: finalPrice,
-                actualMargin: weightRange.actualMargin,
-                isWeightRange: true,
-                parentRateId: parentRateId
-              });
+            // Aggiungi al carrello se non è già presente
+            if (!isInCart(id)) {
+              addToCart(weightRangeRate);
             }
           }
-        });
+        }
       } else {
-        // Se non ci sono fasce di peso selezionate, aggiungiamo la tariffa principale
-        const rate = rates.find(rate => rate.id === parentId);
-        if (rate) {
-          // Usiamo il calcolo standard per il prezzo finale
-          const finalPrice = calculateFinalPrice(
-            rate.basePrice,
-            rate.actualMargin,
-            rate.userDiscount || 0,
-            rate.fuelSurcharge,
-            includeFuelSurcharge
-          );
-          
-          ratesToAdd.push({
-            ...rate,
-            finalPrice: finalPrice
-          });
+        // È una tariffa normale
+        const rate = rates.find(r => r.id === id);
+        if (rate && !isInCart(id)) {
+          addToCart(rate);
         }
       }
     });
     
-    // Aggiungi le tariffe al carrello
-    ratesToAdd.forEach(rate => {
-      addToCart(rate);
+    // Mostra la notifica
+    toast({
+      title: "Tariffe aggiunte al carrello!",
+      description: (
+        <div>
+          Le tariffe selezionate sono state aggiunte al carrello.{" "}
+          <span
+            className="underline cursor-pointer text-primary"
+            onClick={() => router.push("/cart")}
+          >
+            Clicca qui per visualizzare il carrello
+          </span>
+        </div>
+      ),
+      variant: "default"
     });
     
-    // Mostra la notifica solo se almeno un elemento è stato aggiunto
-    if (ratesToAdd.length > 0) {
-      showCartNotification(toast);
-    }
-    
-    // Resetta la selezione
+    // Deseleziona tutte le righe
     setSelectedRows({});
-    
-  }, [selectedRows, rates, serviceWeightRanges, includeFuelSurcharge, addToCart, toast, calculateFinalPrice]);
-  
+  };
+
+  // Calcola il numero di righe selezionate
+  const getSelectedRowsCount = () => {
+    return Object.values(selectedRows).filter(Boolean).length;
+  };
+
   // Manteniamo solo questa definizione di hasSelectedItems
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
 
@@ -1324,242 +1295,298 @@ export default function RateComparisonCard() {
   };
 
   return (
-    <Card className="w-full shadow-lg">
-      <CardHeader className="pb-3 relative">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-bold">Confronto Tariffe</CardTitle>
-          <div className="flex items-center space-x-2">
-            {/* Pulsanti esistenti */}
-          </div>
-        </div>
-        <CardDescription>
-          Confronta e gestisci le tariffe di spedizione per diverse destinazioni
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="national" value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="national">Nazionali</TabsTrigger>
-            <TabsTrigger value="international">Internazionali</TabsTrigger>
-          </TabsList>
-
-          {/* Tab contenuto per spedizioni nazionali e internazionali */}
-          <TabsContent value={activeTab} className="space-y-4">
-            {/* Componente RateFilters */}
-            <RateFilters 
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              carriers={carriers}
-              services={services}
-              activeTab={activeTab}
-              countryList={getCountryList()}
-              onColumnsDialogOpen={openColumnsDialog}
-              includeFuelSurcharge={includeFuelSurcharge}
-              onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}
-            />
-            
-            {/* Visualizzazione condizionale basata sullo stato */}
-            {loading ? (
-              <LoadingIndicator stage={loadingStage} />
-            ) : error ? (
-              <ErrorDisplay 
-                message={`Si è verificato un errore durante il caricamento delle tariffe: ${error}`} 
-                onRetry={loadRates} 
+    <div className="w-full">
+      <Card className="w-full shadow-md">
+        <CardHeader className="pb-3 relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image 
+                src="/sendcloud_logo.png" 
+                alt="Sendcloud Logo" 
+                width={40} 
+                height={40} 
+                className="rounded-md p-1"
               />
-            ) : sortedRates.length === 0 ? (
-              <Alert>
-                <AlertTitle>Nessuna tariffa trovata</AlertTitle>
-                <AlertDescription>Nessuna tariffa corrisponde ai criteri di filtro attuali.</AlertDescription>
-              </Alert>
-            ) : (
-              // Tabella dei risultati
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10"></TableHead>
-                      <TableHead className="w-10"></TableHead>
-                      
-                      {/* Intestazioni colonne con ordinamento */}
-                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
-                        <TableHead 
-                          className="w-[150px] cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('carrierName')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Corriere</span>
-                            {getSortIcon('carrierName')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                        <TableHead 
-                          className="w-[200px] cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('serviceName')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Servizio</span>
-                            {getSortIcon('serviceName')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                        <TableHead
-                          className="cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('countryName')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Paese</span>
-                            {getSortIcon('countryName')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                        <TableHead 
-                          className="text-center cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('basePrice')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Prezzo Base</span>
-                            {getSortIcon('basePrice')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="w-24">Sconto</TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                        <TableHead 
-                          className="text-center cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('finalPrice')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Prezzo Finale</span>
-                            {getSortIcon('finalPrice')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                        <TableHead 
-                          className="text-center cursor-pointer hover:bg-muted/30"
-                          onClick={() => requestSort('actualMargin')}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>Margine</span>
-                            {getSortIcon('actualMargin')}
-                          </div>
-                        </TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                        <TableHead className="text-center">Consegna</TableHead>
-                      )}
-                      
-                      {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                        <TableHead className="text-center">Dettagli</TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {/* Usa sortedRates invece di displayedRates */}
-                    {sortedRates.map((rate) => (
-                      <RateTableRow
-                        key={rate.id}
-                        rate={rate}
-                        selectedRows={selectedRows}
-                        expandedRows={expandedRows}
-                        visibleColumns={visibleColumns}
-                        handleRowSelect={handleRowSelect}
-                        toggleRowExpansion={() => toggleRowExpansion(rate.id)}
-                        handleDiscountChange={handleDiscountChange}
-                        includeFuelSurcharge={includeFuelSurcharge}
-                        filters={filters}
-                        getFuelSurchargeText={getFuelSurchargeText}
-                        serviceWeightRanges={serviceWeightRanges}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+              <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
+                Sendcloud Rate Comparison
+              </CardTitle>
+            </div>
             
-            {/* UI per la paginazione */}
-            {rates.length > 0 && (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Righe per pagina:</span>
-                  <Select 
-                    value={String(rowsPerPage)} 
-                    onValueChange={handleRowsPerPageChange}
-                  >
-                    <SelectTrigger className="h-8 w-[70px]">
-                      <SelectValue>{rowsPerPage}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rowsPerPageOptions.map(option => (
-                        <SelectItem key={option} value={String(option)}>
-                          {option}
-                        </SelectItem>
+            {/* Aggiungi icona del carrello */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push("/cart")}
+              className="relative"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartItems.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartItems.length}
+                </span>
+              )}
+            </Button>
+          </div>
+          
+          <CardDescription>
+            {sortedRates.length} shipping rates from {CARRIERS.length} carriers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="national" value={activeTab} onValueChange={handleTabChange}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="national">Nazionali</TabsTrigger>
+              <TabsTrigger value="international">Internazionali</TabsTrigger>
+            </TabsList>
+
+            {/* Tab contenuto per spedizioni nazionali e internazionali */}
+            <TabsContent value={activeTab} className="space-y-4">
+              {/* Componente RateFilters */}
+              <RateFilters 
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                carriers={carriers}
+                services={services}
+                activeTab={activeTab}
+                countryList={getCountryList()}
+                onColumnsDialogOpen={openColumnsDialog}
+                includeFuelSurcharge={includeFuelSurcharge}
+                onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}
+              />
+              
+              {/* Visualizzazione condizionale basata sullo stato */}
+              {loading ? (
+                <LoadingIndicator stage={loadingStage} />
+              ) : error ? (
+                <ErrorDisplay 
+                  message={`Si è verificato un errore durante il caricamento delle tariffe: ${error}`} 
+                  onRetry={loadRates} 
+                />
+              ) : sortedRates.length === 0 ? (
+                <Alert>
+                  <AlertTitle>Nessuna tariffa trovata</AlertTitle>
+                  <AlertDescription>Nessuna tariffa corrisponde ai criteri di filtro attuali.</AlertDescription>
+                </Alert>
+              ) : (
+                // Tabella dei risultati
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead className="w-10"></TableHead>
+                        
+                        {/* Intestazioni colonne con ordinamento */}
+                        {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
+                          <TableHead 
+                            className="w-[150px] cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('carrierName')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Corriere</span>
+                              {getSortIcon('carrierName')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "service")?.isVisible && (
+                          <TableHead 
+                            className="w-[200px] cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('serviceName')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Servizio</span>
+                              {getSortIcon('serviceName')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "country")?.isVisible && (
+                          <TableHead
+                            className="cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('countryName')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Paese</span>
+                              {getSortIcon('countryName')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
+                          <TableHead 
+                            className="text-center cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('basePrice')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Prezzo Base</span>
+                              {getSortIcon('basePrice')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
+                          <TableHead className="w-24">Sconto</TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
+                          <TableHead 
+                            className="text-center cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('finalPrice')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Prezzo Finale</span>
+                              {getSortIcon('finalPrice')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
+                          <TableHead 
+                            className="text-center cursor-pointer hover:bg-muted/30"
+                            onClick={() => requestSort('actualMargin')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Margine</span>
+                              {getSortIcon('actualMargin')}
+                            </div>
+                          </TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
+                          <TableHead className="text-center">Consegna</TableHead>
+                        )}
+                        
+                        {visibleColumns.find((col) => col.id === "details")?.isVisible && (
+                          <TableHead className="text-center">Dettagli</TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    
+                    <TableBody>
+                      {/* Usa sortedRates invece di displayedRates */}
+                      {sortedRates.map((rate) => (
+                        <RateTableRow
+                          key={rate.id}
+                          rate={rate}
+                          selectedRows={selectedRows}
+                          expandedRows={expandedRows}
+                          visibleColumns={visibleColumns}
+                          handleRowSelect={handleRowSelect}
+                          toggleRowExpansion={() => toggleRowExpansion(rate.id)}
+                          handleDiscountChange={handleDiscountChange}
+                          includeFuelSurcharge={includeFuelSurcharge}
+                          filters={filters}
+                          getFuelSurchargeText={getFuelSurchargeText}
+                          serviceWeightRanges={serviceWeightRanges}
+                        />
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              
+              {/* UI per la paginazione */}
+              {rates.length > 0 && (
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Righe per pagina:</span>
+                    <Select 
+                      value={String(rowsPerPage)} 
+                      onValueChange={handleRowsPerPageChange}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue>{rowsPerPage}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rowsPerPageOptions.map(option => (
+                          <SelectItem key={option} value={String(option)}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <span className="text-sm text-muted-foreground ml-4">
+                      Visualizzando {rates.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0}-
+                      {Math.min(currentPage * rowsPerPage, rates.length)} di {rates.length}
+                    </span>
+                  </div>
                   
-                  <span className="text-sm text-muted-foreground ml-4">
-                    Visualizzando {rates.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0}-
-                    {Math.min(currentPage * rowsPerPage, rates.length)} di {rates.length}
+                  {totalPages > 1 && (
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            aria-disabled={currentPage === 1}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                          />
+                        </PaginationItem>
+                        
+                        {getVisiblePageNumbers(currentPage, totalPages).map((pageNum, idx) => (
+                          <PaginationItem key={idx}>
+                            {pageNum === 'ellipsis' ? (
+                              <span className="px-4 py-2">...</span>
+                            ) : (
+                              <PaginationLink
+                                onClick={() => setCurrentPage(pageNum as number)}
+                                isActive={currentPage === pageNum}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            )}
+                          </PaginationItem>
+                        ))}
+                        
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            aria-disabled={currentPage === totalPages}
+                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+          
+          {/* Banner per aggiungere al carrello */}
+          {getSelectedRowsCount() > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 z-50 flex justify-center">
+              <div className="bg-primary text-white rounded-lg shadow-lg p-4 flex items-center justify-between w-full max-w-4xl animate-slideUp">
+                <div className="flex items-center">
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  <span>
+                    {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'tariffa selezionata' : 'tariffe selezionate'}
                   </span>
                 </div>
-                
-                {totalPages > 1 && (
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                          aria-disabled={currentPage === 1}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
-                      
-                      {getVisiblePageNumbers(currentPage, totalPages).map((pageNum, idx) => (
-                        <PaginationItem key={idx}>
-                          {pageNum === 'ellipsis' ? (
-                            <span className="px-4 py-2">...</span>
-                          ) : (
-                            <PaginationLink
-                              onClick={() => setCurrentPage(pageNum as number)}
-                              isActive={currentPage === pageNum}
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          )}
-                        </PaginationItem>
-                      ))}
-                      
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                          aria-disabled={currentPage === totalPages}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                )}
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedRows({})}
+                    className="text-white border-white hover:bg-white/20"
+                  >
+                    Annulla
+                  </Button>
+                  <Button
+                    onClick={handleAddToCart}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white text-primary hover:bg-white/90"
+                  >
+                    Aggiungi rates al carrello
+                  </Button>
+                </div>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-        
-        {/* ... existing code ... */}
-      </CardContent>
-    </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
