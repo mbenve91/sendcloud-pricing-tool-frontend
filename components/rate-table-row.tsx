@@ -104,16 +104,22 @@ const RateTableRow = React.memo(({
   // Calcola il margine sui prezzi base senza considerare il fuel
   const baseMargin = rate.basePrice - purchasePrice;
   
+  // Calcola lo sconto sul margine
+  const discountOnMargin = baseMargin * (rate.userDiscount || 0) / 100;
+  
+  // Margine base dopo lo sconto
+  const discountedBaseMargin = baseMargin - discountOnMargin;
+  
   // Calcola l'importo del fuel surcharge come percentuale del prezzo base
   const fuelSurchargeAmount = rate.basePrice * fuelSurchargePercentage / 100;
   
   // Calcola il margine sul fuel
   const fuelSurchargeMargin = fuelSurchargeRetail - fuelSurchargePurchase;
   
-  // Calcola il margine finale includendo o meno il fuel
+  // Calcola il margine finale includendo o meno il fuel e lo sconto
   const finalMargin = includeFuelSurcharge 
-    ? baseMargin + fuelSurchargeMargin 
-    : baseMargin;
+    ? discountedBaseMargin + fuelSurchargeMargin 
+    : discountedBaseMargin;
   
   return (
     <Fragment>
@@ -640,20 +646,20 @@ const RateTableRow = React.memo(({
                                     <Badge
                                       variant={getMarginColor(
                                         includeFuelSurcharge 
-                                          ? weightRange.actualMargin + (
+                                          ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
                                               ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
                                             ) 
-                                          : weightRange.actualMargin
+                                          : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
                                       ) as any}
                                     >
                                       {formatCurrency(
                                         includeFuelSurcharge 
-                                          ? weightRange.actualMargin + (
+                                          ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
                                               ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
                                             ) 
-                                          : weightRange.actualMargin
+                                          : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
                                       )}
                                     </Badge>
                                     <Info className="ml-1 h-4 w-4 text-muted-foreground" />
