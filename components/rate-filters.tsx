@@ -49,6 +49,7 @@ interface RateFiltersProps {
   onColumnsDialogOpen: () => void;
   includeFuelSurcharge: boolean;
   onFuelSurchargeChange: (checked: boolean) => void;
+  onCalculateClick?: () => void;
 }
 
 const RateFilters = React.memo(({
@@ -60,7 +61,8 @@ const RateFilters = React.memo(({
   countryList,
   onColumnsDialogOpen,
   includeFuelSurcharge,
-  onFuelSurchargeChange
+  onFuelSurchargeChange,
+  onCalculateClick
 }: RateFiltersProps) => {
   // Determina se mostrare il filtro paese in base alla tab attiva
   const shouldShowCountryFilter = activeTab === "international";
@@ -213,19 +215,30 @@ const RateFilters = React.memo(({
           </div>
 
           {/* Max Price */}
-          <div className="space-y-2 w-[120px]">
+          <div className="space-y-2 w-[180px]">
             <label htmlFor="maxPrice" className="text-sm font-medium">
               Prezzo Max €
             </label>
-            <Input
-              id="maxPrice"
-              type="number"
-              min="0"
-              value={filters.maxPrice || ""}
-              onChange={(e) => onFilterChange("maxPrice", e.target.value)}
-              className="h-10"
-              placeholder="Nessun limite"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="maxPrice"
+                type="number"
+                min="0"
+                value={filters.maxPrice || ""}
+                onChange={(e) => onFilterChange("maxPrice", e.target.value)}
+                className="h-10"
+                placeholder="Nessun limite"
+              />
+              {filters.maxPrice && parseFloat(filters.maxPrice) > 0 && (
+                <Button 
+                  size="sm" 
+                  className="h-10 whitespace-nowrap bg-gradient-to-r from-[#122857] to-[#1e3a80] text-white"
+                  onClick={onCalculateClick}
+                >
+                  Calcola
+                </Button>
+              )}
+            </div>
           </div>
           
           {/* Fuel Surcharge Toggle */}

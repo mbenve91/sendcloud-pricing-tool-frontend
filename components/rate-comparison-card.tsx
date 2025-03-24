@@ -49,7 +49,8 @@ import {
   getMarginLabel
 } from "@/utils/price-calculations";
 import RateTableRow from './rate-table-row';
-import RateFilters from './rate-filters'; // Aggiungi l'import del nuovo componente
+import RateFilters from './rate-filters';
+import ProgressLoading from "@/components/ui/progress-loading"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -246,6 +247,10 @@ export default function RateComparisonCard() {
   const [services, setServices] = useState<any[]>([])
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const rowsPerPageOptions = [5, 10, 25, 50, 100]
+  
+  // Aggiungi uno stato per tracciare se è in corso un calcolo con maxPrice
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [calculationComplete, setCalculationComplete] = useState(false)
 
   // Add state for selected rows
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
@@ -259,7 +264,7 @@ export default function RateComparisonCard() {
     sourceCountry: "", // Aggiungi questo campo per il market
     carrierId: "",
     service: "",
-    weight: "1",
+    weight: "1", // Manteniamo i valori predefiniti per weight e volume
     volume: "100",
     country: "",
     maxPrice: "",
@@ -519,8 +524,13 @@ export default function RateComparisonCard() {
   }, [filters.carrierId, carriers.length]);
 
   // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
-  const loadRates = useCallback(async () => {
-    setLoading(true);
+  const loadRates = useCallback(async (isCalculatingMaxPrice: boolean = false) => {
+    if (isCalculatingMaxPrice) {
+      setIsCalculating(true);
+    } else {
+      setLoading(true);
+    }
+    
     setError(null); // Reset dello stato di errore
     setSelectedRows({}); // Reset selected rows when refreshing data
 
@@ -549,10 +559,11 @@ export default function RateComparisonCard() {
         service: filters.service || undefined,
         volume: String(parseInt(filters.volume, 10)),
         sourceCountry: filters.sourceCountry || undefined,
-        maxPrice: filters.maxPrice
+        // Includiamo maxPrice solo se stiamo esplicitamente calcolando con esso
+        maxPrice: isCalculatingMaxPrice ? filters.maxPrice : undefined
       };
       
-      // Ora passiamo tutti i filtri alla API, incluso maxPrice
+      // Ora passiamo tutti i filtri alla API
       const ratesData = await api.compareRates(apiFilters);
       
       console.log(`Richiesta tariffe per tab ${activeTab} con paese ${filters.country || 'tutti'}. Risultati: ${ratesData.length}`);
@@ -616,13 +627,36 @@ export default function RateComparisonCard() {
         };
       });
       
-      // Applica il filtro di prezzo massimo e i calcoli degli sconti
-      const filteredAndDiscountedRates = applyMaxPriceFilter(formattedRates);
-      setRates(filteredAndDiscountedRates);
+      // Applica il filtro di prezzo massimo e i calcoli degli sconti solo se stiamo calcolando prezzi
+      if (isCalculatingMaxPrice && filters.maxPrice && parseFloat(filters.maxPrice) > 0) {
+        setLoadingStage("Calcolo sconti ottimali...");
+        // Pausa artificiale per una migliore esperienza UX
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const filteredAndDiscountedRates = applyMaxPriceFilter(formattedRates);
+        setLoadingStage("Finalizzazione dei prezzi...");
+        // Pausa artificiale per una migliore esperienza UX
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        setRates(filteredAndDiscountedRates);
+      } else {
+        // Se non stiamo calcolando con maxPrice, mostriamo i risultati normali
+        setRates(formattedRates);
+      }
       
       // Per le suggestioni, per ora lasciamo quelle simulate (potrebbero essere gestite separatamente)
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
+      
+      // Impostiamo il calcolo come completato se stavamo calcolando con maxPrice
+      if (isCalculatingMaxPrice) {
+        setCalculationComplete(true);
+        // Dopo un po' nascondiamo il progresso completato
+        setTimeout(() => {
+          setIsCalculating(false);
+          setCalculationComplete(false);
+        }, 1500);
+      }
     } catch (error) {
       console.error('Errore durante il caricamento delle tariffe:', error);
       setError(error instanceof Error ? error.message : "Si è verificato un errore sconosciuto");
@@ -637,10 +671,11 @@ export default function RateComparisonCard() {
   }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions]);
 
   useEffect(() => {
-    loadRates()
+    // Carica le tariffe solo all'avvio, non quando cambia maxPrice
+    loadRates(false)
   }, [loadRates])
 
-  // Handle filter change
+  // Handle filter change - modificato per evitare che maxPrice triggerati loadRates
   const handleFilterChange = (name: string, value: string) => {
     // Convert 'all' to empty string for API compatibility
     let apiValue = value === 'all' ? '' : value;
@@ -650,10 +685,26 @@ export default function RateComparisonCard() {
       apiValue = apiValue.toLowerCase();
     }
     
+    // Aggiorniamo sempre lo stato del filtro
     setFilters((prev) => ({
       ...prev,
       [name]: apiValue,
     }));
+    
+    // Se il campo modificato non è maxPrice, carichiamo subito i risultati
+    if (name !== 'maxPrice') {
+      loadRates();
+    }
+  }
+  
+  // Aggiungi una funzione per gestire il click sul pulsante Calcola
+  const handleCalculateClick = () => {
+    setIsCalculating(true);
+    setCalculationComplete(false);
+    // Resettiamo la pagina
+    setCurrentPage(1);
+    // Eseguiamo il caricamento
+    loadRates(true);
   }
 
   // Open rate detail
@@ -897,8 +948,9 @@ export default function RateComparisonCard() {
       // Formula: displayedBasePrice - (marginAmount * discountPercentage/100) = maxPrice
       // Quindi: discountPercentage = ((displayedBasePrice - maxPrice) / marginAmount) * 100
       const priceDifference = displayedBasePrice - maxPrice;
+      // Arrotondiamo per eccesso all'intero più vicino per garantire che il prezzo finale sia <= maxPrice
       const requiredDiscountPercentage = Math.min(90, Math.max(0, 
-        Math.round((priceDifference / rate.actualMargin) * 100 * 100) / 100
+        Math.ceil((priceDifference / rate.actualMargin) * 100)
       ));
       
       // Calcola il prezzo finale con il nuovo sconto
@@ -934,7 +986,7 @@ export default function RateComparisonCard() {
           // Calcola lo sconto necessario per la fascia di peso
           const weightPriceDifference = weightDisplayedBasePrice - maxPrice;
           const weightRequiredDiscountPercentage = Math.min(90, Math.max(0, 
-            Math.round((weightPriceDifference / weightRange.actualMargin) * 100 * 100) / 100
+            Math.ceil((weightPriceDifference / weightRange.actualMargin) * 100)
           ));
           
           // Calcola il nuovo prezzo finale
@@ -1354,11 +1406,14 @@ export default function RateComparisonCard() {
                 onColumnsDialogOpen={openColumnsDialog}
                 includeFuelSurcharge={includeFuelSurcharge}
                 onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}
+                onCalculateClick={handleCalculateClick}
               />
               
               {/* Visualizzazione condizionale basata sullo stato */}
               {loading ? (
                 <LoadingIndicator stage={loadingStage} />
+              ) : isCalculating ? (
+                <ProgressLoading stage={loadingStage} isComplete={calculationComplete} />
               ) : error ? (
                 <ErrorDisplay 
                   message={`Si è verificato un errore durante il caricamento delle tariffe: ${error}`} 
