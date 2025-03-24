@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bot } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchWithTimeout } from '@/data/fallbackData';
 
 export interface Carrier {
   _id: string;
@@ -31,10 +32,25 @@ const CarrierSelector: FC<CarrierSelectorProps> = ({ onSelect, selectedCarrierId
       try {
         setIsLoading(true);
         console.log("Fetching carriers...");
-        const response = await fetch('/api/carriers');
-        const data = await response.json();
         
-        if (data.success && data.data) {
+        // Utilizziamo la funzione fetchWithTimeout centralizata
+        const response = await fetchWithTimeout('/api/carriers');
+        
+        // Controlla se la risposta è OK prima di tentare di analizzare il JSON
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        // Gestione sicura del parsing JSON
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("Error parsing JSON:", parseError);
+          throw new Error("Error parsing server response");
+        }
+        
+        if (data.success && Array.isArray(data.data)) {
           console.log(`Loaded ${data.data.length} carriers`);
           setCarriers(data.data);
           
@@ -52,9 +68,13 @@ const CarrierSelector: FC<CarrierSelectorProps> = ({ onSelect, selectedCarrierId
               }
             }
           }
+        } else {
+          console.error("Invalid data format received:", data);
+          throw new Error("Invalid data format received from server");
         }
       } catch (error) {
         console.error("Error fetching carriers:", error);
+        // Non interrompere il rendering in caso di errore
       } finally {
         setIsLoading(false);
         hasInitialized.current = true;
@@ -100,22 +120,28 @@ const CarrierSelector: FC<CarrierSelectorProps> = ({ onSelect, selectedCarrierId
         <SelectValue placeholder="Select a carrier" />
       </SelectTrigger>
       <SelectContent>
-        {carriers.map((carrier) => (
-          <SelectItem key={carrier._id} value={carrier._id} className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                {carrier.logoUrl ? (
-                  <AvatarImage src={carrier.logoUrl} alt={carrier.name} />
-                ) : (
-                  <AvatarFallback className="bg-secondary">
-                    <Bot size={16} />
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <span>{carrier.name}</span>
-            </div>
+        {carriers.length > 0 ? (
+          carriers.map((carrier) => (
+            <SelectItem key={carrier._id} value={carrier._id} className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-6 w-6">
+                  {carrier.logoUrl ? (
+                    <AvatarImage src={carrier.logoUrl} alt={carrier.name} />
+                  ) : (
+                    <AvatarFallback className="bg-secondary">
+                      <Bot size={16} />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <span>{carrier.name}</span>
+              </div>
+            </SelectItem>
+          ))
+        ) : (
+          <SelectItem value="no-carriers" disabled>
+            Nessun corriere disponibile
           </SelectItem>
-        ))}
+        )}
       </SelectContent>
     </Select>
   );
