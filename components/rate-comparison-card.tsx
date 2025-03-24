@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart } from "lucide-react"
+import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart, AlertTriangle } from "lucide-react"
 import {
   Pagination,
   PaginationContent as UPaginationContent,
@@ -38,6 +38,18 @@ import { useToast } from "@/components/ui/use-toast"
 import Image from 'next/image'
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import {
+  calculateBasePrice,
+  calculateDiscountAmount,
+  calculateFuelSurchargeMargin,
+  calculateTotalMargin,
+  calculateFinalPrice,
+  formatCurrency,
+  getMarginColor,
+  getMarginLabel
+} from "@/utils/price-calculations";
+import RateTableRow from './rate-table-row';
+import RateFilters from './rate-filters'; // Aggiungi l'import del nuovo componente
 
 // Mock data for carriers
 const CARRIERS = [
@@ -169,11 +181,13 @@ interface Rate {
   margin?: number;
   weightMin?: number;
   weightMax?: number;
-  displayBasePrice?: number; // Aggiungi questa proprietà
+  displayBasePrice?: number;
   service?: {
     _id?: string;
     name?: string;
   };
+  isWeightRange?: boolean;
+  parentRateId?: string;
 }
 
 // Aggiungi questa lista dopo le altre liste di costanti
@@ -189,6 +203,28 @@ const MARKETS = [
   { id: "ch", name: "Svizzera" },
   { id: "at", name: "Austria" },
 ]
+
+// Componente UI per il caricamento con stato dettagliato
+const LoadingIndicator = ({ stage }: { stage?: string }) => (
+  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    <div className="text-center">
+      <p className="text-sm text-muted-foreground">Caricamento tariffe in corso...</p>
+      {stage && <p className="text-xs text-muted-foreground mt-1">{stage}</p>}
+    </div>
+  </div>
+);
+
+// Componente per gestire gli errori
+const ErrorDisplay = ({ message, onRetry }: { message: string, onRetry: () => void }) => (
+  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+    <AlertTriangle className="h-12 w-12 text-destructive" />
+    <p className="text-center text-destructive">{message}</p>
+    <Button variant="outline" onClick={onRetry}>
+      Riprova
+    </Button>
+  </div>
+);
 
 export default function RateComparisonCard() {
   // States
@@ -231,88 +267,25 @@ export default function RateComparisonCard() {
   // Aggiungi uno stato per tracciare l'inclusione del fuel surcharge
   const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true);
 
+  // Stato per l'ordinamento
+  const [sortConfig, setSortConfig] = useState<{
+    key: string | null;
+    direction: 'ascending' | 'descending' | null;
+  }>({
+    key: null,
+    direction: null
+  });
+
   const router = useRouter()
   const { addToCart, isInCart, cartItems } = useCart()
   const { toast } = useToast()
+  const [error, setError] = useState<string | null>(null)
 
-  // Modifica della funzione loadServiceWeightRanges per aggiungere un fallback con dati simulati
-  const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
-    if (!serviceId) {
-      console.error('ERRORE: ServiceID mancante, impossibile caricare le fasce di peso');
-      return;
-    }
-    
-    try {
-      // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
-      if (serviceWeightRanges[serviceId]) {
-        console.log(`Fasce di peso già caricate per il servizio ${serviceId}`);
-        return;
-      }
-      
-      console.log(`Richiesta fasce di peso per il servizio: ${serviceId}`);
-      const weightRangesData = await api.getWeightRangesByService(serviceId);
-      console.log('Dati fasce di peso ricevuti:', JSON.stringify(weightRangesData));
-      
-      // Trova la tariffa corrispondente per ottenere il fuel surcharge
-      const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
-      const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
-      
-      // Controlliamo che i dati siano un array e non vuoto
-      if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
-        // Aggiorna il prezzo finale considerando il fuel surcharge
-        const updatedWeightRanges = weightRangesData.map((weightRange: WeightRange) => {
-          let finalPrice = weightRange.basePrice;
-          let displayBasePrice = weightRange.basePrice;
-          
-          // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
-          if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
-            // Applica il fuel surcharge al prezzo base
-            finalPrice = weightRange.basePrice * (1 + (fuelSurchargePercentage / 100));
-            displayBasePrice = finalPrice;
-            
-            // Applica lo sconto al margine
-            if (weightRange.userDiscount > 0) {
-              const discountAmount = weightRange.actualMargin * (weightRange.userDiscount / 100);
-              finalPrice -= discountAmount;
-            }
-          }
-          
-          return {
-            ...weightRange,
-            finalPrice,
-            displayBasePrice
-          };
-        });
-        
-        // Aggiorniamo lo stato con type assertion per assicurarci che i dati abbiano il tipo corretto
-        setServiceWeightRanges(prev => ({
-          ...prev,
-          [serviceId]: updatedWeightRanges as WeightRange[]
-        }));
-        
-        console.log(`Caricate ${weightRangesData.length} fasce di peso per il servizio ${serviceId}`);
-      } else {
-        console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}, generando fasce simulate`);
-        
-        // MODIFICA: Invece di un array vuoto, generiamo fasce di peso simulate
-        const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
-        setServiceWeightRanges(prev => ({
-          ...prev,
-          [serviceId]: simulatedWeightRanges
-        }));
-      }
-    } catch (error) {
-      console.error('Errore nel caricamento delle fasce di peso:', error);
-      
-      // MODIFICA: In caso di errore, generiamo comunque fasce di peso simulate
-      const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
-      setServiceWeightRanges(prev => ({
-        ...prev,
-        [serviceId]: simulatedWeightRanges
-      }));
-    }
-  }, [serviceWeightRanges, rates, includeFuelSurcharge]);
+  // Aggiunto uno stato per tracciare lo stato di caricamento
+  const [loadingStage, setLoadingStage] = useState<string>("");
 
+  // Correggiamo il problema della dichiarazione di generateSimulatedWeightRanges
+  // spostando la sua definizione prima che venga utilizzata
   // Funzione per generare fasce di peso simulate
   const generateSimulatedWeightRanges = (serviceId: string): WeightRange[] => {
     // Trova il servizio corrispondente per ottenere il fuel surcharge
@@ -350,6 +323,81 @@ export default function RateComparisonCard() {
       };
     });
   };
+
+  // Ora definiamo loadServiceWeightRanges dopo generateSimulatedWeightRanges
+  const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
+    if (!serviceId) {
+      console.error('ERRORE: ServiceID mancante, impossibile caricare le fasce di peso');
+      return;
+    }
+    
+    // Verifichiamo se abbiamo già caricato le fasce di peso per questo servizio
+    if (serviceWeightRanges[serviceId]) {
+      console.log(`Fasce di peso già caricate per il servizio ${serviceId}`);
+      return serviceWeightRanges[serviceId]; // Ritorna il valore esistente
+    }
+    
+    try {
+      console.log(`Richiesta fasce di peso per il servizio: ${serviceId}`);
+      setServiceWeightRanges(prev => ({
+        ...prev,
+        [serviceId]: [] // Imposta un array vuoto mentre carica
+      }));
+
+      const weightRangesData = await api.getWeightRangesByService(serviceId);
+      
+      if (Array.isArray(weightRangesData) && weightRangesData.length > 0) {
+        // Trova la tariffa corrispondente per ottenere il fuel surcharge
+        const correspondingRate = rates.find(rate => rate.service?._id === serviceId);
+        const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+        
+        const processedWeightRanges = weightRangesData.map((weightRange: WeightRange) => {
+          const basePrice = weightRange.basePrice;
+          const displayBasePrice = calculateBasePrice(basePrice, fuelSurchargePercentage, includeFuelSurcharge);
+          const finalPrice = calculateFinalPrice(
+            basePrice, 
+            weightRange.actualMargin, 
+            weightRange.userDiscount || 0, 
+            fuelSurchargePercentage, 
+            includeFuelSurcharge
+          );
+          
+          return {
+            ...weightRange,
+            finalPrice,
+            displayBasePrice
+          };
+        });
+        
+        setServiceWeightRanges(prev => ({
+          ...prev,
+          [serviceId]: processedWeightRanges
+        }));
+        
+        return processedWeightRanges;
+      } else {
+        console.warn(`Nessuna fascia di peso trovata per il servizio ${serviceId}, generando fasce simulate`);
+        const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
+        
+        setServiceWeightRanges(prev => ({
+          ...prev,
+          [serviceId]: simulatedWeightRanges
+        }));
+        
+        return simulatedWeightRanges;
+      }
+    } catch (error) {
+      console.error('Errore nel caricamento delle fasce di peso:', error);
+      const simulatedWeightRanges = generateSimulatedWeightRanges(serviceId);
+      
+      setServiceWeightRanges(prev => ({
+        ...prev,
+        [serviceId]: simulatedWeightRanges
+      }));
+      
+      return simulatedWeightRanges;
+    }
+  }, [serviceWeightRanges, rates, includeFuelSurcharge, generateSimulatedWeightRanges]);
 
   // Update the generateMockRates function to include sourceCountry filter
   const generateMockRates = useCallback((destinationType: string, filters: any) => {
@@ -456,8 +504,8 @@ export default function RateComparisonCard() {
               weightMax: defaultRange.weightRange.max,
               displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
               service: {
-                _id: service._id || rate.service?._id || '',
-                name: service.name || rate.serviceName || 'Standard'
+                _id: serviceId, // Usa serviceId invece di service._id
+                name: services[j] // Usa services[j] invece di service.name
               }
             })
           }
@@ -538,8 +586,8 @@ export default function RateComparisonCard() {
             weightMax: defaultRange.weightRange.max,
             displayBasePrice: defaultRange.basePrice, // Aggiungi questa proprietà
             service: {
-              _id: service._id || rate.service?._id || '',
-              name: service.name || rate.serviceName || 'Standard'
+              _id: serviceId, // Usa serviceId invece di service._id
+              name: services[j] // Usa services[j] invece di service.name
             }
           })
         }
@@ -599,20 +647,6 @@ export default function RateComparisonCard() {
     if (activeTab === "eu") return EU_COUNTRIES
     if (activeTab === "extra_eu") return EXTRA_EU_COUNTRIES
     return []
-  }
-
-  // Get margin color based on monetary value
-  const getMarginColor = (margin: number) => {
-    if (margin >= 0.8) return "success" // verde
-    if (margin >= 0.2) return "secondary" // neutro/medio
-    return "destructive" // rosso
-  }
-
-  // Get margin label based on monetary value
-  const getMarginLabel = (margin: number) => {
-    if (margin >= 0.8) return "High"
-    if (margin >= 0.2) return "Medium"
-    return "Low"
   }
 
   // Update the handleTabChange function to reset the country filter when changing tabs
@@ -718,117 +752,70 @@ export default function RateComparisonCard() {
     loadServices();
   }, [filters.carrierId, carriers.length]);
 
-  // Load rates when filters or tab changes
+  // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
   const loadRates = useCallback(async () => {
-    setLoading(true)
-    setSelectedRows({}) // Reset selected rows when refreshing data
+    setLoading(true);
+    setError(null); // Reset dello stato di errore
+    setSelectedRows({}); // Reset selected rows when refreshing data
 
     try {
-      // Carichiamo i corrieri se non sono già stati caricati
+      // Carica i carriers se necessario
       if (carriers.length === 0) {
+        setLoadingStage("Caricamento corrieri...");
         const carriersData = await api.getCarriers();
         setCarriers(carriersData);
       }
 
-      // Se non abbiamo servizi, li carichiamo
+      // Carica i servizi se necessario
       if (services.length === 0) {
+        setLoadingStage("Caricamento servizi...");
         const servicesData = await api.getServices(filters.carrierId || undefined);
         setServices(servicesData);
       }
       
-      // Confrontiamo le tariffe dal backend
-      const ratesData = await api.compareRates({
-        weight: filters.weight,
+      // Costruisci l'oggetto di filtri completo per l'API
+      setLoadingStage("Caricamento tariffe...");
+      const apiFilters = {
+        weight: String(parseFloat(filters.weight)),
         destinationType: activeTab,
-        destinationCountry: filters.country,
-        carrierId: filters.carrierId,
-        service: filters.service,
-        volume: filters.volume,
-        sourceCountry: filters.sourceCountry // Aggiungi il market/sourceCountry alla richiesta
-      });
+        destinationCountry: filters.country || undefined,
+        carrierId: filters.carrierId || undefined,
+        service: filters.service || undefined,
+        volume: String(parseInt(filters.volume, 10)),
+        sourceCountry: filters.sourceCountry || undefined,
+        maxPrice: filters.maxPrice
+      };
+      
+      // Ora passiamo tutti i filtri alla API, incluso maxPrice
+      const ratesData = await api.compareRates(apiFilters);
       
       console.log(`Richiesta tariffe per tab ${activeTab} con paese ${filters.country || 'tutti'}. Risultati: ${ratesData.length}`);
       
       // Trasforma i dati dell'API nel formato atteso dal componente
+      setLoadingStage("Elaborazione risultati...");
       const formattedRates = ratesData.map((rate: any) => {
-        // Log per debug
-        console.log('Rate ricevuta dal backend:', rate);
-        console.log('Rate.service:', rate.service);
-        console.log('Rate.carrier:', rate.carrier);
-        
-        // Trova tutte le fasce di peso per il servizio corrente
-        // Il problema è che rate.weightRanges non contiene tutte le fasce di peso, ma solo quella corrispondente al peso selezionato
-        
-        // Utilizzo l'ID del servizio per ottenere TUTTE le fasce di peso dal backend
-        const serviceId = rate.service?._id;
-        console.log('ServiceId per cercare tutte le fasce di peso:', serviceId);
-        
-        // Utilizziamo solo le fasce di peso reali dal modello Mongoose se disponibili
-        const weightRanges = rate.weightRanges?.length > 0 
-          ? rate.weightRanges.map((range: any) => {
-              const basePrice = range.retailPrice;
-              let finalPrice = basePrice;
-              let displayBasePrice = basePrice;
-              
-              // Calcola il finalPrice e displayBasePrice considerando il fuel surcharge se il toggle è attivo
-              if (includeFuelSurcharge && carrier.fuelSurcharge > 0) {
-                finalPrice = basePrice * (1 + (carrier.fuelSurcharge / 100));
-                displayBasePrice = finalPrice;
-              }
-              
-              return {
-                id: `${rate._id}-${range.weightMin}-${range.weightMax}`,
-                label: `${range.weightMin}-${range.weightMax} kg`,
-                min: range.weightMin,
-                max: range.weightMax,
-                basePrice: basePrice,
-                userDiscount: 0,
-                finalPrice: finalPrice,
-                actualMargin: range.margin || (range.retailPrice - range.purchasePrice),
-                volumeDiscount: range.volumeDiscount || 0,
-                promotionDiscount: range.promotionDiscount || 0,
-                displayBasePrice: displayBasePrice
-              };
-            })
-          // Non generiamo più fasce simulative
-          : [];
-        
-        // Trova l'intervallo di peso corrente in base al filtro del peso
-        const weightValue = parseFloat(filters.weight);
-        const currentWeightRange = weightRanges.find(
-          (range) => weightValue >= range.min && weightValue <= range.max
-        ) || weightRanges[0];
-        
         // Estrai i dati del servizio e del corriere con gestione null/undefined
         const service = rate.service || {};
         const carrier = rate.carrier || (service?.carrier || {});
         
-        // Formatta la lista dei paesi se c'è una lista di codici paesi
-        let countryName = '';
-        if (service.destinationCountry) {
-          // Se contiene virgole, è una lista di codici paese - mostriamo solo il primo
-          if (service.destinationCountry.includes(',')) {
-            const countries = service.destinationCountry.split(/,\s*/);
-            countryName = countries[0].trim(); // Prendiamo il primo paese
-          } else {
-            countryName = service.destinationCountry;
-          }
-        }
+        // Calcola i valori utilizzando le nuove funzioni di utility
+        const basePrice = rate.retailPrice || 0;
+        const purchasePrice = rate.purchasePrice || 0;
+        const margin = rate.margin || (rate.retailPrice - rate.purchasePrice) || 0;
+        const fuelSurchargePercentage = carrier.fuelSurcharge || 0;
         
-        // Usa la funzione per calcolare il prezzo finale considerando il fuel surcharge
-        const finalPrice = calculateFinalPrice(rate.retailPrice || 0, carrier.fuelSurcharge || 0, {
-          actualMargin: rate.margin || (rate.retailPrice - (rate.purchasePrice || 0)),
-          userDiscount: 0
-        });
+        const displayBasePrice = calculateBasePrice(basePrice, fuelSurchargePercentage, includeFuelSurcharge);
         
-        // Calcola il displayBasePrice considerando il fuel surcharge se il toggle è attivo
-        let displayBasePrice = rate.retailPrice || 0;
-        if (includeFuelSurcharge && carrier.fuelSurcharge > 0) {
-          displayBasePrice = displayBasePrice * (1 + (carrier.fuelSurcharge / 100));
-        }
+        const finalPrice = calculateFinalPrice(
+          basePrice,
+          margin,
+          rate.userDiscount || 0,
+          fuelSurchargePercentage,
+          includeFuelSurcharge
+        );
         
-        // Crea l'oggetto Rate con tutti i campi richiesti dall'interfaccia
-        const formattedRate: Rate = {
+        // Crea e ritorna l'oggetto Rate
+        return {
           id: rate._id || uuidv4(),
           carrierId: carrier._id || '',
           carrierName: carrier.name || 'Unknown',
@@ -836,55 +823,58 @@ export default function RateComparisonCard() {
           serviceCode: service.code || service.name || rate.serviceCode || 'Standard',
           serviceName: service.name || rate.serviceName || 'Standard',
           serviceDescription: service.description || rate.description || '',
-          countryName: countryName,
-          basePrice: rate.retailPrice || 0,
-          userDiscount: 0,
+          countryName: formatCountryList(service.destinationCountry),
+          basePrice: basePrice,
+          userDiscount: rate.userDiscount || 0,
           finalPrice: finalPrice,
-          actualMargin: rate.margin || (rate.retailPrice - (rate.purchasePrice || 0)),
-          marginPercentage: rate.marginPercentage || (rate.retailPrice ? ((rate.retailPrice - (rate.purchasePrice || 0)) / rate.retailPrice) * 100 : 0) || 0,
+          actualMargin: margin,
+          marginPercentage: rate.marginPercentage || 0,
           deliveryTimeMin: service.deliveryTimeMin || rate.deliveryTimeMin,
           deliveryTimeMax: service.deliveryTimeMax || rate.deliveryTimeMax,
-          fuelSurcharge: carrier.fuelSurcharge || rate.fuelSurcharge || 0,
+          fuelSurcharge: fuelSurchargePercentage,
           volumeDiscount: rate.volumeDiscount || 0,
           promotionDiscount: rate.promotionDiscount || 0,
           totalBasePrice: rate.totalBasePrice || rate.retailPrice || 0,
-          weightRanges,
-          currentWeightRange,
-          retailPrice: rate.retailPrice || 0,
-          purchasePrice: rate.purchasePrice || 0,
-          margin: rate.margin || 0,
+          weightRanges: [],
+          currentWeightRange: null, // Inizializziamo come null
+          retailPrice: basePrice,
+          purchasePrice: purchasePrice,
+          margin: margin,
           weightMin: rate.weightMin || 0,
           weightMax: rate.weightMax || 0,
-          displayBasePrice: displayBasePrice, // Usa il valore calcolato
+          displayBasePrice: displayBasePrice,
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
           }
         };
-        
-        return formattedRate;
       });
       
-      // Applica il filtro del prezzo massimo
-      const filteredRates = applyMaxPriceFilter(formattedRates);
-      setRates(filteredRates);
+      setRates(formattedRates);
       
       // Per ora continuiamo a usare suggerimenti simulati
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
     } catch (error) {
       console.error('Errore durante il caricamento delle tariffe:', error);
-      // In caso di errore, mostriamo tariffe simulate
-      const newRates = generateMockRates(activeTab, filters);
-      const filteredRates = applyMaxPriceFilter(newRates);
-      setRates(filteredRates);
-      
-      const newSuggestions = generateMockSuggestions(activeTab, filters);
-      setSuggestions(newSuggestions);
+      setError(error instanceof Error ? error.message : "Si è verificato un errore sconosciuto");
+      // In caso di errore, mostriamo tariffe simulate se siamo in modalità sviluppo
+      if (process.env.NODE_ENV === 'development') {
+        const newRates = generateMockRates(activeTab, filters);
+        setRates(newRates as any);
+        
+        const newSuggestions = generateMockSuggestions(activeTab, filters);
+        setSuggestions(newSuggestions);
+      } else {
+        // In produzione, meglio mostrare l'errore all'utente
+        setRates([]);
+        setSuggestions([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingStage("");
     }
-  }, [activeTab, filters, generateMockRates, generateMockSuggestions, carriers.length, services.length]);
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockRates, generateMockSuggestions]);
 
   useEffect(() => {
     loadRates()
@@ -1012,64 +1002,61 @@ export default function RateComparisonCard() {
     });
   }, [loadServiceWeightRanges]);
 
-  // Correggi la funzione per applicare lo sconto al margine e aggiornare il prezzo finale
-  const handleDiscountChange = (rateId: string, serviceId: string, newDiscount: number) => {
+  // Trova e sostituisci la funzione handleDiscountChange attuale con questa versione ottimizzata
+  const handleDiscountChange = useCallback((rateId: string, serviceId: string, newDiscount: number) => {
+    // Limita lo sconto tra 0 e 90%
+    const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+    
     setRates(prevRates => prevRates.map(rate => {
       if (rate.id === rateId) {
-        // Limita lo sconto tra 0 e 90%
-        const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
+        // Calcola il nuovo prezzo finale
+        const finalPrice = calculateFinalPrice(
+          rate.basePrice,
+          rate.actualMargin,
+          clampedDiscount,
+          rate.fuelSurcharge,
+          includeFuelSurcharge
+        );
         
-        // Ottieni il prezzo base corretto (con fuel surcharge se abilitato)
-        const currentBasePrice = rate.displayBasePrice || rate.basePrice;
+        // Calcola il margine finale dopo lo sconto
+        const discountAmount = calculateDiscountAmount(rate.actualMargin, clampedDiscount);
+        const adjustedMargin = rate.actualMargin - discountAmount;
         
-        // Calcola il prezzo finale applicando lo sconto sul margine
-        const discountAmount = rate.actualMargin * (clampedDiscount / 100);
-        const finalPrice = currentBasePrice - discountAmount;
-        
-        // Aggiorna anche le fasce di peso
-        if (serviceId && rate.weightRanges) {
-          // Carica le fasce di peso se non ancora caricate
-          if (!serviceWeightRanges[serviceId] && serviceId) {
-            loadServiceWeightRanges(serviceId);
-          }
-          
-          const updatedWeightRanges = rate.weightRanges.map(range => {
-            // Ottieni il prezzo base corretto per la fascia (con fuel surcharge se abilitato)
-            const currentRangeBasePrice = range.displayBasePrice || range.basePrice;
-            
-            // Calcola lo sconto sul margine per la fascia
-            const rangeDiscountAmount = range.actualMargin * (clampedDiscount / 100);
-            
-            // Calcola il prezzo finale per la fascia
-            const rangeFinalPrice = currentRangeBasePrice - rangeDiscountAmount;
-            
-            return {
-              ...range,
-              userDiscount: clampedDiscount,
-              finalPrice: rangeFinalPrice,
-              adjustedMargin: range.actualMargin - rangeDiscountAmount
-            };
-          });
-          
-          return {
-            ...rate,
-            userDiscount: clampedDiscount,
-            finalPrice,
-            adjustedMargin: rate.actualMargin - discountAmount,
-            weightRanges: updatedWeightRanges
-          };
-        }
-        
-        return {
+        // Crea una versione aggiornata della tariffa
+        const updatedRate = {
           ...rate,
           userDiscount: clampedDiscount,
           finalPrice,
-          adjustedMargin: rate.actualMargin - discountAmount
+          adjustedMargin
         };
+        
+        // Se ci sono fasce di peso, aggiornale
+        if (serviceId && serviceWeightRanges[serviceId]) {
+          updatedRate.weightRanges = serviceWeightRanges[serviceId].map(weightRange => {
+            const weightRangeFinalPrice = calculateFinalPrice(
+              weightRange.basePrice,
+              weightRange.actualMargin,
+              clampedDiscount,
+              rate.fuelSurcharge,
+              includeFuelSurcharge
+            );
+            
+            const weightRangeDiscountAmount = calculateDiscountAmount(weightRange.actualMargin, clampedDiscount);
+            
+            return {
+              ...weightRange,
+              userDiscount: clampedDiscount,
+              finalPrice: weightRangeFinalPrice,
+              adjustedMargin: weightRange.actualMargin - weightRangeDiscountAmount
+            };
+          });
+        }
+        
+        return updatedRate;
       }
       return rate;
     }));
-  };
+  }, [serviceWeightRanges, includeFuelSurcharge]);
 
   // Aggiungi questa funzione di utilità direttamente nel componente
   const formatCurrency = (value: number | undefined): string => {
@@ -1252,19 +1239,27 @@ export default function RateComparisonCard() {
                 // Applica prima il fuel surcharge al prezzo base
                 const baseWithFuel = weightRange.basePrice * (1 + (parentRate.fuelSurcharge / 100));
                 // Poi sottrai lo sconto sul margine
-                finalPrice = baseWithFuel - (weightRange.actualMargin * (weightRange.userDiscount / 100));
+                finalPrice = baseWithFuel - (weightRange.actualMargin * (parentRate.userDiscount / 100));
               } else {
                 // Senza fuel surcharge
-                finalPrice = weightRange.basePrice - (weightRange.actualMargin * (weightRange.userDiscount / 100));
+                finalPrice = weightRange.basePrice - (weightRange.actualMargin * (parentRate.userDiscount / 100));
               }
               
               ratesToAdd.push({
                 ...parentRate,
                 id: rangeId,
                 currentWeightRange: {
+                  id: weightRange.id,
                   min: weightRange.min,
                   max: weightRange.max,
-                  label: weightRange.label
+                  label: weightRange.label,
+                  basePrice: weightRange.basePrice,
+                  userDiscount: weightRange.userDiscount,
+                  finalPrice: weightRange.finalPrice,
+                  actualMargin: weightRange.actualMargin,
+                  volumeDiscount: weightRange.volumeDiscount,
+                  promotionDiscount: weightRange.promotionDiscount,
+                  displayBasePrice: weightRange.displayBasePrice
                 },
                 basePrice: weightRange.basePrice,
                 finalPrice: finalPrice,
@@ -1314,97 +1309,70 @@ export default function RateComparisonCard() {
     
   }, [selectedRows, rates, serviceWeightRanges, addToCart, toast]);
   
-  // Controlla se ci sono elementi selezionati
+  // Manteniamo solo questa definizione di hasSelectedItems
   const hasSelectedItems = Object.values(selectedRows).some(isSelected => isSelected);
-
-  // Aggiungi una funzione per calcolare il prezzo finale considerando il fuel surcharge
-  const calculateFinalPrice = (basePrice: number, fuelSurcharge: number, discounts: any) => {
-    // Usiamo il prezzo base originale come punto di partenza
-    const originalBasePrice = basePrice;
-    
-    // Calcola lo sconto applicato al margine
-    const discountAmount = discounts.actualMargin * (discounts.userDiscount / 100);
-    
-    // Calcola il prezzo scontato
-    const discountedPrice = originalBasePrice - discountAmount;
-    
-    // Applica il fuel surcharge sul prezzo scontato se necessario
-    const finalPrice = includeFuelSurcharge && fuelSurcharge > 0
-      ? discountedPrice * (1 + (fuelSurcharge / 100))
-      : discountedPrice;
-    
-    return finalPrice;
-  };
-
-  // Aggiungi questa funzione di utilità
-  const getFuelSurchargeText = (rate: Rate) => {
-    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
-      return null;
-    }
-    
-    // Calcolo lo sconto applicato al margine
-    const discountPercentage = rate.userDiscount || 0;
-    const discountAmount = rate.actualMargin * (discountPercentage / 100);
-    
-    // Il prezzo di vendita dopo lo sconto
-    const discountedRetailPrice = rate.basePrice - discountAmount;
-    
-    // Calcolo il fuel surcharge sul prezzo di vendita scontato
-    const fuelSurchargeAmount = discountedRetailPrice * (rate.fuelSurcharge / 100);
-    
-    return (
-      <div className="text-sm text-muted-foreground">
-        Fuel Surcharge: {rate.fuelSurcharge}% 
-        ({formatCurrency(fuelSurchargeAmount)})
-      </div>
-    );
-  };
 
   // Aggiungi un effect per ricalcolare i prezzi quando il toggle cambia
   useEffect(() => {
-    if (rates.length > 0) {
-      // Ricrea le tariffe con il nuovo calcolo del fuel surcharge
-      setRates(prevRates => {
-        const updatedRates = prevRates.map(rate => {
-          // Calcola il prezzo base con fuel surcharge se richiesto
-          const displayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-            ? rate.basePrice * (1 + (rate.fuelSurcharge / 100))
-            : rate.basePrice;
+    if (rates.length === 0) return;
+    
+    setRates(prevRates => {
+      return prevRates.map(rate => {
+        // Calcola il prezzo base con fuel surcharge se necessario
+        const displayBasePrice = calculateBasePrice(
+          rate.basePrice, 
+          rate.fuelSurcharge, 
+          includeFuelSurcharge
+        );
+        
+        // Calcola il prezzo finale
+        const finalPrice = calculateFinalPrice(
+          rate.basePrice,
+          rate.actualMargin,
+          rate.userDiscount || 0,
+          rate.fuelSurcharge,
+          includeFuelSurcharge
+        );
+        
+        return {
+          ...rate,
+          finalPrice,
+          displayBasePrice,
+        };
+      });
+    });
+    
+    // Aggiorna anche le fasce di peso
+    Object.keys(serviceWeightRanges).forEach(serviceId => {
+      const rate = rates.find(r => r.service?._id === serviceId);
+      if (!rate) return;
+      
+      setServiceWeightRanges(prev => ({
+        ...prev,
+        [serviceId]: prev[serviceId].map(weightRange => {
+          const displayBasePrice = calculateBasePrice(
+            weightRange.basePrice, 
+            rate.fuelSurcharge, 
+            includeFuelSurcharge
+          );
           
-          // Calcola il prezzo finale basato sul displayBasePrice meno lo sconto sul margine
-          const discountAmount = rate.actualMargin * (rate.userDiscount / 100);
-          const finalPrice = displayBasePrice - discountAmount;
-          
-          // Aggiorna le fasce di peso con lo stesso calcolo
-          const updatedWeightRanges = rate.weightRanges?.map(range => {
-            // Calcola il prezzo base della fascia con fuel surcharge se richiesto
-            const rangeDisplayBasePrice = includeFuelSurcharge && rate.fuelSurcharge > 0
-              ? range.basePrice * (1 + (rate.fuelSurcharge / 100))
-              : range.basePrice;
-            
-            // Calcola il prezzo finale della fascia basato sul displayBasePrice meno lo sconto sul margine
-            const rangeDiscountAmount = range.actualMargin * (rate.userDiscount / 100);
-            const rangeFinalPrice = rangeDisplayBasePrice - rangeDiscountAmount;
-            
-            return {
-              ...range,
-              finalPrice: rangeFinalPrice,
-              displayBasePrice: rangeDisplayBasePrice
-            };
-          });
+          const finalPrice = calculateFinalPrice(
+            weightRange.basePrice,
+            weightRange.actualMargin,
+            rate.userDiscount || 0,
+            rate.fuelSurcharge,
+            includeFuelSurcharge
+          );
           
           return {
-            ...rate,
+            ...weightRange,
             finalPrice,
-            displayBasePrice,
-            weightRanges: updatedWeightRanges || rate.weightRanges
+            displayBasePrice
           };
-        });
-        
-        return updatedRates;
-      });
-    }
-  }, [includeFuelSurcharge]);
+        })
+      }));
+    });
+  }, [includeFuelSurcharge, rates, serviceWeightRanges]);
 
   // Add this function to generate page numbers with ellipsis
   const getVisiblePageNumbers = useCallback((currentPage: number, totalPages: number) => {
@@ -1427,135 +1395,56 @@ export default function RateComparisonCard() {
     }
   }, []);
 
-  // Modify the formatCountryList function to handle different data types
-  const formatCountryList = (countryStr: string | string[] | any): JSX.Element => {
-    // If it's undefined or null
-    if (!countryStr) return <span>-</span>;
+  // Assicuriamoci che la funzione formatCountryList sia definita correttamente
+  const formatCountryList = (countryStr: string | string[] | any): string => {
+    // Se non è definito, ritorniamo una stringa vuota
+    if (!countryStr) return '';
     
-    // If it's already an array of country codes
+    // Se è un array, uniamo i codici paese
     if (Array.isArray(countryStr)) {
-      const countries = countryStr;
-      
-      if (countries.length === 0) return <span>-</span>;
-      
-      if (countries.length <= 3) {
-        return <span>{countries.join(', ')}</span>;
-      }
-      
-      return (
-        <div className="flex items-center">
-          <span>{countries.slice(0, 2).join(', ')}</span>
-          <span className="text-muted-foreground">
-            {" "}+{countries.length - 2} more
-          </span>
-          <div className="relative group ml-1">
-            <span className="cursor-help text-xs">ℹ️</span>
-            <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
-              <p className="font-medium mb-1">All countries ({countries.length}):</p>
-              <p className="flex flex-wrap gap-1">
-                {countries.map((country) => (
-                  <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
-                    {country}
-                  </span>
-                ))}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
+      return countryStr.join(', ');
     }
     
-    // If it's a string, try to extract country codes
+    // Se è una stringa, controlliamo se contiene virgole
     if (typeof countryStr === 'string') {
-      const countries = countryStr.match(/[A-Z]{2}/g) || [];
-      
-      if (countries.length === 0) return <span>{countryStr}</span>;
-      
-      if (countries.length <= 3) {
-        return <span>{countries.join(', ')}</span>;
+      // Se contiene virgole, è una lista di codici paese
+      if (countryStr.includes(',')) {
+        const countries = countryStr.split(/,\s*/);
+        // Ritorniamo i primi 3 seguiti da "...e altri X" se ce ne sono altri
+        if (countries.length <= 3) {
+          return countries.join(', ');
+        } else {
+          return `${countries.slice(0, 3).join(', ')} ...e altri ${countries.length - 3}`;
+        }
       }
-      
-      return (
-        <div className="flex items-center">
-          <span>{countries.slice(0, 2).join(', ')}</span>
-          <span className="text-muted-foreground">
-            {" "}+{countries.length - 2} more
-          </span>
-          <div className="relative group ml-1">
-            <span className="cursor-help text-xs">ℹ️</span>
-            <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 max-h-60 overflow-y-auto left-0 top-full">
-              <p className="font-medium mb-1">All countries ({countries.length}):</p>
-              <p className="flex flex-wrap gap-1">
-                {countries.map((country) => (
-                  <span key={country} className="px-1.5 py-0.5 bg-primary/10 rounded text-xs">
-                    {country}
-                  </span>
-                ))}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
+      // Altrimenti è un singolo paese
+      return countryStr;
     }
     
-    // For any other type, just return a string representation
-    return <span>{String(countryStr)}</span>;
-  };
-
-  // Modifico la funzione per calcolare il margine sul fuel surcharge tenendo conto dello sconto
-  const calculateFuelSurchargeMargin = (rate: Rate): number => {
-    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
-      return 0;
-    }
-    
-    // Calcola la differenza tra ciò che Sendcloud addebita e ciò che paga per il fuel surcharge
-    // Sendcloud paga fuel surcharge sul costo di acquisto, ma addebita fuel surcharge sul prezzo di vendita
-    const purchasePrice = rate.purchasePrice || (rate.basePrice - rate.actualMargin);
-    
-    // Calcolo lo sconto applicato al margine base
-    const discountPercentage = rate.userDiscount || 0;
-    const discountAmount = rate.actualMargin * (discountPercentage / 100);
-    
-    // Il prezzo di vendita dopo lo sconto
-    const discountedRetailPrice = rate.basePrice - discountAmount;
-    
-    // Calcolo il fuel surcharge sul prezzo di vendita scontato
-    const fuelSurchargeOnRetail = discountedRetailPrice * (rate.fuelSurcharge / 100);
-    const fuelSurchargeOnPurchase = purchasePrice * (rate.fuelSurcharge / 100);
-    
-    return fuelSurchargeOnRetail - fuelSurchargeOnPurchase;
+    // Per qualsiasi altro tipo, ritorniamo una rappresentazione stringa
+    return String(countryStr);
   };
 
   // Ripristino la funzione per calcolare il margine totale (incluso fuel surcharge)
   const getTotalMargin = (rate: Rate): number => {
-    const baseMargin = rate.actualMargin;
-    const fuelMargin = calculateFuelSurchargeMargin(rate);
-    return baseMargin + fuelMargin;
+    return calculateTotalMargin(
+      rate.basePrice,
+      rate.purchasePrice || (rate.basePrice - rate.actualMargin),
+      rate.fuelSurcharge || 0,
+      rate.userDiscount || 0,
+      includeFuelSurcharge
+    );
   };
 
-  // Aggiorno anche la funzione per le fasce di peso
+  // Modifico la funzione getWeightRangeTotalMargin per utilizzare calculateTotalMargin
   const getWeightRangeTotalMargin = (weightRange: WeightRange, rate: Rate): number => {
-    const baseMargin = weightRange.actualMargin || 0;
-    
-    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
-      return baseMargin;
-    }
-    
-    // Per le fasce di peso non abbiamo il purchase price, quindi dobbiamo calcolarlo indirettamente
-    const purchasePrice = weightRange.basePrice - baseMargin;
-    
-    // Calcolo lo sconto applicato al margine base
-    const discountPercentage = rate.userDiscount || 0;
-    const discountAmount = baseMargin * (discountPercentage / 100);
-    
-    // Il prezzo di vendita dopo lo sconto
-    const discountedRetailPrice = weightRange.basePrice - discountAmount;
-    
-    // Calcolo il fuel surcharge sul prezzo di vendita scontato
-    const fuelSurchargeOnRetail = discountedRetailPrice * (rate.fuelSurcharge / 100);
-    const fuelSurchargeOnPurchase = purchasePrice * (rate.fuelSurcharge / 100);
-    
-    return baseMargin + (fuelSurchargeOnRetail - fuelSurchargeOnPurchase);
+    return calculateTotalMargin(
+      weightRange.basePrice,
+      (weightRange.basePrice - (weightRange.actualMargin || 0)),
+      rate.fuelSurcharge || 0,
+      rate.userDiscount || 0,
+      includeFuelSurcharge
+    );
   };
 
   // Funzione di supporto per assicurare la visualizzazione del prezzo base originale
@@ -1570,1148 +1459,258 @@ export default function RateComparisonCard() {
     return weightRange.basePrice;
   };
 
+  // Aggiungi questa funzione di utilità
+  const getFuelSurchargeText = (rate: Rate) => {
+    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
+      return null;
+    }
+    
+    // Calcolo lo sconto applicato al margine
+    const discountPercentage = rate.userDiscount || 0;
+    const discountAmount = calculateDiscountAmount(rate.actualMargin, discountPercentage);
+    
+    // Il prezzo di vendita dopo lo sconto
+    const discountedRetailPrice = rate.basePrice - discountAmount;
+    
+    // Calcolo il fuel surcharge sul prezzo di vendita scontato
+    const fuelSurchargeAmount = discountedRetailPrice * (rate.fuelSurcharge / 100);
+    
+    return (
+      <div className="text-sm text-muted-foreground">
+        Fuel Surcharge: {rate.fuelSurcharge}% 
+        ({formatCurrency(fuelSurchargeAmount)})
+      </div>
+    );
+  };
+
+  // Funzione per cambiare l'ordinamento
+  const requestSort = (key: string) => {
+    setSortConfig((prevSortConfig) => {
+      if (prevSortConfig.key === key) {
+        // Cambia direzione se è la stessa colonna
+        if (prevSortConfig.direction === 'ascending') {
+          return { key, direction: 'descending' };
+        }
+        // Reset se già descendente
+        return { key: null, direction: null };
+      }
+      // Nuova colonna, sempre ascendente
+      return { key, direction: 'ascending' };
+    });
+  };
+
+  // Icona per indicare l'ordinamento
+  const getSortIcon = (key: string) => {
+    if (sortConfig.key !== key) {
+      return null;
+    }
+    return sortConfig.direction === 'ascending' ? 
+      <ChevronUp className="h-4 w-4" /> : 
+      <ChevronDown className="h-4 w-4" />;
+  };
+
+  // Rate ordinate in base al sortConfig
+  const sortedRates = useMemo(() => {
+    if (!sortConfig.key || !sortConfig.direction) {
+      return displayedRates;
+    }
+
+    return [...displayedRates].sort((a, b) => {
+      // Gestire i casi specifici come prezzo e margine in modo numerico
+      if (sortConfig.key === 'finalPrice' || sortConfig.key === 'basePrice' || 
+          sortConfig.key === 'actualMargin' || sortConfig.key === 'marginPercentage') {
+        return sortConfig.direction === 'ascending'
+          ? (a[sortConfig.key] as number) - (b[sortConfig.key] as number)
+          : (b[sortConfig.key] as number) - (a[sortConfig.key] as number);
+      }
+      
+      // Per campi di testo, confronto di stringhe
+      const aValue = String(a[sortConfig.key as keyof typeof a] || '');
+      const bValue = String(b[sortConfig.key as keyof typeof b] || '');
+      
+      if (sortConfig.direction === 'ascending') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+  }, [displayedRates, sortConfig]);
+
+  // Funzione per aprire il dialog delle colonne
+  const openColumnsDialog = () => {
+    setColumnsDialogOpen(true);
+  };
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader className="pb-3 relative">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Image 
-              src="/sendcloud_logo.png" 
-              alt="Sendcloud Logo" 
-              width={40} 
-              height={40} 
-              className="rounded-md p-1"
-            />
-            <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
-              SendQuote
-            </CardTitle>
+          <CardTitle className="text-xl font-bold">Confronto Tariffe</CardTitle>
+          <div className="flex items-center space-x-2">
+            {/* Pulsanti esistenti */}
           </div>
-          
-          {/* Cart Icon with Item Count */}
-          <Button 
-            variant="outline"
-            size="icon" 
-            className="relative"
-            onClick={() => router.push("/cart")}
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {cartItems.length > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
-              >
-                {cartItems.length}
-              </Badge>
-            )}
-          </Button>
         </div>
         <CardDescription>
-          Compare shipping rates across different carriers
+          Confronta e gestisci le tariffe di spedizione per diverse destinazioni
         </CardDescription>
       </CardHeader>
-
-      <CardContent className="space-y-6">
-        {/* Filters Section */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <Filter className="mr-2 h-5 w-5" />
-                <h3 className="font-medium">Filters</h3>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setColumnsDialogOpen(true)}
-                className="flex items-center gap-1"
-              >
-                <Columns className="h-4 w-4" />
-                <span>Columns</span>
-              </Button>
-            </div>
-
-            <Separator className="mb-4" />
-
-            {/* Sostituisci il grid con un flex layout */}
-            <div className="flex flex-wrap items-start gap-3">
-              {/* Market - larghezza ridotta */}
-              <div className="space-y-2 w-[120px]">
-                <label htmlFor="market" className="text-sm font-medium">
-                  Market
-                </label>
-                <Select value={filters.sourceCountry} onValueChange={(value) => handleFilterChange("sourceCountry", value)}>
-                  <SelectTrigger id="market">
-                    <SelectValue placeholder="All markets" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All markets</SelectItem>
-                    {MARKETS.map((market) => (
-                      <SelectItem key={market.id} value={market.id}>
-                        {market.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Carrier - larghezza ridotta */}
-              <div className="space-y-2 w-[140px]">
-                <label htmlFor="carrier" className="text-sm font-medium">
-                  Carrier
-                </label>
-                <Select value={filters.carrierId} onValueChange={(value) => handleFilterChange("carrierId", value)}>
-                  <SelectTrigger id="carrier">
-                    <SelectValue placeholder="All carriers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti i corrieri</SelectItem>
-                    {carriers.map((carrier) => (
-                      <SelectItem key={carrier._id} value={carrier._id}>
-                        {carrier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Service Type - larghezza ridotta */}
-              <div className="space-y-2 w-[150px]">
-                <label htmlFor="service" className="text-sm font-medium">
-                  Service
-                </label>
-                <Select value={filters.service} onValueChange={(value) => handleFilterChange("service", value)}>
-                  <SelectTrigger id="service">
-                    <SelectValue placeholder="All services" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service._id} value={service._id}>
-                        {service.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Country filter - solo per EU e Extra EU */}
-              {(activeTab === "eu" || activeTab === "extra_eu") && (
-                <div className="space-y-2 w-[150px]">
-                  <label htmlFor="country" className="text-sm font-medium">
-                    Country
-                  </label>
-                  <Select value={filters.country} onValueChange={(value) => handleFilterChange("country", value)}>
-                    <SelectTrigger id="country">
-                      <SelectValue placeholder="All countries" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All countries</SelectItem>
-                      {getCountryList().map((country) => (
-                        <SelectItem key={country.id} value={country.id}>
-                          {country.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Weight - più stretto */}
-              <div className="space-y-2 w-[100px]">
-                <label htmlFor="weight" className="text-sm font-medium">
-                  Weight (kg)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="weight"
-                    type="number"
-                    value={filters.weight}
-                    onChange={(e) => handleFilterChange("weight", e.target.value)}
-                    min="0.1"
-                    step="0.1"
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Monthly Volume - più stretto */}
-              <div className="space-y-2 w-[120px]">
-                <label htmlFor="volume" className="text-sm font-medium">
-                  Volume
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="volume"
-                    type="number"
-                    value={filters.volume}
-                    onChange={(e) => handleFilterChange("volume", e.target.value)}
-                    min="1"
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Max Price - più stretto */}
-              <div className="space-y-2 w-[120px]">
-                <label htmlFor="maxPrice" className="text-sm font-medium">
-                  Max Price
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="maxPrice"
-                    type="number"
-                    value={filters.maxPrice}
-                    onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
-                    min="0.1"
-                    step="0.1"
-                    placeholder="Any"
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Destination Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="national">National</TabsTrigger>
-            <TabsTrigger value="eu">European Union</TabsTrigger>
-            <TabsTrigger value="extra_eu">Extra EU</TabsTrigger>
+      <CardContent>
+        <Tabs defaultValue="national" value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="national">Nazionali</TabsTrigger>
+            <TabsTrigger value="international">Internazionali</TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="mt-4">
+          {/* Tab contenuto per spedizioni nazionali e internazionali */}
+          <TabsContent value={activeTab} className="space-y-4">
+            {/* Componente RateFilters */}
+            <RateFilters 
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              carriers={carriers}
+              services={services}
+              activeTab={activeTab}
+              countryList={getCountryList().map(country => country.id)}
+              onColumnsDialogOpen={openColumnsDialog}
+              includeFuelSurcharge={includeFuelSurcharge}
+              onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}
+            />
+            
+            {/* Visualizzazione condizionale basata sullo stato */}
             {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-            ) : rates.length === 0 ? (
+              <LoadingIndicator stage={loadingStage} />
+            ) : error ? (
+              <ErrorDisplay 
+                message={`Si è verificato un errore durante il caricamento delle tariffe: ${error}`} 
+                onRetry={loadRates} 
+              />
+            ) : sortedRates.length === 0 ? (
               <Alert>
-                <AlertTitle>No rates found</AlertTitle>
-                <AlertDescription>No shipping rates match your current filter criteria.</AlertDescription>
+                <AlertTitle>Nessuna tariffa trovata</AlertTitle>
+                <AlertDescription>Nessuna tariffa corrisponde ai criteri di filtro attuali.</AlertDescription>
               </Alert>
             ) : (
+              // Tabella dei risultati
               <div className="rounded-md border">
-                <Table className="table-fixed">
-                  <TableHeader className="bg-muted">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={areAllRowsSelected}
-                          onCheckedChange={handleSelectAllRows}
-                          aria-label="Select all rows"
-                        />
-                      </TableHead>
-                      {/* Aggiungi una colonna per l'espansione */}
-                      <TableHead className="w-[50px]"></TableHead>
-                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && <TableHead className="w-[150px]">Carrier</TableHead>}
-                      {visibleColumns.find((col) => col.id === "service")?.isVisible && <TableHead className="w-[150px]">Service</TableHead>}
-                      {(activeTab === "eu" || activeTab === "extra_eu") &&
-                        visibleColumns.find((col) => col.id === "country")?.isVisible && <TableHead className="w-[120px]">Country</TableHead>}
-                      {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                        <TableHead className="w-[120px]">Weight Range</TableHead>
-                      )}
-                      {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                        <TableHead className="text-right w-[100px]">
-                          {includeFuelSurcharge ? (
-                            <div className="whitespace-normal text-xs">
-                              Base Rate
-                              <br />
-                              <span className="text-xs text-muted-foreground">
-                                (+Fuel {Math.round((rates[0]?.fuelSurcharge || 0) * 10) / 10}%)
-                              </span>
-                            </div>
-                          ) : (
-                            "Base Rate"
-                          )}
+                      <TableHead className="w-10"></TableHead>
+                      <TableHead className="w-10"></TableHead>
+                      
+                      {/* Intestazioni colonne con ordinamento */}
+                      {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
+                        <TableHead 
+                          className="w-[150px] cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('carrierName')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Corriere</span>
+                            {getSortIcon('carrierName')}
+                          </div>
                         </TableHead>
                       )}
+                      
+                      {visibleColumns.find((col) => col.id === "service")?.isVisible && (
+                        <TableHead 
+                          className="w-[200px] cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('serviceName')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Servizio</span>
+                            {getSortIcon('serviceName')}
+                          </div>
+                        </TableHead>
+                      )}
+                      
+                      {visibleColumns.find((col) => col.id === "country")?.isVisible && (
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('countryName')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Paese</span>
+                            {getSortIcon('countryName')}
+                          </div>
+                        </TableHead>
+                      )}
+                      
+                      {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('basePrice')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Prezzo Base</span>
+                            {getSortIcon('basePrice')}
+                          </div>
+                        </TableHead>
+                      )}
+                      
                       {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                        <TableHead className="text-right w-[120px]">Discount (%)</TableHead>
+                        <TableHead className="w-24">Sconto</TableHead>
                       )}
+                      
                       {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                        <TableHead className="text-right w-[100px]">Final Price</TableHead>
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('finalPrice')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Prezzo Finale</span>
+                            {getSortIcon('finalPrice')}
+                          </div>
+                        </TableHead>
                       )}
+                      
                       {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                        <TableHead className="text-center w-[120px]">Margin</TableHead>
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/30"
+                          onClick={() => requestSort('actualMargin')}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>Margine</span>
+                            {getSortIcon('actualMargin')}
+                          </div>
+                        </TableHead>
                       )}
-                      {visibleColumns.find((col) => col.id === "totalMargin")?.isVisible && (
-                        <TableHead className="text-center w-[130px]">Total Margin ({filters.volume})</TableHead>
-                      )}
+                      
                       {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                        <TableHead className="text-center w-[100px]">Delivery</TableHead>
+                        <TableHead className="text-center">Consegna</TableHead>
+                      )}
+                      
+                      {visibleColumns.find((col) => col.id === "details")?.isVisible && (
+                        <TableHead className="text-center">Dettagli</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
+                  
                   <TableBody>
-                    {displayedRates.map((rate, index) => (
-                      <>
-                        <TableRow key={rate.id} className="even:bg-muted/20 hover:bg-muted/40">
-                          <TableCell>
-                            <Checkbox
-                              checked={!!selectedRows[rate.id]}
-                              onCheckedChange={(checked) => handleRowSelect(rate.id, !!checked)}
-                              aria-label={`Select row ${index + 1}`}
-                            />
-                          </TableCell>
-                          {/* Aggiungi una cella con il pulsante di espansione */}
-                          <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleRowExpansion(rate.service?._id || '');
-                              }}
-                              className="h-8 w-8 p-0"
-                            >
-                              {expandedRows[rate.service?._id || ''] ? 
-                                <ChevronDown className="h-4 w-4" /> : 
-                                <ChevronRight className="h-4 w-4" />}
-                            </Button>
-                          </TableCell>
-                          {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
-                            <TableCell>{rate.carrierName}</TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "service")?.isVisible && (
-                            <TableCell>
-                              <span className="font-medium">{rate.serviceName}</span>
-                            </TableCell>
-                          )}
-                          {(activeTab === "eu" || activeTab === "extra_eu") &&
-                            visibleColumns.find((col) => col.id === "country")?.isVisible && (
-                              <TableCell className="max-w-[250px] truncate">
-                                {formatCountryList(rate.countryName)}
-                              </TableCell>
-                            )}
-                          {visibleColumns.find((col) => col.id === "weightRange")?.isVisible && (
-                            <TableCell className="font-medium">
-                              {rate.weightMin !== undefined && rate.weightMax !== undefined 
-                                ? `${rate.weightMin}-${rate.weightMax} kg` 
-                                : (rate.currentWeightRange ? `${rate.currentWeightRange.min}-${rate.currentWeightRange.max} kg` : "N/A")}
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
-                            <TableCell className="text-right relative group">
-                              <div className="flex justify-end">
-                                <span className="cursor-help">
-                                  {formatCurrency(rate.displayBasePrice || rate.basePrice)}
-                                </span>
-                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
-                                  <p className="font-medium mb-1 border-b pb-1">Base Rate Calculation:</p>
-                                  <div className="space-y-1 text-xs">
-                                    <div className="flex justify-between">
-                                      <span>Base Price:</span>
-                                      <span>{formatCurrency(rate.basePrice)}</span>
-                                    </div>
-                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                      <>
-                                        <div className="flex justify-between text-muted-foreground">
-                                          <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                          <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
-                                        </div>
-                                        <div className="flex justify-between font-medium pt-1 border-t">
-                                          <span>Total:</span>
-                                          <span>{formatCurrency(rate.displayBasePrice || rate.basePrice)}</span>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="90"
-                                step="0.01"
-                                value={rate.userDiscount || 0}
-                                onChange={e => handleDiscountChange(
-                                  rate.id,
-                                  rate.service?._id || '',
-                                  parseFloat(e.target.value) || 0
-                                )}
-                                className="w-24 h-8 text-right"
-                              />
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
-                            <TableCell className="text-right font-medium relative group">
-                              <div className="flex justify-end">
-                                <span className="cursor-help">
-                                  {formatCurrency(rate.finalPrice)}
-                                </span>
-                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 right-full mr-2 top-1/2 -translate-y-1/2">
-                                  <p className="font-medium mb-1 border-b pb-1">Final Price Calculation:</p>
-                                  <div className="space-y-1 text-xs">
-                                    <div className="flex justify-between">
-                                      <span>Base Price:</span>
-                                      <span>{formatCurrency(rate.basePrice)}</span>
-                                    </div>
-                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                      <div className="flex justify-between text-muted-foreground">
-                                        <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                        <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between font-medium">
-                                      <span>Base Rate:</span>
-                                      <span>{formatCurrency(rate.displayBasePrice || rate.basePrice)}</span>
-                                    </div>
-                                    
-                                    {/* Dettaglio del margine e calcolo dello sconto */}
-                                    <div className="pt-1 border-t">
-                                      <div className="flex justify-between">
-                                        <span>Base Margin:</span>
-                                        <span>{formatCurrency(rate.actualMargin)}</span>
-                                      </div>
-                                      {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                        <div className="flex justify-between text-amber-600">
-                                          <span>+ Extra Margin on Fuel:</span>
-                                          <span>{formatCurrency(calculateFuelSurchargeMargin(rate))}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-between font-medium">
-                                        <span>Total Margin:</span>
-                                        <span>{formatCurrency(getTotalMargin(rate))}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Discount Percentage:</span>
-                                        <span>{rate.userDiscount || 0}%</span>
-                                      </div>
-                                      <div className="flex justify-between text-primary">
-                                        <span>- Applied to Base Margin:</span>
-                                        <span>-{formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex justify-between font-medium pt-1 border-t">
-                                      <span>Final Price = Base Rate - Discount:</span>
-                                      <span>{formatCurrency(rate.finalPrice)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-muted-foreground text-[10px] italic pt-1">
-                                      <span>= {formatCurrency(rate.displayBasePrice || rate.basePrice)} - {formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
-                            <TableCell className="text-center relative group">
-                              <div className="flex items-center justify-center">
-                                <Badge
-                                  variant={getMarginColor(
-                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                  )}
-                                  className="cursor-help"
-                                >
-                                  {formatCurrency(
-                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                  )}{" "}
-                                  (
-                                  {getMarginLabel(
-                                    getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100),
-                                  )}
-                                  )
-                                </Badge>
-                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 right-full mr-2 top-1/2 -translate-y-1/2">
-                                  <p className="font-medium mb-1 border-b pb-1">Margin Calculation:</p>
-                                  <div className="space-y-1 text-xs">
-                                    <div className="flex justify-between">
-                                      <span>Base Price:</span>
-                                      <span>{formatCurrency(rate.basePrice)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span>Purchase Price (cost):</span>
-                                      <span>{formatCurrency(rate.purchasePrice || (rate.basePrice - rate.actualMargin))}</span>
-                                    </div>
-                                    <div className="flex justify-between font-medium">
-                                      <span>Base Margin:</span>
-                                      <span>{formatCurrency(rate.actualMargin)}</span>
-                                    </div>
-                                    
-                                    <div className="pt-1 border-t">
-                                      <div className="flex justify-between">
-                                        <span>Discount Percentage:</span>
-                                        <span>{rate.userDiscount || 0}%</span>
-                                      </div>
-                                      <div className="flex justify-between text-primary">
-                                        <span>- Applied to Base Margin:</span>
-                                        <span>-{formatCurrency(rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                      <>
-                                        <div className="pt-1 border-t">
-                                          <div className="flex justify-between text-sm font-medium">
-                                            <span>Fuel Margin Calculation:</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>Original Retail Price:</span>
-                                            <span>{formatCurrency(getOriginalBasePrice(rate))}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>Discounted Retail Price:</span>
-                                            <span>{formatCurrency(getOriginalBasePrice(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
-                                            <span>{formatCurrency((getOriginalBasePrice(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>Purchase Price:</span>
-                                            <span>{formatCurrency(rate.purchasePrice || (getOriginalBasePrice(rate) - rate.actualMargin))}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>Fuel on Purchase ({rate.fuelSurcharge}%):</span>
-                                            <span>{formatCurrency((rate.purchasePrice || (getOriginalBasePrice(rate) - rate.actualMargin)) * (rate.fuelSurcharge / 100))}</span>
-                                          </div>
-                                          <div className="flex justify-between text-amber-600 font-medium">
-                                            <span>Extra Margin on Fuel:</span>
-                                            <span>{formatCurrency(calculateFuelSurchargeMargin(rate))}</span>
-                                          </div>
-                                        </div>
-                                      </>
-                                    )}
-                                    
-                                    <div className="flex justify-between font-medium pt-1 border-t">
-                                      <span>Total Margin:</span>
-                                      <span>{formatCurrency(getTotalMargin(rate))}</span>
-                                    </div>
-                                    
-                                    <div className="flex justify-between font-medium pt-1 border-t">
-                                      <span>Final Margin:</span>
-                                      <span>{formatCurrency(getTotalMargin(rate) - rate.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "totalMargin")?.isVisible && (
-                            <TableCell className="text-center">
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
-                                {formatCurrency(
-                                  (getTotalMargin(rate) - getTotalMargin(rate) * ((rate.userDiscount || 0) / 100)) * 
-                                  parseInt(filters.volume || "0", 10)
-                                )}
-                              </Badge>
-                            </TableCell>
-                          )}
-                          {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                            <TableCell className="text-center">
-                              {rate.deliveryTimeMin === rate.deliveryTimeMax
-                                ? `${rate.deliveryTimeMin}h`
-                                : `${rate.deliveryTimeMin}-${rate.deliveryTimeMax}h`}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                        
-                        {/* Riga espansa con tutte le fasce di peso */}
-                        {expandedRows[rate.service?._id || ''] && (
-                          <TableRow>
-                            <TableCell colSpan={visibleColumns.filter(col => col.isVisible).length + 2}>
-                              <div className="bg-muted/20 p-4 rounded-md">
-                                <h4 className="font-medium mb-3">Weight ranges for {rate.serviceName}</h4>
-                                
-                                {/* Mostra un indicatore di caricamento se le fasce di peso non sono ancora state caricate */}
-                                {!serviceWeightRanges[rate.service?._id || ''] ? (
-                                  <div className="flex justify-center py-4">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                                  </div>
-                                ) : serviceWeightRanges[rate.service?._id || ''].length === 0 ? (
-                                  <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
-                                ) : (
-                                  <Table className="table-fixed">
-                                    <TableHeader className="bg-muted">
-                                      <TableRow>
-                                        <TableHead className="w-[60px]">Select</TableHead>
-                                        {/* Rimuovi colonne duplicate e mostra solo le informazioni essenziali */}
-                                        <TableHead className="w-[120px]">Weight Range</TableHead>
-                                        <TableHead className="w-[100px] text-right">
-                                          {includeFuelSurcharge ? (
-                                            <div className="whitespace-normal text-xs">
-                                              Base Rate
-                                              <br />
-                                              <span className="text-xs text-muted-foreground">
-                                                (+Fuel {Math.round((rates[0]?.fuelSurcharge || 0) * 10) / 10}%)
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            "Base Rate"
-                                          )}
-                                        </TableHead>
-                                        <TableHead className="w-[120px] text-right">Discount (%)</TableHead>
-                                        <TableHead className="w-[100px] text-right">Final Price</TableHead>
-                                        <TableHead className="w-[120px] text-center">Margin</TableHead>
-                                        <TableHead className="w-[130px] text-center">Total Margin</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {serviceWeightRanges[rate.service?._id || ''].map((weightRange) => (
-                                        <TableRow key={weightRange.id} className="even:bg-muted/20 hover:bg-muted/40">
-                                          {/* Checkbox per la fascia di peso */}
-                                          <TableCell>
-                                            <Checkbox
-                                              checked={!!selectedRows[`${rate.id}-${weightRange.id}`]}
-                                              onCheckedChange={(checked) => 
-                                                handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
-                                              }
-                                              aria-label={`Select weight range ${weightRange.label}`}
-                                            />
-                                          </TableCell>
-                                          
-                                          {/* Weight Range */}
-                                          <TableCell className="font-medium">{weightRange.label}</TableCell>
-                                          
-                                          {/* Base Rate */}
-                                          <TableCell className="text-right relative group">
-                                            <div className="flex justify-end">
-                                              <span className="cursor-help">
-                                                {formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}
-                                              </span>
-                                              <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                              <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-64 top-0 right-full mr-2">
-                                                <p className="font-medium mb-1 border-b pb-1">Base Rate Calculation:</p>
-                                                <div className="space-y-1 text-xs">
-                                                  <div className="flex justify-between">
-                                                    <span>Base Price:</span>
-                                                    <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                                  </div>
-                                                  {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                                    <>
-                                                      <div className="flex justify-between text-muted-foreground">
-                                                        <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                                        <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
-                                                      </div>
-                                                      <div className="flex justify-between font-medium pt-1 border-t">
-                                                        <span>Total:</span>
-                                                        <span>{formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}</span>
-                                                      </div>
-                                                    </>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          
-                                          {/* Discount - mostra lo stesso sconto della riga principale (solo lettura) */}
-                                          <TableCell className="text-right">
-                                            <div className="flex items-center justify-end">
-                                              <span className="text-center min-w-[60px]">{rate.userDiscount || 0}%</span>
-                                            </div>
-                                          </TableCell>
-                                          
-                                          {/* Final Price */}
-                                          <TableCell className="text-right font-medium relative group">
-                                            <div className="flex justify-end">
-                                              <span className="cursor-help">
-                                                {formatCurrency(weightRange.finalPrice || 0)}
-                                              </span>
-                                              <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                              <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 right-full mr-2 top-1/2 -translate-y-1/2">
-                                                <p className="font-medium mb-1 border-b pb-1">Final Price Calculation:</p>
-                                                <div className="space-y-1 text-xs">
-                                                  <div className="flex justify-between">
-                                                    <span>Base Price:</span>
-                                                    <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                                  </div>
-                                                  {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                                    <div className="flex justify-between text-muted-foreground">
-                                                      <span>+ Fuel Surcharge ({rate.fuelSurcharge}%):</span>
-                                                      <span>{formatCurrency((rate.basePrice - (rate.actualMargin * ((rate.userDiscount || 0) / 100))) * (rate.fuelSurcharge / 100))}</span>
-                                                    </div>
-                                                  )}
-                                                  <div className="flex justify-between font-medium">
-                                                    <span>Base Rate:</span>
-                                                    <span>{formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)}</span>
-                                                  </div>
-                                                  
-                                                  {/* Dettaglio del margine e calcolo dello sconto */}
-                                                  <div className="pt-1 border-t">
-                                                    <div className="flex justify-between">
-                                                      <span>Base Margin:</span>
-                                                      <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
-                                                    </div>
-                                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                                      <div className="flex justify-between text-amber-600">
-                                                        <span>+ Extra Margin on Fuel:</span>
-                                                        <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0))}</span>
-                                                      </div>
-                                                    )}
-                                                    <div className="flex justify-between font-medium">
-                                                      <span>Total Margin:</span>
-                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                      <span>Discount Percentage:</span>
-                                                      <span>{rate.userDiscount || 0}%</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-primary">
-                                                      <span>- Applied to Base Margin:</span>
-                                                      <span>-{formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
-                                                    </div>
-                                                  </div>
-                                                  
-                                                  <div className="flex justify-between font-medium pt-1 border-t">
-                                                    <span>Final Price = Base Rate - Discount:</span>
-                                                    <span>{formatCurrency(weightRange.finalPrice || 0)}</span>
-                                                  </div>
-                                                  <div className="flex justify-between text-muted-foreground text-[10px] italic pt-1">
-                                                    <span>= {formatCurrency(weightRange.displayBasePrice || weightRange.basePrice || 0)} - {formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          
-                                          {/* Margin */}
-                                          <TableCell className="text-center relative group">
-                                            {weightRange.actualMargin !== undefined ? (
-                                              <div className="flex items-center justify-center">
-                                                <Badge
-                                                  variant={getMarginColor(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
-                                                  )}
-                                                  className="cursor-help"
-                                                >
-                                                  {formatCurrency(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
-                                                  )}{" "}
-                                                  ({getMarginLabel(
-                                                    getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100)
-                                                  )})
-                                                </Badge>
-                                                <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity">ℹ️</span>
-                                                <div className="absolute z-50 hidden group-hover:block bg-secondary p-2 rounded shadow-lg text-sm w-80 right-full mr-2 top-1/2 -translate-y-1/2">
-                                                  <p className="font-medium mb-1 border-b pb-1">Margin Calculation:</p>
-                                                  <div className="space-y-1 text-xs">
-                                                    <div className="flex justify-between">
-                                                      <span>Base Price:</span>
-                                                      <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                      <span>Purchase Price (cost):</span>
-                                                      <span>{formatCurrency((weightRange.basePrice || 0) - (weightRange.actualMargin || 0))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between font-medium">
-                                                      <span>Base Margin:</span>
-                                                      <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
-                                                    </div>
-                                                    
-                                                    <div className="pt-1 border-t">
-                                                      <div className="flex justify-between">
-                                                        <span>Discount Percentage:</span>
-                                                        <span>{rate.userDiscount || 0}%</span>
-                                                      </div>
-                                                      <div className="flex justify-between text-primary">
-                                                        <span>- Applied to Base Margin:</span>
-                                                        <span>-{formatCurrency((weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
-                                                      </div>
-                                                    </div>
-                                                    
-                                                    {includeFuelSurcharge && rate.fuelSurcharge > 0 && (
-                                                      <>
-                                                        <div className="pt-1 border-t">
-                                                          <div className="flex justify-between text-sm font-medium">
-                                                            <span>Fuel Margin Calculation:</span>
-                                                          </div>
-                                                          <div className="flex justify-between">
-                                                            <span>Original Retail Price:</span>
-                                                            <span>{formatCurrency(getOriginalWeightRangeBasePrice(weightRange))}</span>
-                                                          </div>
-                                                          <div className="flex justify-between">
-                                                            <span>Discounted Retail Price:</span>
-                                                            <span>{formatCurrency(getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin * ((rate.userDiscount || 0) / 100))}</span>
-                                                          </div>
-                                                          <div className="flex justify-between">
-                                                            <span>Fuel on Discounted Retail ({rate.fuelSurcharge}%):</span>
-                                                            <span>{formatCurrency((getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin * ((rate.userDiscount || 0) / 100)) * (rate.fuelSurcharge / 100))}</span>
-                                                          </div>
-                                                          <div className="flex justify-between">
-                                                            <span>Purchase Price:</span>
-                                                            <span>{formatCurrency(rate.purchasePrice || (getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin))}</span>
-                                                          </div>
-                                                          <div className="flex justify-between">
-                                                            <span>Fuel on Purchase ({rate.fuelSurcharge}%):</span>
-                                                            <span>{formatCurrency((rate.purchasePrice || (getOriginalWeightRangeBasePrice(weightRange) - weightRange.actualMargin)) * (rate.fuelSurcharge / 100))}</span>
-                                                          </div>
-                                                          <div className="flex justify-between text-amber-600 font-medium">
-                                                            <span>Extra Margin on Fuel:</span>
-                                                            <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0))}</span>
-                                                          </div>
-                                                        </div>
-                                                      </>
-                                                    )}
-                                                    
-                                                    <div className="flex justify-between font-medium pt-1 border-t">
-                                                      <span>Total Margin:</span>
-                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate))}</span>
-                                                    </div>
-                                                    
-                                                    <div className="flex justify-between font-medium pt-1 border-t">
-                                                      <span>Final Margin:</span>
-                                                      <span>{formatCurrency(getWeightRangeTotalMargin(weightRange, rate) - (weightRange.actualMargin || 0) * ((rate.userDiscount || 0) / 100))}</span>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ) : (
-                                              "N/D"
-                                            )}
-                                          </TableCell>
-                                          
-                                          {/* Aggiungi la cella per il margine totale */}
-                                          <TableCell className="text-center">
-                                            {weightRange.actualMargin !== undefined ? (
-                                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
-                                                {formatCurrency(
-                                                  (getWeightRangeTotalMargin(weightRange, rate) - getWeightRangeTotalMargin(weightRange, rate) * ((rate.userDiscount || 0) / 100)) * 
-                                                  parseInt(filters.volume || "0", 10)
-                                                )}
-                                              </Badge>
-                                            ) : (
-                                              "N/D"
-                                            )}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
+                    {/* Usa sortedRates invece di displayedRates */}
+                    {sortedRates.map((rate) => (
+                      <RateTableRow
+                        key={rate.id}
+                        rate={rate}
+                        selectedRows={selectedRows}
+                        expandedRows={expandedRows}
+                        visibleColumns={visibleColumns}
+                        handleRowSelect={handleRowSelect}
+                        toggleRowExpansion={() => toggleRowExpansion(rate.id)}
+                        handleDiscountChange={handleDiscountChange}
+                        includeFuelSurcharge={includeFuelSurcharge}
+                        filters={filters}
+                        getFuelSurchargeText={getFuelSurchargeText}
+                      />
                     ))}
                   </TableBody>
                 </Table>
               </div>
             )}
-
-            {/* Pagination */}
-            {rates.length > rowsPerPage && (
-              <div className="flex justify-center mt-4">
-                <Pagination>
-                  <UPaginationContent>
-                    <UPaginationItem>
-                      <PaginationPrevious
-                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </UPaginationItem>
-
-                    {getVisiblePageNumbers(currentPage, totalPages).map((item, i) => (
-                      <UPaginationItem key={i}>
-                        {item === 'ellipsis' ? (
-                          <span className="px-3 py-2">...</span>
-                        ) : (
-                          <PaginationLink 
-                            isActive={currentPage === item} 
-                            onClick={() => setCurrentPage(item as number)}
-                          >
-                            {item}
-                          </PaginationLink>
-                        )}
-                      </UPaginationItem>
-                    ))}
-
-                    <UPaginationItem>
-                      <PaginationNext
-                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </UPaginationItem>
-                  </UPaginationContent>
-                </Pagination>
-              </div>
-            )}
           </TabsContent>
         </Tabs>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between space-x-2">
-          <div>
-            {Object.values(selectedRows).some(Boolean) && (
-              <Button variant="outline">{Object.values(selectedRows).filter(Boolean).length} rows selected</Button>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {/* Aggiungi il toggle per il fuel surcharge qui, accanto al pulsante columns */}
-            <div className="flex items-center space-x-2 mr-4">
-              <Switch
-                checked={includeFuelSurcharge}
-                onCheckedChange={setIncludeFuelSurcharge}
-                id="fuel-surcharge-toggle"
-              />
-              <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
-                Include Fuel
-              </Label>
-            </div>
-            
-            <Button variant="outline" onClick={() => setColumnsDialogOpen(true)}>
-              <Columns className="mr-2 h-4 w-4" />
-              Columns
-            </Button>
-          </div>
-        </div>
+        
+        {/* ... existing code ... */}
       </CardContent>
-
-      {/* Rate Detail Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>
-                Rate Details: {selectedRate?.carrierName} - {selectedRate?.serviceName}
-              </span>
-              <Button variant="ghost" size="icon" onClick={() => setDetailOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedRate && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Basic Information</h4>
-                <Separator className="mb-3" />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Carrier:</span>
-                    <span className="text-sm font-medium">{selectedRate.carrierName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Service:</span>
-                    <span className="text-sm font-medium">{selectedRate.serviceName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Weight Range:</span>
-                    <span className="text-sm font-medium">{selectedRate.currentWeightRange.label}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Destination:</span>
-                    <span className="text-sm font-medium">
-                      {selectedRate.destinationType === "national"
-                        ? "National"
-                        : selectedRate.destinationType === "eu"
-                          ? "European Union"
-                          : "Extra EU"}
-                    </span>
-                  </div>
-                  {(selectedRate.destinationType === "eu" || selectedRate.destinationType === "extra_eu") && (
-                    <div className="flex justify-between">
-                      <span className="text-sm">Country:</span>
-                      <span className="text-sm font-medium">{selectedRate.countryName}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-sm">Delivery Time:</span>
-                    <span className="text-sm font-medium">
-                      {selectedRate.deliveryTimeMin === selectedRate.deliveryTimeMax
-                        ? `${selectedRate.deliveryTimeMin} hours`
-                        : `${selectedRate.deliveryTimeMin}-${selectedRate.deliveryTimeMax} hours`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Price Details</h4>
-                <Separator className="mb-3" />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Base Rate:</span>
-                    <span className="text-sm font-medium">{formatCurrency(selectedRate.basePrice)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Fuel Surcharge ({selectedRate.fuelSurcharge}%):</span>
-                    <span className="text-sm font-medium">
-                      {formatCurrency((selectedRate.basePrice - (selectedRate.actualMargin * ((selectedRate.userDiscount || 0) / 100))) * (selectedRate.fuelSurcharge / 100))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Total Base Price:</span>
-                    <span className="text-sm font-medium">{formatCurrency(selectedRate.totalBasePrice)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Volume Discount ({selectedRate.volumeDiscount}%):</span>
-                    <span className="text-sm font-medium text-primary">
-                      -{formatCurrency(selectedRate.totalBasePrice * (selectedRate.volumeDiscount / 100))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Promotion Discount ({selectedRate.promotionDiscount}%):</span>
-                    <span className="text-sm font-medium text-primary">
-                      -{formatCurrency(selectedRate.totalBasePrice * (selectedRate.promotionDiscount / 100))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">User Discount ({selectedRate.userDiscount || 0}%):</span>
-                    <span className="text-sm font-medium text-primary">
-                      -{formatCurrency(selectedRate.actualMargin * ((selectedRate.userDiscount || 0) / 100))}
-                    </span>
-                  </div>
-
-                  <Separator className="my-2" />
-
-                  <div className="flex justify-between">
-                    <span className="font-medium">Final Price:</span>
-                    <span className="font-medium">{formatCurrency(selectedRate.finalPrice)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Margin:</span>
-                    <Badge
-                      variant={getMarginColor(
-                        selectedRate.actualMargin -
-                          selectedRate.actualMargin * ((selectedRate.userDiscount || 0) / 100),
-                      )}
-                    >
-                      {formatCurrency(
-                        selectedRate.actualMargin -
-                          selectedRate.actualMargin * ((selectedRate.userDiscount || 0) / 100),
-                      )}{" "}
-                      (
-                      {getMarginLabel(
-                        selectedRate.actualMargin -
-                          selectedRate.actualMargin * ((selectedRate.userDiscount || 0) / 100),
-                      )}
-                      )
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Suggestions Dialog */}
-      <Dialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Lightbulb className="mr-2 h-5 w-5 text-primary" />
-              AI Suggestions to Optimize Your Rates
-            </DialogTitle>
-            <DialogDescription>
-              Smart recommendations based on your shipping patterns and carrier rates
-            </DialogDescription>
-          </DialogHeader>
-
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 p-1">
-              {suggestions.length === 0 ? (
-                <Alert>
-                  <AlertTitle>No suggestions available</AlertTitle>
-                  <AlertDescription>No suggestions are available for your current filter criteria.</AlertDescription>
-                </Alert>
-              ) : (
-                suggestions.map((suggestion, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      suggestion.type === "margin_warning"
-                        ? "border-l-destructive bg-destructive/10"
-                        : suggestion.type === "active_promotion"
-                          ? "border-l-success bg-success/10"
-                          : "border-l-primary bg-primary/10"
-                    }`}
-                  >
-                    <h4 className="font-medium mb-1">
-                      {suggestion.type === "margin_warning"
-                        ? "Margin Warning"
-                        : suggestion.type === "active_promotion"
-                          ? "Active Promotion"
-                          : "Volume Opportunity"}
-                    </h4>
-                    <p className="text-sm">{suggestion.message}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSuggestionsOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Column Customization Dialog */}
-      <Dialog open={columnsDialogOpen} onOpenChange={setColumnsDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Columns className="mr-2 h-5 w-5" />
-              Customize Columns
-            </DialogTitle>
-            <DialogDescription>Select which columns to display in the table</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {visibleColumns.map((column) => (
-              <div key={column.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`${column.id}-visible`}
-                  checked={column.isVisible}
-                  onCheckedChange={(checked) => toggleColumnVisibility(column.id, checked)}
-                />
-                <label htmlFor={`${column.id}-visible`}>{column.name}</label>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setColumnsDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modify the "Add to Cart" banner to show counts correctly and make it more transparent */}
-      {hasSelectedItems && (
-        <div className="fixed bottom-0 left-0 right-0 bg-primary bg-opacity-70 backdrop-blur-sm text-white p-4 shadow-lg z-50">
-          <div className="container mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <ShoppingCart className="h-5 w-5" />
-              <span>
-                {selectedItemsCount} service(s) selected
-                {getSelectedWeightRangesCount() > 0 && 
-                  ` (with ${getSelectedWeightRangesCount()} weight ranges)`}
-              </span>
-            </div>
-            <Button 
-              variant="secondary" 
-              onClick={addSelectedToCart}
-              className="bg-white text-primary hover:bg-gray-100"
-            >
-              Add to Cart
-            </Button>
-          </div>
-        </div>
-      )}
     </Card>
-  )
+  );
 }
