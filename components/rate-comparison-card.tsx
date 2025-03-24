@@ -1369,17 +1369,17 @@ export default function RateComparisonCard() {
                 </Alert>
               ) : (
                 // Tabella dei risultati
-                <div className="rounded-md border">
+                <div className="rounded-md border shadow-sm overflow-hidden">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-10"></TableHead>
-                        <TableHead className="w-10"></TableHead>
+                    <TableHeader className="bg-gradient-to-b from-slate-700/95 to-slate-600/90">
+                      <TableRow className="border-b-0 hover:bg-transparent">
+                        <TableHead className="w-10 text-white text-center"></TableHead>
+                        <TableHead className="w-10 text-white text-center"></TableHead>
                         
                         {/* Intestazioni colonne con ordinamento */}
                         {visibleColumns.find((col) => col.id === "carrier")?.isVisible && (
                           <TableHead 
-                            className="w-[150px] cursor-pointer hover:bg-muted/30"
+                            className="w-[150px] cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('carrierName')}
                           >
                             <div className="flex items-center justify-between">
@@ -1391,7 +1391,7 @@ export default function RateComparisonCard() {
                         
                         {visibleColumns.find((col) => col.id === "service")?.isVisible && (
                           <TableHead 
-                            className="w-[200px] cursor-pointer hover:bg-muted/30"
+                            className="w-[200px] cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('serviceName')}
                           >
                             <div className="flex items-center justify-between">
@@ -1403,7 +1403,7 @@ export default function RateComparisonCard() {
                         
                         {visibleColumns.find((col) => col.id === "country")?.isVisible && (
                           <TableHead
-                            className="cursor-pointer hover:bg-muted/30"
+                            className="cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('countryName')}
                           >
                             <div className="flex items-center justify-between">
@@ -1415,10 +1415,10 @@ export default function RateComparisonCard() {
                         
                         {visibleColumns.find((col) => col.id === "baseRate")?.isVisible && (
                           <TableHead 
-                            className="text-center cursor-pointer hover:bg-muted/30"
+                            className="text-center cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('basePrice')}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center">
                               <span>Prezzo Base</span>
                               {getSortIcon('basePrice')}
                             </div>
@@ -1426,15 +1426,19 @@ export default function RateComparisonCard() {
                         )}
                         
                         {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                          <TableHead className="w-24">Sconto</TableHead>
+                          <TableHead className="w-24 text-white text-right">
+                            <div className="flex items-center justify-end">
+                              <span>Sconto</span>
+                            </div>
+                          </TableHead>
                         )}
                         
                         {visibleColumns.find((col) => col.id === "finalPrice")?.isVisible && (
                           <TableHead 
-                            className="text-center cursor-pointer hover:bg-muted/30"
+                            className="text-center cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('finalPrice')}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center">
                               <span>Prezzo Finale</span>
                               {getSortIcon('finalPrice')}
                             </div>
@@ -1443,10 +1447,10 @@ export default function RateComparisonCard() {
                         
                         {visibleColumns.find((col) => col.id === "margin")?.isVisible && (
                           <TableHead 
-                            className="text-center cursor-pointer hover:bg-muted/30"
+                            className="text-center cursor-pointer hover:bg-slate-600 text-white"
                             onClick={() => requestSort('actualMargin')}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center">
                               <span>Margine</span>
                               {getSortIcon('actualMargin')}
                             </div>
@@ -1454,16 +1458,24 @@ export default function RateComparisonCard() {
                         )}
                         
                         {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
-                          <TableHead className="text-center">Consegna</TableHead>
+                          <TableHead className="text-center text-white">
+                            <div className="flex items-center justify-center">
+                              <span>Consegna</span>
+                            </div>
+                          </TableHead>
                         )}
                         
                         {visibleColumns.find((col) => col.id === "details")?.isVisible && (
-                          <TableHead className="text-center">Dettagli</TableHead>
+                          <TableHead className="text-center text-white">
+                            <div className="flex items-center justify-center">
+                              <span>Dettagli</span>
+                            </div>
+                          </TableHead>
                         )}
                       </TableRow>
                     </TableHeader>
                     
-                    <TableBody>
+                    <TableBody className="divide-y divide-gray-100">
                       {/* Usa sortedRates invece di displayedRates */}
                       {sortedRates.map((rate) => (
                         <RateTableRow
@@ -1564,24 +1576,14 @@ export default function RateComparisonCard() {
                     {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'tariffa selezionata' : 'tariffe selezionate'}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedRows({})}
-                    className="text-white border-white hover:bg-white/20"
-                  >
-                    Annulla
-                  </Button>
-                  <Button
-                    onClick={handleAddToCart}
-                    variant="secondary"
-                    size="sm"
-                    className="bg-white text-primary hover:bg-white/90"
-                  >
-                    Aggiungi rates al carrello
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleAddToCart}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white text-primary hover:bg-white/90"
+                >
+                  Aggiungi rates al carrello
+                </Button>
               </div>
             </div>
           )}

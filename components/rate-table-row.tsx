@@ -131,7 +131,7 @@ const RateTableRow = React.memo(({
     <Fragment>
       <TableRow key={rate.id} className="even:bg-muted/20 hover:bg-muted/40">
         {/* Colonna di selezione */}
-        <TableCell className="w-10">
+        <TableCell className="w-10 text-center">
           <Checkbox
             id={`select-${rate.id}`}
             checked={isSelected}
@@ -140,7 +140,7 @@ const RateTableRow = React.memo(({
         </TableCell>
         
         {/* Pulsante espansione */}
-        <TableCell className="w-10">
+        <TableCell className="w-10 text-center">
           <Button
             variant="ghost"
             size="icon"
@@ -249,8 +249,8 @@ const RateTableRow = React.memo(({
         
         {/* Colonna Discount */}
         {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-          <TableCell className="w-24">
-            <div className="flex items-center space-x-1">
+          <TableCell className="w-24 text-right">
+            <div className="flex items-center justify-end space-x-1">
               <Input
                 type="number"
                 min="0"
@@ -274,7 +274,7 @@ const RateTableRow = React.memo(({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="space-y-1 cursor-help">
+                  <div className="space-y-1 cursor-help text-center">
                     <div className="font-medium flex items-center justify-center">
                       {formatCurrency(rate.finalPrice)}
                       <Info className="ml-1 h-4 w-4 text-muted-foreground" />
@@ -445,32 +445,39 @@ const RateTableRow = React.memo(({
         {/* Colonna Delivery */}
         {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
           <TableCell className="text-center">
-            {rate.deliveryTimeMin && rate.deliveryTimeMax ? (
-              <span>
-                {rate.deliveryTimeMin}-{rate.deliveryTimeMax} ore
-              </span>
-            ) : (
-              <span>-</span>
-            )}
+            <div className="flex items-center justify-center">
+              {rate.deliveryTimeMin && rate.deliveryTimeMax ? (
+                <span>
+                  {rate.deliveryTimeMin}-{rate.deliveryTimeMax} ore
+                </span>
+              ) : (
+                <span>-</span>
+              )}
+            </div>
           </TableCell>
         )}
         
         {/* Colonna Details */}
         {visibleColumns.find((col) => col.id === "details")?.isVisible && (
           <TableCell className="text-center">
-            <Button variant="outline" size="sm">
-              Dettagli
-            </Button>
+            <div className="flex items-center justify-center">
+              <Button variant="outline" size="sm">
+                Dettagli
+              </Button>
+            </div>
           </TableCell>
         )}
       </TableRow>
 
       {/* Riga espansa con fasce di peso */}
       {isExpanded && rate.service?._id && (
-        <TableRow>
+        <TableRow className="bg-slate-50 hover:bg-slate-50">
           <TableCell colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}>
-            <div className="bg-muted/20 p-4 rounded-md">
-              <h4 className="font-medium mb-3">Fasce di peso per {rate.serviceName}</h4>
+            <div className="p-4 rounded-md">
+              <h4 className="font-medium mb-3 text-slate-700 flex items-center">
+                <ChevronDown className="h-4 w-4 mr-1 text-primary" />
+                Fasce di peso per {rate.serviceName}
+              </h4>
               
               {!serviceWeightRanges[rate.service._id] ? (
                 <div className="flex justify-center py-4">
@@ -479,66 +486,66 @@ const RateTableRow = React.memo(({
               ) : serviceWeightRanges[rate.service._id].length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nessuna fascia di peso disponibile per questo servizio</p>
               ) : (
-                <Table className="table-fixed">
-                  <TableHeader className="bg-muted">
-                    <TableRow>
-                      <TableHead className="w-[60px]">Seleziona</TableHead>
-                      <TableHead className="w-[120px]">Fascia Peso</TableHead>
-                      <TableHead className="w-[100px] text-right">Prezzo Base</TableHead>
-                      <TableHead className="w-[120px] text-right">Sconto (%)</TableHead>
-                      <TableHead className="w-[100px] text-right">Prezzo Finale</TableHead>
-                      <TableHead className="w-[120px] text-center">Margine</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {serviceWeightRanges[rate.service._id].map((weightRange) => (
-                      <TableRow key={weightRange.id} className="even:bg-muted/20 hover:bg-muted/40">
-                        <TableCell>
-                          <Checkbox
-                            checked={!!selectedRows[`${rate.id}-${weightRange.id}`]}
-                            onCheckedChange={(checked) => 
-                              handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
-                            }
-                            aria-label={`Seleziona fascia di peso ${weightRange.label}`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{weightRange.label}</TableCell>
-                        <TableCell className="text-right">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center space-x-1 cursor-help">
-                                  <span>
-                                    {formatCurrency(weightRange.basePrice || 0)}
-                                  </span>
-                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent className="w-fit max-w-[400px]">
-                                <div className="space-y-1">
-                                  <div className="font-semibold">Prezzo Base</div>
+                <div className="rounded-md overflow-hidden border shadow-sm">
+                  <Table className="table-fixed">
+                    <TableHeader className="bg-slate-600/60">
+                      <TableRow className="hover:bg-transparent border-b-0">
+                        <TableHead className="w-[60px] text-white text-center">Seleziona</TableHead>
+                        <TableHead className="w-[120px] text-white">Fascia Peso</TableHead>
+                        <TableHead className="w-[100px] text-white text-right">Prezzo Base</TableHead>
+                        <TableHead className="w-[120px] text-white text-right">Sconto (%)</TableHead>
+                        <TableHead className="w-[100px] text-white text-right">Prezzo Finale</TableHead>
+                        <TableHead className="w-[120px] text-white text-center">Margine</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-gray-100">
+                      {serviceWeightRanges[rate.service._id].map((weightRange) => (
+                        <TableRow key={weightRange.id} className="even:bg-muted/20 hover:bg-muted/40">
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={!!selectedRows[`${rate.id}-${weightRange.id}`]}
+                              onCheckedChange={(checked) => 
+                                handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
+                              }
+                              aria-label={`Seleziona fascia di peso ${weightRange.label}`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{weightRange.label}</TableCell>
+                          <TableCell className="text-right">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-end space-x-1 cursor-help">
+                                    <span>
+                                      {formatCurrency(weightRange.basePrice || 0)}
+                                    </span>
+                                    <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="w-fit max-w-[400px]">
                                   <div className="space-y-1">
-                                    <div className="flex justify-between">
-                                      <span>Prezzo Retail:</span>
-                                      <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                    </div>
-                                    <div className="text-xs mt-1 text-muted-foreground">
-                                      <em>Questo è il prezzo di listino per questa fascia di peso.</em>
+                                    <div className="font-semibold">Prezzo Base</div>
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between">
+                                        <span>Prezzo Retail:</span>
+                                        <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                      </div>
+                                      <div className="text-xs mt-1 text-muted-foreground">
+                                        <em>Questo è il prezzo di listino per questa fascia di peso.</em>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end">
-                            <span className="text-center min-w-[60px]">{rate.userDiscount || 0}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          <div className="flex flex-col items-end">
-                            <div className="flex items-center min-w-28">
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end">
+                              <span className="text-center min-w-[60px]">{rate.userDiscount || 0}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            <div className="flex items-center justify-end">
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -649,141 +656,141 @@ const RateTableRow = React.memo(({
                                 </Tooltip>
                               </TooltipProvider>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {weightRange.actualMargin !== undefined ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center justify-center cursor-help">
-                                    <Badge
-                                      variant={getMarginColor(
-                                        includeFuelSurcharge 
-                                          ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                              fuelSurchargePercentage / 100 - 
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                            ) 
-                                          : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
-                                      ) as any}
-                                    >
-                                      {formatCurrency(
-                                        includeFuelSurcharge 
-                                          ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                              fuelSurchargePercentage / 100 - 
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                            ) 
-                                          : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
-                                      )}
-                                    </Badge>
-                                    <Info className="ml-1 h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent className="w-fit max-w-[400px]">
-                                  <div className="space-y-1">
-                                    <div className="font-semibold">Margine</div>
-                                    <div className="space-y-1">
-                                      {includeFuelSurcharge ? (
-                                        <>
-                                          <div className="flex justify-between">
-                                            <span>Prezzo Retail:</span>
-                                            <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>- Prezzo d'Acquisto:</span>
-                                            <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}</span>
-                                          </div>
-                                          <div className="border-t border-dashed pt-1 flex justify-between">
-                                            <span>= Margine sulla Tariffa:</span>
-                                            <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
-                                          </div>
-                                          
-                                          <div className="mt-2 flex justify-between">
-                                            <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
-                                              ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
-                                            )}):</span>
-                                            <span>{formatCurrency(
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                              fuelSurchargePercentage / 100
-                                            )}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>- Fuel Fornitore ({fuelSurchargePercentage}% su {formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}):</span>
-                                            <span className="text-destructive">-{formatCurrency(((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)}</span>
-                                          </div>
-                                          <div className="border-t border-dashed pt-1 flex justify-between">
-                                            <span>= Margine sul Fuel:</span>
-                                            <span>{formatCurrency(
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                              fuelSurchargePercentage / 100 - 
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                            )}</span>
-                                          </div>
-                                          
-                                          <div className="border-t mt-2 pt-1 flex justify-between font-medium">
-                                            <span>= Margine Totale:</span>
-                                            <span>{formatCurrency(finalMargin)}</span>
-                                          </div>
-                                          <div className="text-xs mt-1 text-muted-foreground">
-                                            <em>Il margine sul fuel è calcolato applicando {fuelSurchargePercentage}% sia al prezzo cliente scontato che al prezzo fornitore.</em>
-                                          </div>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <div className="flex justify-between">
-                                            <span>Prezzo Retail:</span>
-                                            <span>{formatCurrency(weightRange.basePrice || 0)}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>- Prezzo d'Acquisto:</span>
-                                            <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}</span>
-                                          </div>
-                                          <div className="border-t border-dashed pt-1 flex justify-between">
-                                            <span>= Margine sulla Tariffa:</span>
-                                            <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>- Sconto ({rate.userDiscount || 0}% sul margine):</span>
-                                            <span className="text-destructive">-{formatCurrency((weightRange.actualMargin || 0) * (rate.userDiscount || 0) / 100)}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>+ Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
-                                              ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
-                                            )}):</span>
-                                            <span>{formatCurrency(
-                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                              fuelSurchargePercentage / 100
-                                            )}</span>
-                                          </div>
-                                          <div className="border-t pt-1 flex justify-between font-medium">
-                                            <span>= Prezzo Finale:</span>
-                                            <span>{formatCurrency(
-                                              ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
-                                            )}</span>
-                                          </div>
-                                        </>
-                                      )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {weightRange.actualMargin !== undefined ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center justify-center cursor-help">
+                                      <Badge
+                                        variant={getMarginColor(
+                                          includeFuelSurcharge 
+                                            ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100 - 
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
+                                              ) 
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
+                                        ) as any}
+                                      >
+                                        {formatCurrency(
+                                          includeFuelSurcharge 
+                                            ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100 - 
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
+                                              ) 
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
+                                        )}
+                                      </Badge>
+                                      <Info className="ml-1 h-4 w-4 text-muted-foreground" />
                                     </div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : "N/D"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="w-fit max-w-[400px]">
+                                    <div className="space-y-1">
+                                      <div className="font-semibold">Margine</div>
+                                      <div className="space-y-1">
+                                        {includeFuelSurcharge ? (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span>Prezzo Retail:</span>
+                                              <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>- Prezzo d'Acquisto:</span>
+                                              <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}</span>
+                                            </div>
+                                            <div className="border-t border-dashed pt-1 flex justify-between">
+                                              <span>= Margine sulla Tariffa:</span>
+                                              <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
+                                            </div>
+                                            
+                                            <div className="mt-2 flex justify-between">
+                                              <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
+                                                ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                              )}):</span>
+                                              <span>{formatCurrency(
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100
+                                              )}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>- Fuel Fornitore ({fuelSurchargePercentage}% su {formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}):</span>
+                                              <span className="text-destructive">-{formatCurrency(((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)}</span>
+                                            </div>
+                                            <div className="border-t border-dashed pt-1 flex justify-between">
+                                              <span>= Margine sul Fuel:</span>
+                                              <span>{formatCurrency(
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100 - 
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
+                                              )}</span>
+                                            </div>
+                                            
+                                            <div className="border-t mt-2 pt-1 flex justify-between font-medium">
+                                              <span>= Margine Totale:</span>
+                                              <span>{formatCurrency(finalMargin)}</span>
+                                            </div>
+                                            <div className="text-xs mt-1 text-muted-foreground">
+                                              <em>Il margine sul fuel è calcolato applicando {fuelSurchargePercentage}% sia al prezzo cliente scontato che al prezzo fornitore.</em>
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span>Prezzo Retail:</span>
+                                              <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>- Prezzo d'Acquisto:</span>
+                                              <span className="text-destructive">-{formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}</span>
+                                            </div>
+                                            <div className="border-t border-dashed pt-1 flex justify-between">
+                                              <span>= Margine sulla Tariffa:</span>
+                                              <span>{formatCurrency(weightRange.actualMargin || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>- Sconto ({rate.userDiscount || 0}% sul margine):</span>
+                                              <span className="text-destructive">-{formatCurrency((weightRange.actualMargin || 0) * (rate.userDiscount || 0) / 100)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>+ Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
+                                                ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                              )}):</span>
+                                              <span>{formatCurrency(
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100
+                                              )}</span>
+                                            </div>
+                                            <div className="border-t pt-1 flex justify-between font-medium">
+                                              <span>= Prezzo Finale:</span>
+                                              <span>{formatCurrency(
+                                                ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                              )}</span>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : "N/D"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           </TableCell>
