@@ -110,11 +110,17 @@ const RateTableRow = React.memo(({
   // Margine base dopo lo sconto
   const discountedBaseMargin = baseMargin - discountOnMargin;
   
+  // Prezzo retail scontato (dopo applicazione dello sconto sul margine)
+  const discountedRetailPrice = purchasePrice + discountedBaseMargin;
+  
   // Calcola l'importo del fuel surcharge come percentuale del prezzo base
   const fuelSurchargeAmount = rate.basePrice * fuelSurchargePercentage / 100;
   
-  // Calcola il margine sul fuel
-  const fuelSurchargeMargin = fuelSurchargeRetail - fuelSurchargePurchase;
+  // Calcola l'importo del fuel surcharge come percentuale del prezzo scontato (per il cliente)
+  const fuelSurchargeDiscountedRetail = discountedRetailPrice * fuelSurchargePercentage / 100;
+  
+  // Calcola il margine sul fuel (usando il prezzo scontato per il cliente)
+  const fuelSurchargeMargin = fuelSurchargeDiscountedRetail - fuelSurchargePurchase;
   
   // Calcola il margine finale includendo o meno il fuel e lo sconto
   const finalMargin = includeFuelSurcharge 
@@ -385,8 +391,8 @@ const RateTableRow = React.memo(({
                           </div>
                           
                           <div className="mt-2 flex justify-between">
-                            <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(rate.basePrice)}):</span>
-                            <span>{formatCurrency(fuelSurchargeRetail)}</span>
+                            <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(discountedRetailPrice)}):</span>
+                            <span>{formatCurrency(fuelSurchargeDiscountedRetail)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>- Fuel Fornitore ({fuelSurchargePercentage}% su {formatCurrency(purchasePrice)}):</span>
@@ -402,7 +408,7 @@ const RateTableRow = React.memo(({
                             <span>{formatCurrency(finalMargin)}</span>
                           </div>
                           <div className="text-xs mt-1 text-muted-foreground">
-                            <em>Il margine sul fuel è positivo perché l'8% viene applicato su importi diversi.</em>
+                            <em>Il margine sul fuel è calcolato applicando {fuelSurchargePercentage}% sia al prezzo cliente scontato che al prezzo fornitore.</em>
                           </div>
                         </>
                       ) : (
@@ -617,15 +623,23 @@ const RateTableRow = React.memo(({
                                               <span>- Sconto ({rate.userDiscount || 0}% sul margine):</span>
                                               <span className="text-destructive">-{formatCurrency((weightRange.actualMargin || 0) * (rate.userDiscount || 0) / 100)}</span>
                                             </div>
+                                            <div className="flex justify-between">
+                                              <span>+ Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
+                                                ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                              )}):</span>
+                                              <span>{formatCurrency(
+                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                                fuelSurchargePercentage / 100
+                                              )}</span>
+                                            </div>
                                             <div className="border-t pt-1 flex justify-between font-medium">
                                               <span>= Prezzo Finale:</span>
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
                                               )}</span>
-                                            </div>
-                                            <div className="text-xs mt-1 text-muted-foreground">
-                                              <em>Fuel surcharge non incluso</em>
                                             </div>
                                           </>
                                         )}
@@ -647,7 +661,9 @@ const RateTableRow = React.memo(({
                                       variant={getMarginColor(
                                         includeFuelSurcharge 
                                           ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
-                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                              fuelSurchargePercentage / 100 - 
                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
                                             ) 
                                           : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
@@ -656,7 +672,9 @@ const RateTableRow = React.memo(({
                                       {formatCurrency(
                                         includeFuelSurcharge 
                                           ? (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (
-                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                              fuelSurchargePercentage / 100 - 
                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
                                             ) 
                                           : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
@@ -685,8 +703,15 @@ const RateTableRow = React.memo(({
                                           </div>
                                           
                                           <div className="mt-2 flex justify-between">
-                                            <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(weightRange.basePrice || 0)}):</span>
-                                            <span>{formatCurrency((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)}</span>
+                                            <span>Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
+                                              ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                            )}):</span>
+                                            <span>{formatCurrency(
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                              fuelSurchargePercentage / 100
+                                            )}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>- Fuel Fornitore ({fuelSurchargePercentage}% su {formatCurrency((weightRange.basePrice || 0) - weightRange.actualMargin)}):</span>
@@ -695,21 +720,19 @@ const RateTableRow = React.memo(({
                                           <div className="border-t border-dashed pt-1 flex justify-between">
                                             <span>= Margine sul Fuel:</span>
                                             <span>{formatCurrency(
-                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                              fuelSurchargePercentage / 100 - 
                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
                                             )}</span>
                                           </div>
                                           
                                           <div className="border-t mt-2 pt-1 flex justify-between font-medium">
                                             <span>= Margine Totale:</span>
-                                            <span>{formatCurrency(
-                                              weightRange.actualMargin + 
-                                              (((weightRange.basePrice || 0) * fuelSurchargePercentage / 100) - 
-                                               (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100))
-                                            )}</span>
+                                            <span>{formatCurrency(finalMargin)}</span>
                                           </div>
                                           <div className="text-xs mt-1 text-muted-foreground">
-                                            <em>Il margine sul fuel è positivo perché l'8% viene applicato su importi diversi.</em>
+                                            <em>Il margine sul fuel è calcolato applicando {fuelSurchargePercentage}% sia al prezzo cliente scontato che al prezzo fornitore.</em>
                                           </div>
                                         </>
                                       ) : (
@@ -731,8 +754,15 @@ const RateTableRow = React.memo(({
                                             <span className="text-destructive">-{formatCurrency((weightRange.actualMargin || 0) * (rate.userDiscount || 0) / 100)}</span>
                                           </div>
                                           <div className="flex justify-between">
-                                            <span>+ Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(weightRange.basePrice || 0)}):</span>
-                                            <span>{formatCurrency((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)}</span>
+                                            <span>+ Fuel Cliente ({fuelSurchargePercentage}% su {formatCurrency(
+                                              ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                            )}):</span>
+                                            <span>{formatCurrency(
+                                              (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
+                                              (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
+                                              fuelSurchargePercentage / 100
+                                            )}</span>
                                           </div>
                                           <div className="border-t pt-1 flex justify-between font-medium">
                                             <span>= Prezzo Finale:</span>
