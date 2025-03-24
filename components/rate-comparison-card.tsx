@@ -244,7 +244,7 @@ export default function RateComparisonCard() {
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [carriers, setCarriers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
-  const [rowsPerPage, setRowsPerPage] = useState(5)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const rowsPerPageOptions = [5, 10, 25, 50, 100]
 
   // Add state for selected rows
@@ -1308,7 +1308,7 @@ export default function RateComparisonCard() {
                 className="rounded-md p-1"
               />
               <CardTitle className="bg-gradient-to-r from-[#122857] to-[#1e3a80] text-transparent bg-clip-text">
-                Sendcloud Rate Comparison
+                Sendquote
               </CardTitle>
             </div>
             
@@ -1369,7 +1369,7 @@ export default function RateComparisonCard() {
                 </Alert>
               ) : (
                 // Tabella dei risultati
-                <div className="rounded-md border shadow-sm overflow-hidden">
+                <div className="rounded-md border overflow-hidden shadow-sm">
                   <Table>
                     <TableHeader className="bg-gradient-to-b from-slate-700/95 to-slate-600/90">
                       <TableRow className="border-b-0 hover:bg-transparent">
@@ -1426,9 +1426,13 @@ export default function RateComparisonCard() {
                         )}
                         
                         {visibleColumns.find((col) => col.id === "discount")?.isVisible && (
-                          <TableHead className="w-24 text-white text-right">
+                          <TableHead 
+                            className="w-24 text-right text-white cursor-pointer hover:bg-slate-600"
+                            onClick={() => requestSort('userDiscount')}
+                          >
                             <div className="flex items-center justify-end">
                               <span>Sconto</span>
+                              {getSortIcon('userDiscount')}
                             </div>
                           </TableHead>
                         )}
@@ -1474,25 +1478,52 @@ export default function RateComparisonCard() {
                         )}
                       </TableRow>
                     </TableHeader>
-                    
                     <TableBody className="divide-y divide-gray-100">
-                      {/* Usa sortedRates invece di displayedRates */}
-                      {sortedRates.map((rate) => (
-                        <RateTableRow
-                          key={rate.id}
-                          rate={rate}
-                          selectedRows={selectedRows}
-                          expandedRows={expandedRows}
-                          visibleColumns={visibleColumns}
-                          handleRowSelect={handleRowSelect}
-                          toggleRowExpansion={() => toggleRowExpansion(rate.id)}
-                          handleDiscountChange={handleDiscountChange}
-                          includeFuelSurcharge={includeFuelSurcharge}
-                          filters={filters}
-                          getFuelSurchargeText={getFuelSurchargeText}
-                          serviceWeightRanges={serviceWeightRanges}
-                        />
-                      ))}
+                      {loading && rates.length === 0 ? (
+                        <TableRow>
+                          <TableCell 
+                            colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}
+                            className="h-24 text-center"
+                          >
+                            <LoadingIndicator stage={loadingStage} />
+                          </TableCell>
+                        </TableRow>
+                      ) : error ? (
+                        <TableRow>
+                          <TableCell 
+                            colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}
+                            className="h-24 text-center"
+                          >
+                            <ErrorDisplay message={error} onRetry={loadRates} />
+                          </TableCell>
+                        </TableRow>
+                      ) : sortedRates.length === 0 ? (
+                        <TableRow>
+                          <TableCell 
+                            colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}
+                            className="h-24 text-center text-muted-foreground"
+                          >
+                            Nessun risultato trovato. Prova a modificare i filtri.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        sortedRates.map((rate) => (
+                          <RateTableRow
+                            key={rate.id}
+                            rate={rate}
+                            selectedRows={selectedRows}
+                            expandedRows={expandedRows}
+                            visibleColumns={visibleColumns}
+                            handleRowSelect={handleRowSelect}
+                            toggleRowExpansion={toggleRowExpansion}
+                            handleDiscountChange={handleDiscountChange}
+                            includeFuelSurcharge={includeFuelSurcharge}
+                            filters={filters}
+                            getFuelSurchargeText={getFuelSurchargeText}
+                            serviceWeightRanges={serviceWeightRanges}
+                          />
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -1500,9 +1531,8 @@ export default function RateComparisonCard() {
               
               {/* UI per la paginazione */}
               {rates.length > 0 && (
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Righe per pagina:</span>
+                <div className="flex flex-col gap-4 mt-4 pb-2">
+                  <div className="flex justify-center items-center gap-4">
                     <Select 
                       value={String(rowsPerPage)} 
                       onValueChange={handleRowsPerPageChange}
@@ -1518,49 +1548,44 @@ export default function RateComparisonCard() {
                         ))}
                       </SelectContent>
                     </Select>
-                    
-                    <span className="text-sm text-muted-foreground ml-4">
-                      Visualizzando {rates.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0}-
-                      {Math.min(currentPage * rowsPerPage, rates.length)} di {rates.length}
-                    </span>
-                  </div>
                   
-                  {totalPages > 1 && (
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            aria-disabled={currentPage === 1}
-                            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                          />
-                        </PaginationItem>
-                        
-                        {getVisiblePageNumbers(currentPage, totalPages).map((pageNum, idx) => (
-                          <PaginationItem key={idx}>
-                            {pageNum === 'ellipsis' ? (
-                              <span className="px-4 py-2">...</span>
-                            ) : (
-                              <PaginationLink
-                                onClick={() => setCurrentPage(pageNum as number)}
-                                isActive={currentPage === pageNum}
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            )}
+                    {totalPages > 1 && (
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                              aria-disabled={currentPage === 1}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                            />
                           </PaginationItem>
-                        ))}
-                        
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            aria-disabled={currentPage === totalPages}
-                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  )}
+                          
+                          {getVisiblePageNumbers(currentPage, totalPages).map((pageNum, idx) => (
+                            <PaginationItem key={idx}>
+                              {pageNum === 'ellipsis' ? (
+                                <span className="px-4 py-2">...</span>
+                              ) : (
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(pageNum as number)}
+                                  isActive={currentPage === pageNum}
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              )}
+                            </PaginationItem>
+                          ))}
+                          
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                              aria-disabled={currentPage === totalPages}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    )}
+                  </div>
                 </div>
               )}
             </TabsContent>
