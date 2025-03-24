@@ -75,15 +75,28 @@ const RateFilters = React.memo(({
             <Filter className="mr-2 h-5 w-5" />
             <h3 className="font-medium">Filtri</h3>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onColumnsDialogOpen}
-            className="flex items-center gap-1"
-          >
-            <Columns className="h-4 w-4" />
-            <span>Colonne</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            {/* Fuel Surcharge Toggle */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={includeFuelSurcharge}
+                onCheckedChange={onFuelSurchargeChange}
+                id="fuel-surcharge-toggle"
+              />
+              <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
+                Includi Fuel
+              </Label>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onColumnsDialogOpen}
+              className="flex items-center gap-1"
+            >
+              <Columns className="h-4 w-4" />
+              <span>Colonne</span>
+            </Button>
+          </div>
         </div>
 
         <Separator className="mb-4" />
@@ -239,18 +252,6 @@ const RateFilters = React.memo(({
                 </Button>
               )}
             </div>
-          </div>
-          
-          {/* Fuel Surcharge Toggle */}
-          <div className="ml-auto flex items-center space-x-2">
-            <Switch
-              checked={includeFuelSurcharge}
-              onCheckedChange={onFuelSurchargeChange}
-              id="fuel-surcharge-toggle"
-            />
-            <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
-              Includi Fuel
-            </Label>
           </div>
         </div>
       </CardContent>

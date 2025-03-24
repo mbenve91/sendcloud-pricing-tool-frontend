@@ -672,8 +672,14 @@ export default function RateComparisonCard() {
 
   useEffect(() => {
     // Carica le tariffe solo all'avvio, non quando cambia maxPrice
-    loadRates(false)
-  }, [loadRates])
+    const initialLoad = () => {
+      loadRates(false);
+    };
+    
+    // Eseguiamo solo al montaggio del componente
+    initialLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Rimuoviamo tutte le dipendenze per eseguire solo all'avvio
 
   // Handle filter change - modificato per evitare che maxPrice triggerati loadRates
   const handleFilterChange = (name: string, value: string) => {
