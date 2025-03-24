@@ -616,7 +616,9 @@ export default function RateComparisonCard() {
         };
       });
       
-      setRates(formattedRates);
+      // Applica il filtro di prezzo massimo e i calcoli degli sconti
+      const filteredAndDiscountedRates = applyMaxPriceFilter(formattedRates);
+      setRates(filteredAndDiscountedRates);
       
       // Per le suggestioni, per ora lasciamo quelle simulate (potrebbero essere gestite separatamente)
       const newSuggestions = generateMockSuggestions(activeTab, filters);
