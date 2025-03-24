@@ -23,11 +23,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart, AlertTriangle } from "lucide-react"
 import {
   Pagination,
-  PaginationContent as UPaginationContent,
-  PaginationItem as UPaginationItem,
+  PaginationContent,
+  PaginationItem,
   PaginationLink,
-  PaginationPrevious,
   PaginationNext,
+  PaginationPrevious,
 } from "@/components/ui/pagination"
 import * as api from "@/services/api"
 import { v4 as uuidv4 } from "uuid"
@@ -238,7 +238,8 @@ export default function RateComparisonCard() {
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [carriers, setCarriers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
-  const rowsPerPage = 5
+  const [rowsPerPage, setRowsPerPage] = useState(5)
+  const rowsPerPageOptions = [5, 10, 25, 50, 100]
 
   // Add state for selected rows
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
@@ -720,6 +721,20 @@ export default function RateComparisonCard() {
   // Calculate pagination
   const totalPages = Math.ceil(rates.length / rowsPerPage)
   const displayedRates = rates.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  
+  // Assicuriamoci che currentPage sia valido dopo un cambio di rowsPerPage
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(rates.length / rowsPerPage));
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [rowsPerPage, rates.length, currentPage]);
+
+  // Funzione per gestire il cambio del numero di risultati per pagina
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setCurrentPage(1); // Torna alla prima pagina quando cambia il numero di righe
+  };
 
   // Check if all displayed rows are selected
   const areAllRowsSelected = displayedRates.length > 0 && displayedRates.every((rate) => selectedRows[rate.id])
@@ -1126,7 +1141,7 @@ export default function RateComparisonCard() {
   }, [includeFuelSurcharge]); // Rimuoviamo rates e serviceWeightRanges dalle dipendenze
 
   // Add this function to generate page numbers with ellipsis
-  const getVisiblePageNumbers = useCallback((currentPage: number, totalPages: number) => {
+  const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
     // Always show maximum 7 page items (including ellipsis)
     if (totalPages <= 7) {
       // If we have 7 or fewer pages, show all of them
@@ -1144,7 +1159,7 @@ export default function RateComparisonCard() {
       // Current page is in the middle: show 1, ..., currentPage-1, currentPage, currentPage+1, ..., totalPages
       return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages];
     }
-  }, []);
+  };
 
   // Assicuriamoci che la funzione formatCountryList sia definita correttamente
   const formatCountryList = (countryStr: string | string[] | any): string => {
@@ -1459,6 +1474,72 @@ export default function RateComparisonCard() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+            
+            {/* UI per la paginazione */}
+            {rates.length > 0 && (
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Righe per pagina:</span>
+                  <Select 
+                    value={String(rowsPerPage)} 
+                    onValueChange={handleRowsPerPageChange}
+                  >
+                    <SelectTrigger className="h-8 w-[70px]">
+                      <SelectValue>{rowsPerPage}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rowsPerPageOptions.map(option => (
+                        <SelectItem key={option} value={String(option)}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <span className="text-sm text-muted-foreground ml-4">
+                    Visualizzando {rates.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0}-
+                    {Math.min(currentPage * rowsPerPage, rates.length)} di {rates.length}
+                  </span>
+                </div>
+                
+                {totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          aria-disabled={currentPage === 1}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                      
+                      {getVisiblePageNumbers(currentPage, totalPages).map((pageNum, idx) => (
+                        <PaginationItem key={idx}>
+                          {pageNum === 'ellipsis' ? (
+                            <span className="px-4 py-2">...</span>
+                          ) : (
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNum as number)}
+                              isActive={currentPage === pageNum}
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          aria-disabled={currentPage === totalPages}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
               </div>
             )}
           </TabsContent>
