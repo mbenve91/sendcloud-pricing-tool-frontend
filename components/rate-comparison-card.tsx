@@ -1712,6 +1712,7 @@ export default function RateComparisonCard() {
                         includeFuelSurcharge={includeFuelSurcharge}
                         filters={filters}
                         getFuelSurchargeText={getFuelSurchargeText}
+                        serviceWeightRanges={serviceWeightRanges}
                       />
                     ))}
                   </TableBody>
