@@ -53,6 +53,7 @@ export interface Service {
   destinationCountry?: string[];
   sourceCountry?: string;
   isEU?: boolean;
+  serviceType?: 'normal' | 'return' | 'pudo' | 'locker' | 'other';
   isActive: boolean;
   ratesCount?: number;
   createdAt?: string;
@@ -75,6 +76,24 @@ export interface Rate {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// Definizione dell'interfaccia per i filtri di confronto tariffe
+export interface RateFilters {
+  weight: string;
+  destinationType: string;
+  destinationCountry?: string;
+  carrier?: string;
+  service?: string;
+  carriers?: string[];
+  services?: string[];
+  countries?: string[];
+  volume?: string;
+  sourceCountry?: string;
+  minMargin?: string;
+  maxPrice?: string;
+  euType?: string;
+  serviceType?: string;
 }
 
 // Funzione di utilità per aggiungere il token di autenticazione agli header
@@ -412,23 +431,15 @@ export async function deleteRate(id: string) {
  * Confronta le tariffe in base ai filtri specificati
  * @param filters - Filtri per la ricerca (peso, tipo destinazione, paese, ecc.)
  */
-export async function compareRates(filters: {
-  weight: string;
-  destinationType: string;
-  destinationCountry?: string;
-  carrierId?: string;
-  service?: string;
-  volume?: string;
-  sourceCountry?: string;
-}) {
+export async function compareRates(filters: RateFilters) {
   try {
     // Costruisci i parametri di query
     const queryParams = new URLSearchParams();
     
-    queryParams.append('weight', filters.weight);
+    queryParams.append('weight', filters.weight || '1');
     
     // Mappiamo i tipi di destinazione del frontend a quelli supportati dal backend
-    let destinationType = filters.destinationType;
+    let destinationType = filters.destinationType || 'national';
     if (destinationType === 'eu' || destinationType === 'extra_eu') {
       destinationType = 'international';
       // Aggiungiamo un parametro aggiuntivo per distinguere tra EU e Extra EU
@@ -437,19 +448,32 @@ export async function compareRates(filters: {
       } else if (filters.destinationType === 'extra_eu') {
         queryParams.append('euType', 'extra_eu');
       }
+    } else if (filters.euType && filters.euType !== 'all') {
+      // Se euType è specificato esplicitamente
+      queryParams.append('euType', filters.euType);
     }
     queryParams.append('destinationType', destinationType);
     
-    if (filters.destinationCountry) {
-      queryParams.append('destinationCountry', filters.destinationCountry);
+    // Gestione parametri multi-select
+    // Carrier(s)
+    if (Array.isArray(filters.carriers) && filters.carriers.length > 0) {
+      queryParams.append('carriers', filters.carriers.join(','));
+    } else if (filters.carrier && filters.carrier !== 'all') {
+      queryParams.append('carrier', filters.carrier);
     }
     
-    if (filters.carrierId) {
-      queryParams.append('carrier', filters.carrierId);
-    }
-    
-    if (filters.service) {
+    // Service(s)
+    if (Array.isArray(filters.services) && filters.services.length > 0) {
+      queryParams.append('services', filters.services.join(','));
+    } else if (filters.service && filters.service !== 'all') {
       queryParams.append('service', filters.service);
+    }
+    
+    // Country/Countries
+    if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+      queryParams.append('countries', filters.countries.join(','));
+    } else if (filters.destinationCountry && filters.destinationCountry !== 'all') {
+      queryParams.append('destinationCountry', filters.destinationCountry);
     }
     
     // Aggiungi volume se presente
@@ -458,9 +482,24 @@ export async function compareRates(filters: {
     }
     
     // Aggiungi sourceCountry (market) se presente
-    if (filters.sourceCountry) {
+    if (filters.sourceCountry && filters.sourceCountry !== 'all') {
       queryParams.append('sourceCountry', filters.sourceCountry.toLowerCase());
     }
+    
+    // Aggiungi parametri opzionali aggiuntivi
+    if (filters.minMargin) {
+      queryParams.append('minMargin', filters.minMargin);
+    }
+    
+    if (filters.maxPrice) {
+      queryParams.append('maxPrice', filters.maxPrice);
+    }
+    
+    if (filters.serviceType && filters.serviceType !== 'all') {
+      queryParams.append('serviceType', filters.serviceType);
+    }
+    
+    console.log('API call:', `${API_URL}/rates/compare?${queryParams.toString()}`);
     
     // Usa la funzione di utilità per fare la chiamata API
     const data = await fetchWithErrorHandling(`${API_URL}/rates/compare?${queryParams.toString()}`);

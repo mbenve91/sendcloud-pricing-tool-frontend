@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart, AlertTriangle } from "lucide-react"
+import { Filter, RefreshCw, Download, Lightbulb, Info, MoreVertical, X, Columns, ChevronRight, ChevronUp, ChevronDown, ShoppingCart, AlertTriangle, AlertCircle, Users, Building, Package, Ship, ArrowDown, ArrowUp } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -30,6 +30,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import * as api from "@/services/api"
+import { RateFilters as ApiRateFilters } from '@/services/api'
 import { v4 as uuidv4 } from "uuid"
 import { RateMarginIndicator } from "./rate-margin-indicator"
 import { useCart, showCartNotification } from "@/hooks/use-cart"
@@ -50,6 +51,9 @@ import {
 } from "@/utils/price-calculations";
 import RateTableRow from './rate-table-row';
 import RateFilters from './rate-filters'; // Aggiungi l'import del nuovo componente
+import AdvancedRateFilters, { FilterValue } from '@/components/advanced-rate-filters';
+import useFilterPersistence from '@/hooks/useFilterPersistence';
+import useRateFilters from '@/hooks/use-persistent-filters';
 
 // Mock data for carriers
 const CARRIERS = [
@@ -232,6 +236,36 @@ interface CountryObject {
   name: string;
 }
 
+// Funzione per formattare i nomi dei paesi
+const formatCountryName = (countryCode: string): string => {
+  // Mappa dei codici paese ai nomi completi
+  const countryNames: Record<string, string> = {
+    'fr': 'Francia',
+    'de': 'Germania',
+    'it': 'Italia',
+    'es': 'Spagna',
+    'nl': 'Paesi Bassi',
+    'be': 'Belgio',
+    'at': 'Austria',
+    'pt': 'Portogallo',
+    'pl': 'Polonia',
+    'se': 'Svezia',
+    'us': 'Stati Uniti',
+    'ca': 'Canada',
+    'uk': 'Regno Unito',
+    'ch': 'Svizzera',
+    'au': 'Australia',
+    'jp': 'Giappone',
+    'cn': 'Cina',
+    'sg': 'Singapore',
+    'ae': 'Emirati Arabi Uniti',
+    'br': 'Brasile'
+  };
+  
+  // Restituisci il nome del paese se disponibile, altrimenti il codice in maiuscolo
+  return countryNames[countryCode.toLowerCase()] || countryCode.toUpperCase();
+};
+
 export default function RateComparisonCard() {
   // States
   const [activeTab, setActiveTab] = useState("national")
@@ -253,17 +287,15 @@ export default function RateComparisonCard() {
   // Add state for column customization
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS)
-
-  // Update the filters state to include sourceCountry (market)
-  const [filters, setFilters] = useState({
-    sourceCountry: "", // Aggiungi questo campo per il market
-    carrierId: "",
-    service: "",
-    weight: "1",
-    volume: "100",
-    country: "",
-    maxPrice: "",
-  })
+  const [loadingStage, setLoadingStage] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true)
+  const [weightRangesOpen, setWeightRangesOpen] = useState<Record<string, boolean>>({})
+  const [expandedServiceRates, setExpandedServiceRates] = useState<Record<string, any[]>>({})
+  const [savedFilterSets, setSavedFilterSets] = useState<any[]>([])
+  
+  // Sostituisci la gestione dei filtri con l'hook persistente
+  const [filters, setFilters] = useRateFilters();
 
   // Stato per memorizzare le fasce di peso complete per servizio
   const [serviceWeightRanges, setServiceWeightRanges] = useState<{ [serviceId: string]: WeightRange[] }>({});
@@ -271,25 +303,9 @@ export default function RateComparisonCard() {
   // Aggiungi uno stato per tenere traccia delle righe espanse
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
-  // Aggiungi uno stato per tracciare l'inclusione del fuel surcharge
-  const [includeFuelSurcharge, setIncludeFuelSurcharge] = useState(true);
-
-  // Stato per l'ordinamento
-  const [sortConfig, setSortConfig] = useState<{
-    key: string | null;
-    direction: 'ascending' | 'descending' | null;
-  }>({
-    key: null,
-    direction: null
-  });
-
   const router = useRouter()
   const { toast } = useToast()
   const { addToCart, cartItems, isInCart } = useCart()
-  const [error, setError] = useState<string | null>(null)
-
-  // Aggiunto uno stato per tracciare lo stato di caricamento
-  const [loadingStage, setLoadingStage] = useState<string>("");
 
   // Modifichiamo la funzione loadServiceWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
@@ -414,86 +430,28 @@ export default function RateComparisonCard() {
   const handleTabChange = (value: string) => {
     setActiveTab(value)
     setCurrentPage(1)
-    // Reset country filter when changing tabs
-    setFilters({
-      sourceCountry: "",
-      carrierId: "",
-      service: "",
-      weight: "1", // Manteniamo i valori predefiniti per weight e volume
-      volume: "100",
-      country: "",
-      maxPrice: "",
-    })
+    
+    // Reset filters to default
+    resetFilters();
+    
     // Reset selected rows when changing tabs
     setSelectedRows({})
   }
-
-  // Add a function to update the user discount
-  const updateUserDiscount = (rateId: string, newDiscount: number) => {
-    setRates((prevRates) =>
-      prevRates.map((rate) => {
-        if (rate.id === rateId) {
-          // Ensure discount is between 0 and 90%
-          const clampedDiscount = Math.max(0, Math.min(90, newDiscount));
-
-          // Update the discount for all weight ranges
-          const updatedWeightRanges = rate.weightRanges && rate.weightRanges.length > 0 
-            ? rate.weightRanges.map((weightRange: WeightRange) => {
-              // Calculate the discount amount - applica lo sconto sul margine
-              const discountAmount = weightRange.actualMargin * (clampedDiscount / 100);
-              
-              // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
-              let finalPrice;
-              if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
-                // Applica prima il fuel surcharge al prezzo base
-                const baseWithFuel = weightRange.basePrice * (1 + (rate.fuelSurcharge / 100));
-                // Poi sottrai lo sconto sul margine
-                finalPrice = baseWithFuel - discountAmount;
-              } else {
-                // Senza fuel surcharge
-                finalPrice = weightRange.basePrice - discountAmount;
-              }
-
-              return {
-                ...weightRange,
-                // Aggiorniamo solo userDiscount, non modifichiamo altri parametri di sconto
-                userDiscount: clampedDiscount,
-                // Recalculate final price considerando il fuel surcharge se attivo
-                finalPrice: finalPrice,
-                // Adjust the margin based on the discount
-                adjustedMargin: weightRange.actualMargin - discountAmount,
-              };
-            })
-            : [];
-
-          // Calculate the discount amount for the main rate - applica lo sconto sul margine
-          const discountAmount = rate.actualMargin * (clampedDiscount / 100);
-          
-          // Calcola il prezzo finale considerando il fuel surcharge quando il toggle è attivo
-          let finalPrice;
-          if (includeFuelSurcharge && rate.fuelSurcharge > 0) {
-            // Applica prima il fuel surcharge al prezzo base
-            const baseWithFuel = rate.basePrice * (1 + (rate.fuelSurcharge / 100));
-            // Poi sottrai lo sconto sul margine
-            finalPrice = baseWithFuel - discountAmount;
-          } else {
-            // Senza fuel surcharge
-            finalPrice = rate.basePrice - discountAmount;
-          }
-
-          return {
-            ...rate,
-            userDiscount: clampedDiscount,
-            // Recalculate final price considerando il fuel surcharge se attivo
-            finalPrice: finalPrice,
-            // Adjust the margin based on the discount
-            adjustedMargin: rate.actualMargin - discountAmount,
-            weightRanges: updatedWeightRanges,
-          }
-        }
-        return rate
-      }),
-    )
+  
+  // Funzione per resettare i filtri
+  const resetFilters = () => {
+    setFilters({
+      sourceCountry: "all",
+      carriers: [],
+      services: [],
+      countries: [],
+      weight: "1",
+      volume: "100",
+      maxPrice: "",
+      minMargin: "",
+      euType: "all",
+      serviceType: "all",
+    });
   }
 
   // Load services when carrier filter changes
@@ -501,8 +459,8 @@ export default function RateComparisonCard() {
     const loadServices = async () => {
       try {
         // Se abbiamo selezionato un carrier specifico, carichiamo solo i suoi servizi
-        if (filters.carrierId) {
-          const servicesData = await api.getServices(filters.carrierId);
+        if (filters.carriers.length > 0) {
+          const servicesData = await api.getServices(filters.carriers[0]);
           setServices(servicesData);
         } else if (carriers.length > 0) {
           // Altrimenti carichiamo tutti i servizi disponibili
@@ -516,93 +474,138 @@ export default function RateComparisonCard() {
     };
 
     loadServices();
-  }, [filters.carrierId, carriers.length]);
+  }, [filters.carriers.length, carriers.length]);
 
   // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
   const loadRates = useCallback(async () => {
     setLoading(true);
-    setError(null); // Reset dello stato di errore
-    setSelectedRows({}); // Reset selected rows when refreshing data
-
+    setError(null);
+    setLoadingStage("Caricamento tariffe...");
+    
     try {
-      // Carica i carriers se necessario
+      // Carica corrieri se non sono già stati caricati
       if (carriers.length === 0) {
         setLoadingStage("Caricamento corrieri...");
         const carriersData = await api.getCarriers();
         setCarriers(carriersData);
       }
-
-      // Carica i servizi se necessario
+      
+      // Carica servizi se non sono già stati caricati
       if (services.length === 0) {
         setLoadingStage("Caricamento servizi...");
-        const servicesData = await api.getServices(filters.carrierId || undefined);
+        const servicesData = await api.getServices();
         setServices(servicesData);
       }
       
-      // Costruisci l'oggetto di filtri completo per l'API
-      setLoadingStage("Caricamento tariffe...");
-      const apiFilters = {
-        weight: String(parseFloat(filters.weight)),
+      // Costruisci oggetto per parametri API
+      const apiFilters: ApiRateFilters = {
+        // Tipo di destinazione in base alla tab
         destinationType: activeTab,
-        destinationCountry: filters.country || undefined,
-        carrierId: filters.carrierId || undefined,
-        service: filters.service || undefined,
-        volume: String(parseInt(filters.volume, 10)),
-        sourceCountry: filters.sourceCountry || undefined,
-        maxPrice: filters.maxPrice
+        weight: filters.weight?.toString() || "1",
+        volume: filters.volume?.toString() || "100",
       };
       
-      // Ora passiamo tutti i filtri alla API, incluso maxPrice
+      // Aggiungi sourceCountry se specificato
+      if (typeof filters.sourceCountry === 'string' && filters.sourceCountry !== "all") {
+        apiFilters.sourceCountry = filters.sourceCountry;
+      }
+      
+      // Supporto multi-corriere
+      if (Array.isArray(filters.carriers) && filters.carriers.length > 0) {
+        apiFilters.carriers = filters.carriers.map(c => c.toString());
+      }
+      
+      // Supporto multi-servizio
+      if (Array.isArray(filters.services) && filters.services.length > 0) {
+        apiFilters.services = filters.services.map(s => s.toString());
+      }
+      
+      // Supporto multi-paese
+      if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+        apiFilters.countries = filters.countries.map(c => c.toString());
+      }
+      
+      // Aggiungi filtro euType se specificato
+      if (typeof filters.euType === 'string' && filters.euType !== "all") {
+        apiFilters.euType = filters.euType;
+      }
+      
+      // Aggiungi altri filtri se specificati
+      if (filters.minMargin) apiFilters.minMargin = filters.minMargin.toString();
+      if (filters.maxPrice) apiFilters.maxPrice = filters.maxPrice.toString();
+      if (typeof filters.serviceType === 'string' && filters.serviceType !== "all") {
+        apiFilters.serviceType = filters.serviceType;
+      }
+      
+      // Effettua la chiamata API
+      setLoadingStage("Ricerca tariffe in corso...");
       const ratesData = await api.compareRates(apiFilters);
       
-      console.log(`Richiesta tariffe per tab ${activeTab} con paese ${filters.country || 'tutti'}. Risultati: ${ratesData.length}`);
-      
-      // Trasforma i dati dell'API nel formato atteso dal componente
-      setLoadingStage("Elaborazione risultati...");
+      // Formatta i dati
       const formattedRates = ratesData.map((rate: any) => {
-        // Estrai i dati del servizio e del corriere con gestione null/undefined
-        const service = rate.service || {};
-        const carrier = rate.carrier || (service?.carrier || {});
+        // Find service details
+        const service = rate.service || services.find(s => s._id === rate.service) || {};
         
-        // Calcola i valori utilizzando le nuove funzioni di utility
+        // Find carrier details
+        const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
+        const carrier = carriers.find(c => c._id === carrierId);
+        
+        // Calculate fuel surcharge amount (when enabled)
+        const fuelSurchargePercentage = carrier?.fuelSurcharge || 0;
+        
+        // Base price without fuel surcharge
         const basePrice = rate.retailPrice || 0;
         const purchasePrice = rate.purchasePrice || 0;
-        const margin = rate.margin || (rate.retailPrice - rate.purchasePrice) || 0;
-        const fuelSurchargePercentage = carrier.fuelSurcharge || 0;
         
-        const displayBasePrice = calculateBasePrice(basePrice, fuelSurchargePercentage, includeFuelSurcharge);
+        // Calculate margins
+        const margin = rate.margin || (basePrice - purchasePrice);
         
+        // Calculate display price (with or without fuel surcharge)
+        const displayBasePrice = includeFuelSurcharge ? 
+          basePrice * (1 + fuelSurchargePercentage / 100) : 
+          basePrice;
+          
+        // Calcola prezzo finale
         const finalPrice = calculateFinalPrice(
           basePrice,
-          margin,
+          rate.marginPercentage || 0,
           rate.userDiscount || 0,
           fuelSurchargePercentage,
           includeFuelSurcharge
         );
         
-        // Crea e ritorna l'oggetto Rate
+        // Country name
+        let countryCode = '';
+        if (service.destinationCountry) {
+          if (Array.isArray(service.destinationCountry) && service.destinationCountry.length > 0) {
+            countryCode = service.destinationCountry[0];
+          } else if (typeof service.destinationCountry === 'string') {
+            countryCode = service.destinationCountry;
+          }
+        }
+        
         return {
-          id: rate._id || uuidv4(),
-          carrierId: carrier._id || '',
-          carrierName: carrier.name || 'Unknown',
-          carrierLogo: carrier.logoUrl || '',
-          serviceCode: service.code || service.name || rate.serviceCode || 'Standard',
-          serviceName: service.name || rate.serviceName || 'Standard',
-          serviceDescription: service.description || rate.description || '',
-          countryName: formatCountryList(service.destinationCountry),
-          basePrice: basePrice,
+          id: rate._id || `rate-${Math.random().toString(36).substring(2, 11)}`,
+          carrierId: carrierId || 'unknown',
+          carrierName: carrier?.name || 'Sconosciuto',
+          carrierLogo: carrier?.logoUrl || '',
+          serviceCode: service.code || 'N/A',
+          serviceName: service.name || 'Standard',
+          serviceDescription: service.description || '',
+          deliveryTimeMin: service.deliveryTimeMin || null,
+          deliveryTimeMax: service.deliveryTimeMax || null,
+          countryName: countryCode ? formatCountryName(countryCode) : '',
+          basePrice: rate.retailPrice || 0,
           userDiscount: rate.userDiscount || 0,
           finalPrice: finalPrice,
           actualMargin: margin,
           marginPercentage: rate.marginPercentage || 0,
-          deliveryTimeMin: service.deliveryTimeMin || rate.deliveryTimeMin,
-          deliveryTimeMax: service.deliveryTimeMax || rate.deliveryTimeMax,
           fuelSurcharge: fuelSurchargePercentage,
           volumeDiscount: rate.volumeDiscount || 0,
           promotionDiscount: rate.promotionDiscount || 0,
           totalBasePrice: rate.totalBasePrice || rate.retailPrice || 0,
           weightRanges: [],
-          currentWeightRange: null, // Inizializziamo come null
+          currentWeightRange: undefined,
           retailPrice: basePrice,
           purchasePrice: purchasePrice,
           margin: margin,
@@ -632,27 +635,57 @@ export default function RateComparisonCard() {
       setLoading(false);
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions]);
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]);
 
+  // Load initial data
   useEffect(() => {
-    loadRates()
-  }, [loadRates])
-
-  // Handle filter change
-  const handleFilterChange = (name: string, value: string) => {
-    // Convert 'all' to empty string for API compatibility
-    let apiValue = value === 'all' ? '' : value;
-    
-    // Per sourceCountry e country, converti sempre in minuscolo
-    if ((name === 'sourceCountry' || name === 'country') && apiValue) {
-      apiValue = apiValue.toLowerCase();
+    // Carica i filtri salvati se presenti
+    try {
+      const savedFilterSetsJson = localStorage.getItem('saved-filter-sets');
+      if (savedFilterSetsJson) {
+        const parsedSets = JSON.parse(savedFilterSetsJson);
+        setSavedFilterSets(parsedSets);
+      }
+    } catch (error) {
+      console.error('Errore nel caricamento dei filtri salvati:', error);
     }
     
-    setFilters((prev) => ({
-      ...prev,
-      [name]: apiValue,
-    }));
-  }
+    // Carica le tariffe
+    loadRates();
+  }, [loadRates])
+
+  // Aggiorna la funzione di gestione dei cambiamenti nei filtri
+  const handleFilterChange = (name: string, value: any) => {
+    setFilters({ [name]: value });
+    setCurrentPage(1);  // Reset to page 1 when filters change
+  };
+
+  // Funzione per gestire il salvataggio di un set di filtri
+  const handleSaveFilterSet = (name: string, filterData: any) => {
+    // Create a new filter set object
+    const newFilterSet = {
+      id: `filter-${Date.now()}`,
+      name,
+      filters: { ...filterData },
+      isDefault: false,
+      dateCreated: new Date().toISOString()
+    };
+    
+    // Add to saved filter sets
+    setSavedFilterSets(prev => [newFilterSet, ...prev]);
+    
+    // Save to localStorage
+    const savedSets = localStorage.getItem('saved-filter-sets');
+    const parsedSets = savedSets ? JSON.parse(savedSets) : [];
+    localStorage.setItem('saved-filter-sets', JSON.stringify([newFilterSet, ...parsedSets]));
+  };
+  
+  // Funzione per caricare un set di filtri salvato
+  const handleLoadFilterSet = (filterSet: any) => {
+    if (filterSet && filterSet.filters) {
+      setFilters(filterSet.filters);
+    }
+  };
 
   // Open rate detail
   const handleOpenDetail = (rate: any) => {
@@ -1235,26 +1268,21 @@ export default function RateComparisonCard() {
 
   // Funzione per cambiare l'ordinamento
   const requestSort = (key: string) => {
-    setSortConfig((prevSortConfig) => {
-      if (prevSortConfig.key === key) {
-        // Cambia direzione se è la stessa colonna
-        if (prevSortConfig.direction === 'ascending') {
-          return { key, direction: 'descending' };
-        }
-        // Reset se già descendente
-        return { key: null, direction: null };
+    setFilters((prev) => ({
+      ...prev,
+      sort: {
+        key,
+        direction: prev.sort?.direction === 'ascending' ? 'descending' : 'ascending'
       }
-      // Nuova colonna, sempre ascendente
-      return { key, direction: 'ascending' };
-    });
+    }));
   };
 
   // Icona per indicare l'ordinamento
   const getSortIcon = (key: string) => {
-    if (sortConfig.key !== key) {
+    if (filters.sort?.key !== key) {
       return null;
     }
-    return sortConfig.direction === 'ascending' ? 
+    return filters.sort?.direction === 'ascending' ? 
       <ChevronUp className="h-4 w-4" /> : 
       <ChevronDown className="h-4 w-4" />;
   };
@@ -1264,30 +1292,30 @@ export default function RateComparisonCard() {
     // Utilizziamo solo le tariffe già filtrate per la pagina corrente
     const ratesToSort = displayedRates;
     
-    if (!sortConfig.key || !sortConfig.direction) {
+    if (!filters.sort?.key || !filters.sort?.direction) {
       return ratesToSort;
     }
 
     return [...ratesToSort].sort((a, b) => {
       // Gestire i casi specifici come prezzo e margine in modo numerico
-      if (sortConfig.key === 'finalPrice' || sortConfig.key === 'basePrice' || 
-          sortConfig.key === 'actualMargin' || sortConfig.key === 'marginPercentage') {
-        return sortConfig.direction === 'ascending'
-          ? (a[sortConfig.key] as number) - (b[sortConfig.key] as number)
-          : (b[sortConfig.key] as number) - (a[sortConfig.key] as number);
+      if (filters.sort?.key === 'finalPrice' || filters.sort?.key === 'basePrice' || 
+          filters.sort?.key === 'actualMargin' || filters.sort?.key === 'marginPercentage') {
+        return filters.sort?.direction === 'ascending'
+          ? (a[filters.sort?.key] as number) - (b[filters.sort?.key] as number)
+          : (b[filters.sort?.key] as number) - (a[filters.sort?.key] as number);
       }
       
       // Per campi di testo, confronto di stringhe
-      const aValue = String(a[sortConfig.key as keyof typeof a] || '');
-      const bValue = String(b[sortConfig.key as keyof typeof b] || '');
+      const aValue = String(a[filters.sort?.key as keyof typeof a] || '');
+      const bValue = String(b[filters.sort?.key as keyof typeof b] || '');
       
-      if (sortConfig.direction === 'ascending') {
+      if (filters.sort?.direction === 'ascending') {
         return aValue.localeCompare(bValue);
       } else {
         return bValue.localeCompare(aValue);
       }
     });
-  }, [displayedRates, sortConfig.key, sortConfig.direction]);
+  }, [displayedRates, filters.sort?.key, filters.sort?.direction]);
 
   // Funzione per aprire il dialog delle colonne
   const openColumnsDialog = () => {
@@ -1341,32 +1369,48 @@ export default function RateComparisonCard() {
 
             {/* Tab contenuto per spedizioni nazionali e internazionali */}
             <TabsContent value={activeTab} className="space-y-4">
-              {/* Componente RateFilters */}
-              <RateFilters 
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                carriers={carriers}
-                services={services}
-                activeTab={activeTab}
-                countryList={getCountryList()}
-                onColumnsDialogOpen={openColumnsDialog}
-                includeFuelSurcharge={includeFuelSurcharge}
-                onFuelSurchargeChange={(checked) => setIncludeFuelSurcharge(checked)}
-              />
+              {/* Componente Advanced Rate Filters */}
+              <div className="mb-5 mt-2">
+                <AdvancedRateFilters
+                  filters={filters as any}
+                  onFilterChange={handleFilterChange}
+                  onFilterReset={resetFilters}
+                  carriers={carriers}
+                  services={services}
+                  activeTab={activeTab}
+                  countryList={getCountryList()}
+                  onColumnsDialogOpen={() => setColumnsDialogOpen(true)}
+                  includeFuelSurcharge={includeFuelSurcharge}
+                  onFuelSurchargeChange={setIncludeFuelSurcharge}
+                  onSaveFilterSet={handleSaveFilterSet}
+                  onLoadFilterSet={handleLoadFilterSet}
+                  savedFilterSets={savedFilterSets}
+                />
+              </div>
               
               {/* Visualizzazione condizionale basata sullo stato */}
               {loading ? (
                 <LoadingIndicator stage={loadingStage} />
               ) : error ? (
-                <ErrorDisplay 
-                  message={`Si è verificato un errore durante il caricamento delle tariffe: ${error}`} 
-                  onRetry={loadRates} 
-                />
-              ) : sortedRates.length === 0 ? (
-                <Alert>
-                  <AlertTitle>Nessuna tariffa trovata</AlertTitle>
-                  <AlertDescription>Nessuna tariffa corrisponde ai criteri di filtro attuali.</AlertDescription>
-                </Alert>
+                <ErrorDisplay message={error} onRetry={loadRates} />
+              ) : rates.length === 0 ? (
+                <Card className="flex flex-col items-center justify-center p-8 border-dashed border-2">
+                  <div className="flex flex-col items-center text-center mb-4">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-semibold">Nessuna tariffa trovata</h3>
+                    <p className="text-muted-foreground mt-1">
+                      Prova a modificare i filtri o contatta l'assistenza per verificare la disponibilità.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={resetFilters}>
+                      Azzera filtri
+                    </Button>
+                    <Button onClick={loadRates}>
+                      Riprova
+                    </Button>
+                  </div>
+                </Card>
               ) : (
                 // Tabella dei risultati
                 <div className="rounded-md border overflow-hidden shadow-sm">
