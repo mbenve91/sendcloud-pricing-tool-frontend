@@ -47,6 +47,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { Building } from "lucide-react";
 
 // Tipi per il modello dei filtri
 export interface FilterOption {
@@ -95,7 +97,10 @@ interface AdvancedRateFiltersProps {
 }
 
 // Funzione per formattare i nomi dei paesi
-const formatCountryName = (countryCode: string): string => {
+const formatCountryName = (countryCode: string | number): string => {
+  // Converti a stringa se non lo è già
+  const code = String(countryCode).toLowerCase();
+  
   // Mappa dei codici paese ai nomi completi
   const countryNames: Record<string, string> = {
     'fr': 'Francia',
@@ -121,7 +126,7 @@ const formatCountryName = (countryCode: string): string => {
   };
   
   // Restituisci il nome del paese se disponibile, altrimenti il codice in maiuscolo
-  return countryNames[countryCode.toLowerCase()] || countryCode.toUpperCase();
+  return countryNames[code] || String(countryCode).toUpperCase();
 };
 
 export const AdvancedRateFilters = React.memo(({
@@ -322,10 +327,12 @@ export const AdvancedRateFilters = React.memo(({
         "other": "Altro"
       };
       
+      const serviceTypeValue = String(filters.serviceType);
+      
       activeTags.push({
         id: "service-type",
         label: "Tipo Servizio",
-        value: serviceTypes[filters.serviceType as string] || filters.serviceType,
+        value: serviceTypes[serviceTypeValue] || serviceTypeValue,
         category: "advanced"
       });
     }
@@ -405,7 +412,8 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di carrier
   const CarrierMultiSelect = () => {
-    const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers : [];
+    const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
+    const [searchValue, setSearchValue] = useState("");
     
     return (
       <Popover>
@@ -422,44 +430,61 @@ export const AdvancedRateFilters = React.memo(({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[250px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Cerca corriere..." />
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Cerca corriere..." 
+              value={searchValue}
+              onValueChange={setSearchValue}
+            />
             <CommandList>
               <CommandEmpty>Nessun corriere trovato.</CommandEmpty>
               <CommandGroup>
-                {carriers.map(carrier => (
-                  <CommandItem
-                    key={carrier._id}
-                    value={carrier._id}
-                    onSelect={(currentValue) => {
-                      const isSelected = selectedCarriers.includes(currentValue);
-                      let updatedSelection: string[];
-                      
-                      if (isSelected) {
-                        updatedSelection = selectedCarriers.filter(id => id !== currentValue);
-                      } else {
-                        updatedSelection = [...selectedCarriers, currentValue];
-                      }
-                      
-                      onFilterChange("carriers", updatedSelection);
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedCarriers.includes(carrier._id)}
-                      className="mr-2 h-4 w-4"
-                    />
-                    <div className="flex items-center gap-2">
-                      {carrier.logoUrl && (
-                        <img 
-                          src={carrier.logoUrl} 
-                          alt={carrier.name} 
-                          className="h-4 w-auto object-contain"
-                        />
-                      )}
-                      <span>{carrier.name}</span>
-                    </div>
-                  </CommandItem>
-                ))}
+                {carriers
+                  .filter(carrier => 
+                    carrier.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+                    String(carrier._id).includes(searchValue)
+                  )
+                  .map(carrier => (
+                    <CommandItem
+                      key={carrier._id}
+                      value={carrier._id}
+                      onSelect={(currentValue) => {
+                        const isSelected = selectedCarriers.includes(String(currentValue));
+                        let updatedSelection: string[];
+                        
+                        if (isSelected) {
+                          updatedSelection = selectedCarriers.filter(id => id !== String(currentValue));
+                        } else {
+                          updatedSelection = [...selectedCarriers, String(currentValue)];
+                        }
+                        
+                        onFilterChange("carriers", updatedSelection);
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedCarriers.includes(String(carrier._id))}
+                        className="mr-2 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2">
+                        {carrier.logoUrl ? (
+                          <Image
+                            src={carrier.logoUrl}
+                            alt={carrier.name}
+                            width={24}
+                            height={24}
+                            className="object-contain"
+                          />
+                        ) : (
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span>{carrier.name}</span>
+                      </div>
+                    </CommandItem>
+                  ))
+                }
               </CommandGroup>
               {selectedCarriers.length > 0 && (
                 <>
@@ -483,17 +508,18 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di servizi
   const ServiceMultiSelect = () => {
-    const selectedServices = Array.isArray(filters.services) ? filters.services : [];
+    const selectedServices = Array.isArray(filters.services) ? filters.services.map(String) : [];
+    const [searchValue, setSearchValue] = useState("");
     
     // Filtra i servizi in base ai carrier selezionati
     const filteredServices = services.filter(service => {
-      if (selectedServices.includes(service._id)) return true;
+      if (selectedServices.includes(String(service._id))) return true;
       
-      const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers : [];
+      const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
       if (selectedCarriers.length === 0) return true;
       
       const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
-      return selectedCarriers.includes(carrierId);
+      return selectedCarriers.includes(String(carrierId));
     });
     
     return (
@@ -511,46 +537,60 @@ export const AdvancedRateFilters = React.memo(({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Cerca servizio..." />
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Cerca servizio..." 
+              value={searchValue}
+              onValueChange={setSearchValue}
+            />
             <CommandList>
               <CommandEmpty>Nessun servizio trovato.</CommandEmpty>
               <ScrollArea className="h-[200px]">
                 <CommandGroup>
-                  {filteredServices.map(service => {
-                    const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
-                    const carrier = carriers.find(c => c._id === carrierId);
-                    
-                    return (
-                      <CommandItem
-                        key={service._id}
-                        value={service._id}
-                        onSelect={(currentValue) => {
-                          const isSelected = selectedServices.includes(currentValue);
-                          let updatedSelection: string[];
-                          
-                          if (isSelected) {
-                            updatedSelection = selectedServices.filter(id => id !== currentValue);
-                          } else {
-                            updatedSelection = [...selectedServices, currentValue];
-                          }
-                          
-                          onFilterChange("services", updatedSelection);
-                        }}
-                      >
-                        <Checkbox
-                          checked={selectedServices.includes(service._id)}
-                          className="mr-2 h-4 w-4"
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">{service.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {carrier ? carrier.name : 'Sconosciuto'}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
+                  {filteredServices
+                    .filter(service => 
+                      service.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+                      (service.code && service.code.toLowerCase().includes(searchValue.toLowerCase())) ||
+                      String(service._id).includes(searchValue)
+                    )
+                    .map(service => {
+                      const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
+                      const carrier = carriers.find(c => c._id === carrierId);
+                      
+                      return (
+                        <CommandItem
+                          key={service._id}
+                          value={service._id}
+                          onSelect={(currentValue) => {
+                            const isSelected = selectedServices.includes(String(currentValue));
+                            let updatedSelection: string[];
+                            
+                            if (isSelected) {
+                              updatedSelection = selectedServices.filter(id => id !== String(currentValue));
+                            } else {
+                              updatedSelection = [...selectedServices, String(currentValue)];
+                            }
+                            
+                            onFilterChange("services", updatedSelection);
+                          }}
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                          }}
+                        >
+                          <Checkbox
+                            checked={selectedServices.includes(String(service._id))}
+                            className="mr-2 h-4 w-4"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{service.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {carrier ? carrier.name : 'Sconosciuto'}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      );
+                    })
+                  }
                 </CommandGroup>
               </ScrollArea>
               {selectedServices.length > 0 && (
@@ -575,7 +615,8 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di paesi
   const CountryMultiSelect = () => {
-    const selectedCountries = Array.isArray(filters.countries) ? filters.countries : [];
+    const selectedCountries = Array.isArray(filters.countries) ? filters.countries.map(String) : [];
+    const [searchValue, setSearchValue] = useState("");
     
     return (
       <Popover>
@@ -592,36 +633,50 @@ export const AdvancedRateFilters = React.memo(({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[250px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Cerca paese..." />
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Cerca paese..." 
+              value={searchValue}
+              onValueChange={setSearchValue}
+            />
             <CommandList>
               <CommandEmpty>Nessun paese trovato.</CommandEmpty>
               <ScrollArea className="h-[200px]">
                 <CommandGroup>
-                  {countryList.map(country => (
-                    <CommandItem
-                      key={country}
-                      value={country}
-                      onSelect={(currentValue) => {
-                        const isSelected = selectedCountries.includes(currentValue);
-                        let updatedSelection: string[];
-                        
-                        if (isSelected) {
-                          updatedSelection = selectedCountries.filter(id => id !== currentValue);
-                        } else {
-                          updatedSelection = [...selectedCountries, currentValue];
-                        }
-                        
-                        onFilterChange("countries", updatedSelection);
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedCountries.includes(country)}
-                        className="mr-2 h-4 w-4"
-                      />
-                      <span>{formatCountryName(country)}</span>
-                    </CommandItem>
-                  ))}
+                  {countryList
+                    .filter(country => {
+                      const countryName = formatCountryName(String(country)).toLowerCase();
+                      const searchLower = searchValue.toLowerCase();
+                      return countryName.includes(searchLower) || String(country).toLowerCase().includes(searchLower);
+                    })
+                    .map(country => (
+                      <CommandItem
+                        key={country}
+                        value={country}
+                        onSelect={(currentValue) => {
+                          const isSelected = selectedCountries.includes(String(currentValue));
+                          let updatedSelection: string[];
+                          
+                          if (isSelected) {
+                            updatedSelection = selectedCountries.filter(id => id !== String(currentValue));
+                          } else {
+                            updatedSelection = [...selectedCountries, String(currentValue)];
+                          }
+                          
+                          onFilterChange("countries", updatedSelection);
+                        }}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedCountries.includes(String(country))}
+                          className="mr-2 h-4 w-4"
+                        />
+                        <span>{formatCountryName(String(country))}</span>
+                      </CommandItem>
+                    ))
+                  }
                 </CommandGroup>
               </ScrollArea>
               {selectedCountries.length > 0 && (
