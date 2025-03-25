@@ -641,10 +641,13 @@ export default function RateComparisonCard() {
   useEffect(() => {
     // Carica i filtri salvati se presenti
     try {
-      const savedFilterSetsJson = localStorage.getItem('saved-filter-sets');
-      if (savedFilterSetsJson) {
-        const parsedSets = JSON.parse(savedFilterSetsJson);
-        setSavedFilterSets(parsedSets);
+      // Verifica se siamo in un ambiente browser prima di accedere a localStorage
+      if (typeof window !== 'undefined') {
+        const savedFilterSetsJson = localStorage.getItem('saved-filter-sets');
+        if (savedFilterSetsJson) {
+          const parsedSets = JSON.parse(savedFilterSetsJson);
+          setSavedFilterSets(parsedSets);
+        }
       }
     } catch (error) {
       console.error('Errore nel caricamento dei filtri salvati:', error);
@@ -675,9 +678,15 @@ export default function RateComparisonCard() {
     setSavedFilterSets(prev => [newFilterSet, ...prev]);
     
     // Save to localStorage
-    const savedSets = localStorage.getItem('saved-filter-sets');
-    const parsedSets = savedSets ? JSON.parse(savedSets) : [];
-    localStorage.setItem('saved-filter-sets', JSON.stringify([newFilterSet, ...parsedSets]));
+    if (typeof window !== 'undefined') {
+      try {
+        const savedSets = localStorage.getItem('saved-filter-sets');
+        const parsedSets = savedSets ? JSON.parse(savedSets) : [];
+        localStorage.setItem('saved-filter-sets', JSON.stringify([newFilterSet, ...parsedSets]));
+      } catch (error) {
+        console.error('Errore nel salvataggio del set di filtri:', error);
+      }
+    }
   };
   
   // Funzione per caricare un set di filtri salvato

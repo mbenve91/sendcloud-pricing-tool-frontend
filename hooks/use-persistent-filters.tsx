@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 
+// Funzione di utilità per verificare se il codice è in esecuzione nel browser
+const isBrowser = () => typeof window !== 'undefined';
+
 /**
  * Hook personalizzato per gestire i filtri di ricerca con persistenza
  * nel localStorage per mantenere le preferenze dell'utente tra le sessioni.
@@ -11,28 +14,39 @@ import { useState, useEffect } from 'react';
 export function usePersistentFilters<T>(storageKey: string, defaultFilters: T) {
   // Inizializza lo state con i filtri dal localStorage o con i filtri predefiniti
   const [filters, setFilters] = useState<T>(() => {
-    // Tenta di recuperare filtri salvati dal localStorage
-    const savedFilters = localStorage.getItem(storageKey);
-    
-    // Se ci sono filtri salvati, analizzali e restituiscili
-    if (savedFilters) {
-      try {
-        const parsedFilters = JSON.parse(savedFilters) as T;
-        return parsedFilters;
-      } catch (error) {
-        // In caso di errore durante il parsing, usa i filtri predefiniti
-        console.error('Errore nel parsing dei filtri salvati:', error);
-        return defaultFilters;
-      }
+    // Verifica se siamo in un ambiente browser
+    if (!isBrowser()) {
+      return defaultFilters;
     }
     
-    // Se non ci sono filtri salvati, usa i filtri predefiniti
+    // Tenta di recuperare filtri salvati dal localStorage
+    try {
+      const savedFilters = localStorage.getItem(storageKey);
+      
+      // Se ci sono filtri salvati, analizzali e restituiscili
+      if (savedFilters) {
+        const parsedFilters = JSON.parse(savedFilters) as T;
+        return parsedFilters;
+      }
+    } catch (error) {
+      // In caso di errore durante il parsing, usa i filtri predefiniti
+      console.error('Errore nel parsing dei filtri salvati:', error);
+    }
+    
+    // Se non ci sono filtri salvati o siamo in un ambiente server, usa i filtri predefiniti
     return defaultFilters;
   });
 
   // Aggiorna il localStorage quando i filtri cambiano
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(filters));
+    // Verifica se siamo in un ambiente browser prima di accedere a localStorage
+    if (isBrowser()) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(filters));
+      } catch (error) {
+        console.error('Errore nel salvataggio dei filtri:', error);
+      }
+    }
   }, [filters, storageKey]);
 
   // Funzione per aggiornare i filtri con gestione di tipi più affidabile
