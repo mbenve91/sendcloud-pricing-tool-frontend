@@ -414,9 +414,10 @@ export const AdvancedRateFilters = React.memo(({
   const CarrierMultiSelect = () => {
     const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
+    const [open, setOpen] = useState(false);
     
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
@@ -459,6 +460,7 @@ export const AdvancedRateFilters = React.memo(({
                         }
                         
                         onFilterChange("carriers", updatedSelection);
+                        // Non chiudiamo il popover dopo la selezione
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -491,7 +493,13 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandSeparator />
                   <CommandGroup>
                     <CommandItem
-                      onSelect={() => onFilterChange("carriers", [])}
+                      onSelect={() => {
+                        onFilterChange("carriers", []);
+                        // Non chiudiamo il popover dopo la deselezione
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
                       className="justify-center text-center"
                     >
                       Deseleziona tutti
@@ -510,20 +518,40 @@ export const AdvancedRateFilters = React.memo(({
   const ServiceMultiSelect = () => {
     const selectedServices = Array.isArray(filters.services) ? filters.services.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
+    const [open, setOpen] = useState(false);
     
-    // Filtra i servizi in base ai carrier selezionati
+    // Ottieni i corrieri selezionati come stringhe
+    const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
+    
+    // Filtra i servizi in base ai carrier selezionati - logica migliorata
     const filteredServices = services.filter(service => {
+      // Se il servizio è già selezionato, mostralo sempre
       if (selectedServices.includes(String(service._id))) return true;
       
-      const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
+      // Se non ci sono corrieri selezionati, mostra tutti i servizi
       if (selectedCarriers.length === 0) return true;
       
-      const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
-      return selectedCarriers.includes(String(carrierId));
+      // Estrai l'ID del corriere dal servizio in modo più robusto
+      let carrierId;
+      
+      if (typeof service.carrier === 'object' && service.carrier !== null) {
+        // Se carrier è un oggetto, usa la proprietà _id
+        carrierId = String(service.carrier._id);
+      } else {
+        // Altrimenti usa il valore direttamente, convertendolo in stringa
+        carrierId = String(service.carrier);
+      }
+      
+      // Controlla se questo servizio appartiene a uno dei corrieri selezionati
+      return selectedCarriers.includes(carrierId);
     });
     
+    // Debug log - da rimuovere in produzione
+    console.log('Corrieri selezionati:', selectedCarriers);
+    console.log('Servizi filtrati:', filteredServices.length);
+    
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
@@ -554,8 +582,15 @@ export const AdvancedRateFilters = React.memo(({
                       String(service._id).includes(searchValue)
                     )
                     .map(service => {
-                      const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier;
-                      const carrier = carriers.find(c => c._id === carrierId);
+                      // Estrai corriere in modo più robusto
+                      let carrierId;
+                      if (typeof service.carrier === 'object' && service.carrier !== null) {
+                        carrierId = service.carrier._id;
+                      } else {
+                        carrierId = service.carrier;
+                      }
+                      
+                      const carrier = carriers.find(c => String(c._id) === String(carrierId));
                       
                       return (
                         <CommandItem
@@ -572,6 +607,7 @@ export const AdvancedRateFilters = React.memo(({
                             }
                             
                             onFilterChange("services", updatedSelection);
+                            // Non chiudiamo il popover dopo la selezione
                           }}
                           onPointerDown={(e) => {
                             e.preventDefault();
@@ -598,7 +634,13 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandSeparator />
                   <CommandGroup>
                     <CommandItem
-                      onSelect={() => onFilterChange("services", [])}
+                      onSelect={() => {
+                        onFilterChange("services", []);
+                        // Non chiudiamo il popover dopo la deselezione
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
                       className="justify-center text-center"
                     >
                       Deseleziona tutti
@@ -617,9 +659,10 @@ export const AdvancedRateFilters = React.memo(({
   const CountryMultiSelect = () => {
     const selectedCountries = Array.isArray(filters.countries) ? filters.countries.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
+    const [open, setOpen] = useState(false);
     
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
@@ -664,6 +707,7 @@ export const AdvancedRateFilters = React.memo(({
                           }
                           
                           onFilterChange("countries", updatedSelection);
+                          // Non chiudiamo il popover dopo la selezione
                         }}
                         onPointerDown={(e) => {
                           e.preventDefault();
@@ -684,7 +728,13 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandSeparator />
                   <CommandGroup>
                     <CommandItem
-                      onSelect={() => onFilterChange("countries", [])}
+                      onSelect={() => {
+                        onFilterChange("countries", []);
+                        // Non chiudiamo il popover dopo la deselezione
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
                       className="justify-center text-center"
                     >
                       Deseleziona tutti
