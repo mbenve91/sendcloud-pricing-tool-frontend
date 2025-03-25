@@ -858,6 +858,88 @@ export const AdvancedRateFilters = React.memo(({
 
         <Separator className="mb-4" />
         
+        {/* Filtri Primari - Sempre visibili */}
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <h4 className="font-medium text-sm">Filtri Primari</h4>
+              {getActiveFilterCount("primary") > 0 && (
+                <Badge variant="secondary" className="ml-2 py-0 px-1.5 h-5">
+                  {getActiveFilterCount("primary")}
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-start gap-3 mt-2 bg-accent/5 p-3 rounded-md">
+            {/* Market */}
+            <div className="space-y-2 w-[150px]">
+              <label htmlFor="market" className="text-sm font-medium">
+                Mercato
+              </label>
+              <Select 
+                value={filters.sourceCountry?.toString() || "all"} 
+                onValueChange={(value) => onFilterChange("sourceCountry", value)}
+              >
+                <SelectTrigger id="market">
+                  <SelectValue placeholder="Tutti i mercati" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i mercati</SelectItem>
+                  <SelectItem value="it">Italia</SelectItem>
+                  <SelectItem value="es">Spagna</SelectItem>
+                  <SelectItem value="fr">Francia</SelectItem>
+                  <SelectItem value="de">Germania</SelectItem>
+                  <SelectItem value="nl">Paesi Bassi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Carrier - Multiselect */}
+            <div className="space-y-2 w-[200px]">
+              <label className="text-sm font-medium">
+                Corrieri
+              </label>
+              <CarrierMultiSelect />
+            </div>
+
+            {/* Service - Multiselect */}
+            <div className="space-y-2 w-[200px]">
+              <label className="text-sm font-medium">
+                Servizi
+              </label>
+              <ServiceMultiSelect />
+            </div>
+
+            {/* Country - mostrato solo per spedizioni internazionali - Multiselect */}
+            {shouldShowCountryFilter && (
+              <div className="space-y-2 w-[200px]">
+                <label className="text-sm font-medium">
+                  Paesi
+                </label>
+                <CountryMultiSelect />
+              </div>
+            )}
+
+            {/* Weight */}
+            <div className="space-y-2 w-[120px]">
+              <label htmlFor="weight" className="text-sm font-medium">
+                Peso (kg)
+              </label>
+              <Input
+                id="weight"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={filters.weight?.toString() || "1"}
+                onChange={(e) => onFilterChange("weight", e.target.value)}
+                className="h-10"
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* Accordion per filtri avanzati e tecnici */}
         <Accordion
           type="single"
           collapsible
@@ -865,91 +947,9 @@ export const AdvancedRateFilters = React.memo(({
           onValueChange={setExpandedSection}
           className="w-full"
         >
-          {/* Filtri Primari */}
-          <AccordionItem value="primary" className="border-none">
-            <AccordionTrigger className="py-2 hover:no-underline">
-              <div className="flex items-center">
-                <span className="font-medium">Filtri Primari</span>
-                {getActiveFilterCount("primary") > 0 && (
-                  <Badge variant="secondary" className="ml-2 py-0 px-1.5 h-5">
-                    {getActiveFilterCount("primary")}
-                  </Badge>
-                )}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="flex flex-wrap items-start gap-3 mt-2">
-                {/* Market */}
-                <div className="space-y-2 w-[150px]">
-                  <label htmlFor="market" className="text-sm font-medium">
-                    Mercato
-                  </label>
-                  <Select 
-                    value={filters.sourceCountry?.toString() || "all"} 
-                    onValueChange={(value) => onFilterChange("sourceCountry", value)}
-                  >
-                    <SelectTrigger id="market">
-                      <SelectValue placeholder="Tutti i mercati" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tutti i mercati</SelectItem>
-                      <SelectItem value="it">Italia</SelectItem>
-                      <SelectItem value="es">Spagna</SelectItem>
-                      <SelectItem value="fr">Francia</SelectItem>
-                      <SelectItem value="de">Germania</SelectItem>
-                      <SelectItem value="nl">Paesi Bassi</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Carrier - Multiselect */}
-                <div className="space-y-2 w-[200px]">
-                  <label className="text-sm font-medium">
-                    Corrieri
-                  </label>
-                  <CarrierMultiSelect />
-                </div>
-
-                {/* Service - Multiselect */}
-                <div className="space-y-2 w-[200px]">
-                  <label className="text-sm font-medium">
-                    Servizi
-                  </label>
-                  <ServiceMultiSelect />
-                </div>
-
-                {/* Country - mostrato solo per spedizioni internazionali - Multiselect */}
-                {shouldShowCountryFilter && (
-                  <div className="space-y-2 w-[200px]">
-                    <label className="text-sm font-medium">
-                      Paesi
-                    </label>
-                    <CountryMultiSelect />
-                  </div>
-                )}
-
-                {/* Weight */}
-                <div className="space-y-2 w-[120px]">
-                  <label htmlFor="weight" className="text-sm font-medium">
-                    Peso (kg)
-                  </label>
-                  <Input
-                    id="weight"
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    value={filters.weight?.toString() || "1"}
-                    onChange={(e) => onFilterChange("weight", e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-          
           {/* Filtri Avanzati */}
-          <AccordionItem value="advanced" className="border-none">
-            <AccordionTrigger className="py-2 hover:no-underline">
+          <AccordionItem value="advanced" className="border-none rounded-md overflow-hidden">
+            <AccordionTrigger className="py-2 px-3 hover:no-underline bg-muted/50 hover:bg-muted rounded-md">
               <div className="flex items-center">
                 <span className="font-medium">Filtri Avanzati</span>
                 {getActiveFilterCount("advanced") > 0 && (
@@ -959,8 +959,8 @@ export const AdvancedRateFilters = React.memo(({
                 )}
               </div>
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="flex flex-wrap items-start gap-3 mt-2">
+            <AccordionContent className="pt-3 px-3 pb-1 bg-accent/5 rounded-b-md mt-1">
+              <div className="flex flex-wrap items-start gap-3">
                 {/* Volume */}
                 <div className="space-y-2 w-[150px]">
                   <label htmlFor="volume" className="text-sm font-medium">
@@ -1036,8 +1036,8 @@ export const AdvancedRateFilters = React.memo(({
           </AccordionItem>
           
           {/* Filtri Tecnici */}
-          <AccordionItem value="technical" className="border-none">
-            <AccordionTrigger className="py-2 hover:no-underline">
+          <AccordionItem value="technical" className="border-none rounded-md overflow-hidden mt-2">
+            <AccordionTrigger className="py-2 px-3 hover:no-underline bg-muted/50 hover:bg-muted rounded-md">
               <div className="flex items-center">
                 <span className="font-medium">Filtri Tecnici</span>
                 {getActiveFilterCount("technical") > 0 && (
@@ -1047,8 +1047,8 @@ export const AdvancedRateFilters = React.memo(({
                 )}
               </div>
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="flex flex-wrap items-start gap-3 mt-2">
+            <AccordionContent className="pt-3 px-3 pb-1 bg-accent/5 rounded-b-md mt-1">
+              <div className="flex flex-wrap items-start gap-3">
                 {/* EU Type - mostrato solo per spedizioni internazionali */}
                 {shouldShowCountryFilter && (
                   <div className="space-y-2 w-[150px]">
@@ -1092,8 +1092,25 @@ export const AdvancedRateFilters = React.memo(({
           </AccordionItem>
         </Accordion>
         
-        {/* Tag filters */}
-        <FilterTags />
+        {/* Azioni rapide e filtri attivi */}
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="flex justify-between mb-2">
+            <span className="text-sm font-medium">Filtri attivi</span>
+            {(getActiveFilterCount("primary") + getActiveFilterCount("advanced") + getActiveFilterCount("technical")) > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 text-xs text-muted-foreground"
+                onClick={onFilterReset}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Azzera filtri
+              </Button>
+            )}
+          </div>
+          
+          <FilterTags />
+        </div>
       </CardContent>
     </Card>
   );
