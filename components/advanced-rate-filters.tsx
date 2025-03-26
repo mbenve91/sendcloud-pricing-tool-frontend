@@ -149,8 +149,46 @@ export const AdvancedRateFilters = React.memo(({
   const [showSaveFilterPopover, setShowSaveFilterPopover] = useState(false);
   const [filterSetName, setFilterSetName] = useState("");
   
+  // Nuovo stato per i filtri locali (non ancora applicati)
+  const [localFilters, setLocalFilters] = useState<FilterValue>(filters);
+  // Stato per indicare se ci sono modifiche non applicate
+  const [hasUnappliedChanges, setHasUnappliedChanges] = useState(false);
+  
+  // Aggiorna i filtri locali quando cambiano i filtri esterni
+  useEffect(() => {
+    setLocalFilters(filters);
+    setHasUnappliedChanges(false);
+  }, [filters]);
+  
   // Determina se mostrare il filtro paese in base alla tab attiva
   const shouldShowCountryFilter = activeTab === "international";
+  
+  // Funzione per gestire il cambiamento dei filtri locali
+  const handleLocalFilterChange = (category: string, value: any) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      [category]: value
+    }));
+    setHasUnappliedChanges(true);
+  };
+  
+  // Funzione per applicare tutti i filtri
+  const applyFilters = () => {
+    // Per ogni chiave in localFilters, chiama onFilterChange
+    Object.entries(localFilters).forEach(([key, value]) => {
+      // Applica il filtro solo se è diverso dal valore corrente nei filtri
+      if (JSON.stringify(filters[key]) !== JSON.stringify(value)) {
+        onFilterChange(key, value);
+      }
+    });
+    setHasUnappliedChanges(false);
+  };
+
+  // Funzione per reimpostare i filtri locali
+  const resetLocalFilters = () => {
+    onFilterReset();
+    setHasUnappliedChanges(false);
+  };
   
   // Generiamo categorie di filtri
   const filterCategories: FilterCategory[] = [
@@ -183,26 +221,26 @@ export const AdvancedRateFilters = React.memo(({
     
     // Filtri primari
     if (categoryId === "primary") {
-      if (Array.isArray(filters.carriers) && filters.carriers.length > 0) count++;
-      if (Array.isArray(filters.services) && filters.services.length > 0) count++;
-      if (filters.sourceCountry && filters.sourceCountry !== "all") count++;
-      if (shouldShowCountryFilter && Array.isArray(filters.countries) && filters.countries.length > 0) count++;
-      if (filters.weight && filters.weight !== "1") count++;
+      if (Array.isArray(localFilters.carriers) && localFilters.carriers.length > 0) count++;
+      if (Array.isArray(localFilters.services) && localFilters.services.length > 0) count++;
+      if (localFilters.sourceCountry && localFilters.sourceCountry !== "all") count++;
+      if (shouldShowCountryFilter && Array.isArray(localFilters.countries) && localFilters.countries.length > 0) count++;
+      if (localFilters.weight && localFilters.weight !== "1") count++;
     }
     
     // Filtri avanzati
     else if (categoryId === "advanced") {
-      if (filters.maxPrice && filters.maxPrice !== "") count++;
-      if (filters.minMargin && filters.minMargin !== "") count++;
-      if (filters.volume && filters.volume !== "100") count++;
-      if (filters.serviceType && filters.serviceType !== "all") count++;
+      if (localFilters.maxPrice && localFilters.maxPrice !== "") count++;
+      if (localFilters.minMargin && localFilters.minMargin !== "") count++;
+      if (localFilters.volume && localFilters.volume !== "100") count++;
+      if (localFilters.serviceType && localFilters.serviceType !== "all") count++;
     }
     
     // Filtri tecnici
     else if (categoryId === "technical") {
       // Aggiungi qui conteggi per eventuali filtri tecnici
-      if (filters.euType && filters.euType !== "all") count++;
-      if (filters.isActive !== undefined) count++;
+      if (localFilters.euType && localFilters.euType !== "all") count++;
+      if (localFilters.isActive !== undefined) count++;
     }
     
     return count;
@@ -216,8 +254,8 @@ export const AdvancedRateFilters = React.memo(({
     // Otteniamo le informazioni sui filtri attivi
     
     // Carrier
-    if (Array.isArray(filters.carriers) && filters.carriers.length > 0) {
-      filters.carriers.forEach(carrierId => {
+    if (Array.isArray(localFilters.carriers) && localFilters.carriers.length > 0) {
+      localFilters.carriers.forEach(carrierId => {
         const carrier = carriers.find(c => c._id === carrierId);
         if (carrier) {
           activeTags.push({
@@ -231,8 +269,8 @@ export const AdvancedRateFilters = React.memo(({
     }
     
     // Servizi
-    if (Array.isArray(filters.services) && filters.services.length > 0) {
-      filters.services.forEach(serviceId => {
+    if (Array.isArray(localFilters.services) && localFilters.services.length > 0) {
+      localFilters.services.forEach(serviceId => {
         const service = services.find(s => s._id === serviceId);
         if (service) {
           activeTags.push({
@@ -246,18 +284,18 @@ export const AdvancedRateFilters = React.memo(({
     }
     
     // Mercato
-    if (filters.sourceCountry && filters.sourceCountry !== "all") {
+    if (localFilters.sourceCountry && localFilters.sourceCountry !== "all") {
       activeTags.push({
-        id: `market-${filters.sourceCountry}`,
+        id: `market-${localFilters.sourceCountry}`,
         label: "Market",
-        value: formatCountryName(filters.sourceCountry as string),
+        value: formatCountryName(localFilters.sourceCountry as string),
         category: "primary"
       });
     }
     
     // Paesi destinazione
-    if (shouldShowCountryFilter && Array.isArray(filters.countries) && filters.countries.length > 0) {
-      filters.countries.forEach(country => {
+    if (shouldShowCountryFilter && Array.isArray(localFilters.countries) && localFilters.countries.length > 0) {
+      localFilters.countries.forEach(country => {
         activeTags.push({
           id: `country-${country}`,
           label: "Country",
@@ -268,57 +306,57 @@ export const AdvancedRateFilters = React.memo(({
     }
     
     // Peso
-    if (filters.weight && filters.weight !== "1") {
+    if (localFilters.weight && localFilters.weight !== "1") {
       activeTags.push({
         id: "weight",
         label: "Weight",
-        value: `${filters.weight} kg`,
+        value: `${localFilters.weight} kg`,
         category: "primary"
       });
     }
     
     // Prezzo massimo
-    if (filters.maxPrice && filters.maxPrice !== "") {
+    if (localFilters.maxPrice && localFilters.maxPrice !== "") {
       activeTags.push({
         id: "max-price",
         label: "Max Price",
-        value: `${filters.maxPrice} €`,
+        value: `${localFilters.maxPrice} €`,
         category: "advanced"
       });
     }
     
     // Margine minimo
-    if (filters.minMargin && filters.minMargin !== "") {
+    if (localFilters.minMargin && localFilters.minMargin !== "") {
       activeTags.push({
         id: "min-margin",
         label: "Min Margin",
-        value: `${filters.minMargin}%`,
+        value: `${localFilters.minMargin}%`,
         category: "advanced"
       });
     }
     
     // Volume
-    if (filters.volume && filters.volume !== "100") {
+    if (localFilters.volume && localFilters.volume !== "100") {
       activeTags.push({
         id: "volume",
         label: "Volume",
-        value: `${filters.volume} shipments`,
+        value: `${localFilters.volume} shipments`,
         category: "advanced"
       });
     }
     
     // EU/Extra EU
-    if (filters.euType && filters.euType !== "all") {
+    if (localFilters.euType && localFilters.euType !== "all") {
       activeTags.push({
         id: "eu-type",
         label: "Region",
-        value: filters.euType === "eu" ? "EU Only" : "Extra EU Only",
+        value: localFilters.euType === "eu" ? "EU Only" : "Extra EU Only",
         category: "technical"
       });
     }
     
     // Tipo servizio
-    if (filters.serviceType && filters.serviceType !== "all") {
+    if (localFilters.serviceType && localFilters.serviceType !== "all") {
       const serviceTypes: Record<string, string> = {
         "normal": "Standard",
         "pudo": "Pickup Point",
@@ -327,7 +365,7 @@ export const AdvancedRateFilters = React.memo(({
         "other": "Other"
       };
       
-      const serviceTypeValue = String(filters.serviceType);
+      const serviceTypeValue = String(localFilters.serviceType);
       
       activeTags.push({
         id: "service-type",
@@ -354,39 +392,39 @@ export const AdvancedRateFilters = React.memo(({
                 // Rimuovi il filtro in base alla categoria
                 if (tag.id.startsWith("carrier-")) {
                   const carrierId = tag.id.replace("carrier-", "");
-                  const updatedCarriers = (filters.carriers as string[]).filter(id => id !== carrierId);
-                  onFilterChange("carriers", updatedCarriers);
+                  const updatedCarriers = (localFilters.carriers as string[]).filter(id => id !== carrierId);
+                  handleLocalFilterChange("carriers", updatedCarriers);
                 } 
                 else if (tag.id.startsWith("service-")) {
                   const serviceId = tag.id.replace("service-", "");
-                  const updatedServices = (filters.services as string[]).filter(id => id !== serviceId);
-                  onFilterChange("services", updatedServices);
+                  const updatedServices = (localFilters.services as string[]).filter(id => id !== serviceId);
+                  handleLocalFilterChange("services", updatedServices);
                 }
                 else if (tag.id.startsWith("country-")) {
                   const country = tag.id.replace("country-", "");
-                  const updatedCountries = (filters.countries as string[]).filter(c => c !== country);
-                  onFilterChange("countries", updatedCountries);
+                  const updatedCountries = (localFilters.countries as string[]).filter(c => c !== country);
+                  handleLocalFilterChange("countries", updatedCountries);
                 }
                 else if (tag.id.startsWith("market-")) {
-                  onFilterChange("sourceCountry", "all");
+                  handleLocalFilterChange("sourceCountry", "all");
                 }
                 else if (tag.id === "weight") {
-                  onFilterChange("weight", "1");
+                  handleLocalFilterChange("weight", "1");
                 }
                 else if (tag.id === "max-price") {
-                  onFilterChange("maxPrice", "");
+                  handleLocalFilterChange("maxPrice", "");
                 }
                 else if (tag.id === "min-margin") {
-                  onFilterChange("minMargin", "");
+                  handleLocalFilterChange("minMargin", "");
                 }
                 else if (tag.id === "volume") {
-                  onFilterChange("volume", "100");
+                  handleLocalFilterChange("volume", "100");
                 }
                 else if (tag.id === "eu-type") {
-                  onFilterChange("euType", "all");
+                  handleLocalFilterChange("euType", "all");
                 }
                 else if (tag.id === "service-type") {
-                  onFilterChange("serviceType", "all");
+                  handleLocalFilterChange("serviceType", "all");
                 }
               }}
             >
@@ -400,7 +438,7 @@ export const AdvancedRateFilters = React.memo(({
             variant="ghost" 
             size="sm" 
             className="h-6 text-xs text-muted-foreground"
-            onClick={onFilterReset}
+            onClick={resetLocalFilters}
           >
             <RotateCcw className="h-3 w-3 mr-1" />
             Reset filters
@@ -412,7 +450,7 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di carrier
   const CarrierMultiSelect = () => {
-    const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
+    const selectedCarriers = Array.isArray(localFilters.carriers) ? localFilters.carriers.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
     const [open, setOpen] = useState(false);
     
@@ -459,7 +497,7 @@ export const AdvancedRateFilters = React.memo(({
                           updatedSelection = [...selectedCarriers, String(currentValue)];
                         }
                         
-                        onFilterChange("carriers", updatedSelection);
+                        handleLocalFilterChange("carriers", updatedSelection);
                         // Non chiudiamo il popover dopo la selezione
                       }}
                       onPointerDown={(e) => {
@@ -494,7 +532,7 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
-                        onFilterChange("carriers", []);
+                        handleLocalFilterChange("carriers", []);
                         // Non chiudiamo il popover dopo la deselezione
                       }}
                       onPointerDown={(e) => {
@@ -516,12 +554,12 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di servizi
   const ServiceMultiSelect = () => {
-    const selectedServices = Array.isArray(filters.services) ? filters.services.map(String) : [];
+    const selectedServices = Array.isArray(localFilters.services) ? localFilters.services.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
     const [open, setOpen] = useState(false);
     
     // Ottieni i corrieri selezionati come stringhe
-    const selectedCarriers = Array.isArray(filters.carriers) ? filters.carriers.map(String) : [];
+    const selectedCarriers = Array.isArray(localFilters.carriers) ? localFilters.carriers.map(String) : [];
     
     // Filtra i servizi in base ai carrier selezionati - logica migliorata
     const filteredServices = services.filter(service => {
@@ -545,10 +583,6 @@ export const AdvancedRateFilters = React.memo(({
       // Controlla se questo servizio appartiene a uno dei corrieri selezionati
       return selectedCarriers.includes(carrierId);
     });
-    
-    // Debug log - da rimuovere in produzione
-    console.log('Corrieri selezionati:', selectedCarriers);
-    console.log('Servizi filtrati:', filteredServices.length);
     
     return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -606,7 +640,7 @@ export const AdvancedRateFilters = React.memo(({
                               updatedSelection = [...selectedServices, String(currentValue)];
                             }
                             
-                            onFilterChange("services", updatedSelection);
+                            handleLocalFilterChange("services", updatedSelection);
                             // Non chiudiamo il popover dopo la selezione
                           }}
                           onPointerDown={(e) => {
@@ -635,7 +669,7 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
-                        onFilterChange("services", []);
+                        handleLocalFilterChange("services", []);
                         // Non chiudiamo il popover dopo la deselezione
                       }}
                       onPointerDown={(e) => {
@@ -657,7 +691,7 @@ export const AdvancedRateFilters = React.memo(({
   
   // Componente per la selezione multipla di paesi
   const CountryMultiSelect = () => {
-    const selectedCountries = Array.isArray(filters.countries) ? filters.countries.map(String) : [];
+    const selectedCountries = Array.isArray(localFilters.countries) ? localFilters.countries.map(String) : [];
     const [searchValue, setSearchValue] = useState("");
     const [open, setOpen] = useState(false);
     
@@ -706,7 +740,7 @@ export const AdvancedRateFilters = React.memo(({
                             updatedSelection = [...selectedCountries, String(currentValue)];
                           }
                           
-                          onFilterChange("countries", updatedSelection);
+                          handleLocalFilterChange("countries", updatedSelection);
                           // Non chiudiamo il popover dopo la selezione
                         }}
                         onPointerDown={(e) => {
@@ -729,7 +763,7 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
-                        onFilterChange("countries", []);
+                        handleLocalFilterChange("countries", []);
                         // Non chiudiamo il popover dopo la deselezione
                       }}
                       onPointerDown={(e) => {
@@ -878,8 +912,8 @@ export const AdvancedRateFilters = React.memo(({
                 Market
               </label>
               <Select 
-                value={filters.sourceCountry?.toString() || "all"} 
-                onValueChange={(value) => onFilterChange("sourceCountry", value)}
+                value={localFilters.sourceCountry?.toString() || "all"} 
+                onValueChange={(value) => handleLocalFilterChange("sourceCountry", value)}
               >
                 <SelectTrigger id="market">
                   <SelectValue placeholder="All markets" />
@@ -931,8 +965,8 @@ export const AdvancedRateFilters = React.memo(({
                 type="number"
                 min="0.1"
                 step="0.1"
-                value={filters.weight?.toString() || "1"}
-                onChange={(e) => onFilterChange("weight", e.target.value)}
+                value={localFilters.weight?.toString() || "1"}
+                onChange={(e) => handleLocalFilterChange("weight", e.target.value)}
                 className="h-10"
               />
             </div>
@@ -970,8 +1004,8 @@ export const AdvancedRateFilters = React.memo(({
                     id="volume"
                     type="number"
                     min="1"
-                    value={filters.volume?.toString() || "100"}
-                    onChange={(e) => onFilterChange("volume", e.target.value)}
+                    value={localFilters.volume?.toString() || "100"}
+                    onChange={(e) => handleLocalFilterChange("volume", e.target.value)}
                     className="h-10"
                   />
                 </div>
@@ -985,8 +1019,8 @@ export const AdvancedRateFilters = React.memo(({
                     id="maxPrice"
                     type="number"
                     min="0"
-                    value={filters.maxPrice?.toString() || ""}
-                    onChange={(e) => onFilterChange("maxPrice", e.target.value)}
+                    value={localFilters.maxPrice?.toString() || ""}
+                    onChange={(e) => handleLocalFilterChange("maxPrice", e.target.value)}
                     className="h-10"
                     placeholder="No limit"
                   />
@@ -1002,8 +1036,8 @@ export const AdvancedRateFilters = React.memo(({
                     type="number"
                     min="0"
                     max="100"
-                    value={filters.minMargin?.toString() || ""}
-                    onChange={(e) => onFilterChange("minMargin", e.target.value)}
+                    value={localFilters.minMargin?.toString() || ""}
+                    onChange={(e) => handleLocalFilterChange("minMargin", e.target.value)}
                     className="h-10"
                     placeholder="No limit"
                   />
@@ -1015,8 +1049,8 @@ export const AdvancedRateFilters = React.memo(({
                     Service Type
                   </label>
                   <Select 
-                    value={filters.serviceType?.toString() || "all"} 
-                    onValueChange={(value) => onFilterChange("serviceType", value)}
+                    value={localFilters.serviceType?.toString() || "all"} 
+                    onValueChange={(value) => handleLocalFilterChange("serviceType", value)}
                   >
                     <SelectTrigger id="serviceType">
                       <SelectValue placeholder="All types" />
@@ -1056,8 +1090,8 @@ export const AdvancedRateFilters = React.memo(({
                       Region
                     </label>
                     <Select 
-                      value={filters.euType?.toString() || "all"} 
-                      onValueChange={(value) => onFilterChange("euType", value)}
+                      value={localFilters.euType?.toString() || "all"} 
+                      onValueChange={(value) => handleLocalFilterChange("euType", value)}
                     >
                       <SelectTrigger id="euType">
                         <SelectValue placeholder="All regions" />
@@ -1092,6 +1126,25 @@ export const AdvancedRateFilters = React.memo(({
           </AccordionItem>
         </Accordion>
         
+        {/* Bottone per applicare i filtri */}
+        <div className="mt-5 flex justify-between items-center">
+          <Button 
+            variant="default" 
+            className="flex items-center gap-1" 
+            onClick={applyFilters}
+            disabled={!hasUnappliedChanges}
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Apply Filters
+          </Button>
+          
+          {hasUnappliedChanges && (
+            <Badge className="bg-yellow-50 text-yellow-800 border border-yellow-200">
+              Filters not applied
+            </Badge>
+          )}
+        </div>
+        
         {/* Azioni rapide e filtri attivi */}
         <div className="mt-5 pt-4 border-t border-border">
           <div className="flex justify-between mb-2">
@@ -1101,7 +1154,7 @@ export const AdvancedRateFilters = React.memo(({
                 variant="ghost" 
                 size="sm" 
                 className="h-6 text-xs text-muted-foreground"
-                onClick={onFilterReset}
+                onClick={resetLocalFilters}
               >
                 <RotateCcw className="h-3 w-3 mr-1" />
                 Reset filters
