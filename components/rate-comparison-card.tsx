@@ -1370,8 +1370,8 @@ export default function RateComparisonCard() {
         <CardContent>
           <Tabs defaultValue="national" value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="mb-4">
-              <TabsTrigger value="national">Nazionali</TabsTrigger>
-              <TabsTrigger value="international">Internazionali</TabsTrigger>
+              <TabsTrigger value="national">National</TabsTrigger>
+              <TabsTrigger value="international">International</TabsTrigger>
             </TabsList>
 
             {/* Tab contenuto per spedizioni nazionali e internazionali */}
@@ -1404,17 +1404,17 @@ export default function RateComparisonCard() {
                 <Card className="flex flex-col items-center justify-center p-8 border-dashed border-2">
                   <div className="flex flex-col items-center text-center mb-4">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold">Nessuna tariffa trovata</h3>
+                    <h3 className="text-xl font-semibold">No rates found</h3>
                     <p className="text-muted-foreground mt-1">
-                      Prova a modificare i filtri o contatta l'assistenza per verificare la disponibilità.
+                      Try changing your filters or contact support to check availability.
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={resetFilters}>
-                      Azzera filtri
+                      Reset filters
                     </Button>
                     <Button onClick={loadRates}>
-                      Riprova
+                      Try again
                     </Button>
                   </div>
                 </Card>
@@ -1434,7 +1434,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('carrierName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Corriere</span>
+                              <span>Carrier</span>
                               {getSortIcon('carrierName')}
                             </div>
                           </TableHead>
@@ -1446,7 +1446,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('serviceName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Servizio</span>
+                              <span>Service</span>
                               {getSortIcon('serviceName')}
                             </div>
                           </TableHead>
@@ -1458,7 +1458,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('countryName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Paese</span>
+                              <span>Country</span>
                               {getSortIcon('countryName')}
                             </div>
                           </TableHead>
@@ -1470,7 +1470,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('basePrice')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Prezzo Base</span>
+                              <span>Base Price</span>
                               {getSortIcon('basePrice')}
                             </div>
                           </TableHead>
@@ -1482,7 +1482,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('userDiscount')}
                           >
                             <div className="flex items-center justify-end">
-                              <span>Sconto</span>
+                              <span>Discount</span>
                               {getSortIcon('userDiscount')}
                             </div>
                           </TableHead>
@@ -1494,7 +1494,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('finalPrice')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Prezzo Finale</span>
+                              <span>Final Price</span>
                               {getSortIcon('finalPrice')}
                             </div>
                           </TableHead>
@@ -1506,7 +1506,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('actualMargin')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Margine</span>
+                              <span>Margin</span>
                               {getSortIcon('actualMargin')}
                             </div>
                           </TableHead>
@@ -1515,7 +1515,7 @@ export default function RateComparisonCard() {
                         {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
                           <TableHead className="text-center text-white">
                             <div className="flex items-center justify-center">
-                              <span>Consegna</span>
+                              <span>Delivery</span>
                             </div>
                           </TableHead>
                         )}
@@ -1523,7 +1523,7 @@ export default function RateComparisonCard() {
                         {visibleColumns.find((col) => col.id === "details")?.isVisible && (
                           <TableHead className="text-center text-white">
                             <div className="flex items-center justify-center">
-                              <span>Dettagli</span>
+                              <span>Details</span>
                             </div>
                           </TableHead>
                         )}
@@ -1554,7 +1554,7 @@ export default function RateComparisonCard() {
                             colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}
                             className="h-24 text-center text-muted-foreground"
                           >
-                            Nessun risultato trovato. Prova a modificare i filtri.
+                            No results found. Try changing your filters.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -1649,7 +1649,7 @@ export default function RateComparisonCard() {
                 <div className="flex items-center">
                   <ShoppingCart className="mr-2 h-5 w-5" />
                   <span>
-                    {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'tariffa selezionata' : 'tariffe selezionate'}
+                    {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'rate selected' : 'rates selected'}
                   </span>
                 </div>
                 <Button
@@ -1658,7 +1658,7 @@ export default function RateComparisonCard() {
                   size="sm"
                   className="bg-white text-primary hover:bg-white/90"
                 >
-                  Aggiungi rates al carrello
+                  Add rates to cart
                 </Button>
               </div>
             </div>
