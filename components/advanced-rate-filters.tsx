@@ -103,26 +103,26 @@ const formatCountryName = (countryCode: string | number): string => {
   
   // Mappa dei codici paese ai nomi completi
   const countryNames: Record<string, string> = {
-    'fr': 'Francia',
-    'de': 'Germania',
-    'it': 'Italia',
-    'es': 'Spagna',
-    'nl': 'Paesi Bassi',
-    'be': 'Belgio',
+    'fr': 'France',
+    'de': 'Germany',
+    'it': 'Italy',
+    'es': 'Spain',
+    'nl': 'Netherlands',
+    'be': 'Belgium',
     'at': 'Austria',
-    'pt': 'Portogallo',
-    'pl': 'Polonia',
-    'se': 'Svezia',
-    'us': 'Stati Uniti',
+    'pt': 'Portugal',
+    'pl': 'Poland',
+    'se': 'Sweden',
+    'us': 'United States',
     'ca': 'Canada',
-    'uk': 'Regno Unito',
-    'ch': 'Svizzera',
+    'uk': 'United Kingdom',
+    'ch': 'Switzerland',
     'au': 'Australia',
-    'jp': 'Giappone',
-    'cn': 'Cina',
+    'jp': 'Japan',
+    'cn': 'China',
     'sg': 'Singapore',
-    'ae': 'Emirati Arabi Uniti',
-    'br': 'Brasile'
+    'ae': 'United Arab Emirates',
+    'br': 'Brazil'
   };
   
   // Restituisci il nome del paese se disponibile, altrimenti il codice in maiuscolo
@@ -156,22 +156,22 @@ export const AdvancedRateFilters = React.memo(({
   const filterCategories: FilterCategory[] = [
     {
       id: "primary",
-      label: "Filtri Primari",
-      description: "Filtri principali per la ricerca di tariffe",
+      label: "Primary Filters",
+      description: "Main filters for rate search",
       expanded: true,
       isMultiSelect: false,
     },
     {
       id: "advanced",
-      label: "Filtri Avanzati",
-      description: "Opzioni di filtro avanzate per ricerche specifiche",
+      label: "Advanced Filters",
+      description: "Advanced filter options for specific searches",
       expanded: false,
       isMultiSelect: false,
     },
     {
       id: "technical",
-      label: "Filtri Tecnici",
-      description: "Opzioni di filtro tecniche per utenti esperti",
+      label: "Technical Filters",
+      description: "Technical filter options for expert users",
       expanded: false,
       isMultiSelect: false,
     },
@@ -222,7 +222,7 @@ export const AdvancedRateFilters = React.memo(({
         if (carrier) {
           activeTags.push({
             id: `carrier-${carrierId}`,
-            label: "Corriere",
+            label: "Carrier",
             value: carrier.name,
             category: "primary"
           });
@@ -237,7 +237,7 @@ export const AdvancedRateFilters = React.memo(({
         if (service) {
           activeTags.push({
             id: `service-${serviceId}`,
-            label: "Servizio",
+            label: "Service",
             value: service.name,
             category: "primary"
           });
@@ -249,7 +249,7 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.sourceCountry && filters.sourceCountry !== "all") {
       activeTags.push({
         id: `market-${filters.sourceCountry}`,
-        label: "Mercato",
+        label: "Market",
         value: formatCountryName(filters.sourceCountry as string),
         category: "primary"
       });
@@ -260,7 +260,7 @@ export const AdvancedRateFilters = React.memo(({
       filters.countries.forEach(country => {
         activeTags.push({
           id: `country-${country}`,
-          label: "Paese",
+          label: "Country",
           value: formatCountryName(country),
           category: "primary"
         });
@@ -271,7 +271,7 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.weight && filters.weight !== "1") {
       activeTags.push({
         id: "weight",
-        label: "Peso",
+        label: "Weight",
         value: `${filters.weight} kg`,
         category: "primary"
       });
@@ -281,7 +281,7 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.maxPrice && filters.maxPrice !== "") {
       activeTags.push({
         id: "max-price",
-        label: "Prezzo Max",
+        label: "Max Price",
         value: `${filters.maxPrice} €`,
         category: "advanced"
       });
@@ -291,7 +291,7 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.minMargin && filters.minMargin !== "") {
       activeTags.push({
         id: "min-margin",
-        label: "Margine Min",
+        label: "Min Margin",
         value: `${filters.minMargin}%`,
         category: "advanced"
       });
@@ -302,7 +302,7 @@ export const AdvancedRateFilters = React.memo(({
       activeTags.push({
         id: "volume",
         label: "Volume",
-        value: `${filters.volume} spedizioni`,
+        value: `${filters.volume} shipments`,
         category: "advanced"
       });
     }
@@ -311,8 +311,8 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.euType && filters.euType !== "all") {
       activeTags.push({
         id: "eu-type",
-        label: "Regione",
-        value: filters.euType === "eu" ? "Solo EU" : "Solo Extra EU",
+        label: "Region",
+        value: filters.euType === "eu" ? "EU Only" : "Extra EU Only",
         category: "technical"
       });
     }
@@ -321,17 +321,17 @@ export const AdvancedRateFilters = React.memo(({
     if (filters.serviceType && filters.serviceType !== "all") {
       const serviceTypes: Record<string, string> = {
         "normal": "Standard",
-        "pudo": "Punto di Ritiro",
+        "pudo": "Pickup Point",
         "locker": "Locker",
-        "return": "Reso",
-        "other": "Altro"
+        "return": "Return",
+        "other": "Other"
       };
       
       const serviceTypeValue = String(filters.serviceType);
       
       activeTags.push({
         id: "service-type",
-        label: "Tipo Servizio",
+        label: "Service Type",
         value: serviceTypes[serviceTypeValue] || serviceTypeValue,
         category: "advanced"
       });
@@ -403,7 +403,7 @@ export const AdvancedRateFilters = React.memo(({
             onClick={onFilterReset}
           >
             <RotateCcw className="h-3 w-3 mr-1" />
-            Azzera filtri
+            Reset filters
           </Button>
         )}
       </div>
@@ -424,21 +424,21 @@ export const AdvancedRateFilters = React.memo(({
             className="w-full justify-between h-10 px-3 py-2 text-sm"
           >
             {selectedCarriers.length === 0 ? (
-              <span className="text-muted-foreground">Tutti i corrieri</span>
+              <span className="text-muted-foreground">All carriers</span>
             ) : (
-              <span>{selectedCarriers.length} corrieri selezionati</span>
+              <span>{selectedCarriers.length} carriers selected</span>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[250px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput 
-              placeholder="Cerca corriere..." 
+              placeholder="Search carrier..." 
               value={searchValue}
               onValueChange={setSearchValue}
             />
             <CommandList>
-              <CommandEmpty>Nessun corriere trovato.</CommandEmpty>
+              <CommandEmpty>No carrier found.</CommandEmpty>
               <CommandGroup>
                 {carriers
                   .filter(carrier => 
@@ -502,7 +502,7 @@ export const AdvancedRateFilters = React.memo(({
                       }}
                       className="justify-center text-center"
                     >
-                      Deseleziona tutti
+                      Deselect all
                     </CommandItem>
                   </CommandGroup>
                 </>
@@ -558,21 +558,21 @@ export const AdvancedRateFilters = React.memo(({
             className="w-full justify-between h-10 px-3 py-2 text-sm"
           >
             {selectedServices.length === 0 ? (
-              <span className="text-muted-foreground">Tutti i servizi</span>
+              <span className="text-muted-foreground">All services</span>
             ) : (
-              <span>{selectedServices.length} servizi selezionati</span>
+              <span>{selectedServices.length} services selected</span>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput 
-              placeholder="Cerca servizio..." 
+              placeholder="Search service..." 
               value={searchValue}
               onValueChange={setSearchValue}
             />
             <CommandList>
-              <CommandEmpty>Nessun servizio trovato.</CommandEmpty>
+              <CommandEmpty>No service found.</CommandEmpty>
               <ScrollArea className="h-[200px]">
                 <CommandGroup>
                   {filteredServices
@@ -620,7 +620,7 @@ export const AdvancedRateFilters = React.memo(({
                           <div className="flex flex-col">
                             <span className="font-medium text-sm">{service.name}</span>
                             <span className="text-xs text-muted-foreground">
-                              {carrier ? carrier.name : 'Sconosciuto'}
+                              {carrier ? carrier.name : 'Unknown'}
                             </span>
                           </div>
                         </CommandItem>
@@ -643,7 +643,7 @@ export const AdvancedRateFilters = React.memo(({
                       }}
                       className="justify-center text-center"
                     >
-                      Deseleziona tutti
+                      Deselect all
                     </CommandItem>
                   </CommandGroup>
                 </>
@@ -669,21 +669,21 @@ export const AdvancedRateFilters = React.memo(({
             className="w-full justify-between h-10 px-3 py-2 text-sm"
           >
             {selectedCountries.length === 0 ? (
-              <span className="text-muted-foreground">Tutti i paesi</span>
+              <span className="text-muted-foreground">All countries</span>
             ) : (
-              <span>{selectedCountries.length} paesi selezionati</span>
+              <span>{selectedCountries.length} countries selected</span>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[250px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput 
-              placeholder="Cerca paese..." 
+              placeholder="Search country..." 
               value={searchValue}
               onValueChange={setSearchValue}
             />
             <CommandList>
-              <CommandEmpty>Nessun paese trovato.</CommandEmpty>
+              <CommandEmpty>No country found.</CommandEmpty>
               <ScrollArea className="h-[200px]">
                 <CommandGroup>
                   {countryList
@@ -737,7 +737,7 @@ export const AdvancedRateFilters = React.memo(({
                       }}
                       className="justify-center text-center"
                     >
-                      Deseleziona tutti
+                      Deselect all
                     </CommandItem>
                   </CommandGroup>
                 </>
@@ -760,15 +760,15 @@ export const AdvancedRateFilters = React.memo(({
             className="flex items-center gap-1"
           >
             <Save className="h-4 w-4" />
-            <span>Filtri Salvati</span>
+            <span>Saved Filters</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[250px] p-3">
           <div className="space-y-3">
-            <div className="text-sm font-medium">Salva filtri attuali</div>
+            <div className="text-sm font-medium">Save current filters</div>
             <div className="flex space-x-2">
               <Input 
-                placeholder="Nome del set di filtri" 
+                placeholder="Filter set name" 
                 value={filterSetName}
                 onChange={(e) => setFilterSetName(e.target.value)}
                 className="h-8 text-sm"
@@ -785,14 +785,14 @@ export const AdvancedRateFilters = React.memo(({
                 }}
               >
                 <Save className="h-3 w-3 mr-1" />
-                Salva
+                Save
               </Button>
             </div>
             
             {savedFilterSets.length > 0 && (
               <>
                 <Separator className="my-2" />
-                <div className="text-sm font-medium mb-2">I tuoi filtri</div>
+                <div className="text-sm font-medium mb-2">Your filters</div>
                 <ScrollArea className="h-[150px]">
                   <div className="space-y-1">
                     {savedFilterSets.map(filterSet => (
@@ -816,7 +816,7 @@ export const AdvancedRateFilters = React.memo(({
                               }
                             }}
                           >
-                            <span className="sr-only">Carica filtro</span>
+                            <span className="sr-only">Load filter</span>
                             <i className="i-heroicons-arrow-path h-3 w-3" />
                           </Button>
                         </div>
@@ -838,7 +838,7 @@ export const AdvancedRateFilters = React.memo(({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <Filter className="mr-2 h-5 w-5" />
-            <h3 className="font-medium">Filtri</h3>
+            <h3 className="font-medium">Filters</h3>
           </div>
           <div className="flex items-center gap-2">
             {onSaveFilterSet && (
@@ -851,7 +851,7 @@ export const AdvancedRateFilters = React.memo(({
               className="flex items-center gap-1"
             >
               <Columns className="h-4 w-4" />
-              <span>Colonne</span>
+              <span>Columns</span>
             </Button>
           </div>
         </div>
@@ -862,7 +862,7 @@ export const AdvancedRateFilters = React.memo(({
         <div className="space-y-4 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <h4 className="font-medium text-sm">Filtri Primari</h4>
+              <h4 className="font-medium text-sm">Primary Filters</h4>
               {getActiveFilterCount("primary") > 0 && (
                 <Badge variant="secondary" className="ml-2 py-0 px-1.5 h-5">
                   {getActiveFilterCount("primary")}
@@ -875,22 +875,22 @@ export const AdvancedRateFilters = React.memo(({
             {/* Market */}
             <div className="space-y-2 w-[150px]">
               <label htmlFor="market" className="text-sm font-medium">
-                Mercato
+                Market
               </label>
               <Select 
                 value={filters.sourceCountry?.toString() || "all"} 
                 onValueChange={(value) => onFilterChange("sourceCountry", value)}
               >
                 <SelectTrigger id="market">
-                  <SelectValue placeholder="Tutti i mercati" />
+                  <SelectValue placeholder="All markets" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tutti i mercati</SelectItem>
-                  <SelectItem value="it">Italia</SelectItem>
-                  <SelectItem value="es">Spagna</SelectItem>
-                  <SelectItem value="fr">Francia</SelectItem>
-                  <SelectItem value="de">Germania</SelectItem>
-                  <SelectItem value="nl">Paesi Bassi</SelectItem>
+                  <SelectItem value="all">All markets</SelectItem>
+                  <SelectItem value="it">Italy</SelectItem>
+                  <SelectItem value="es">Spain</SelectItem>
+                  <SelectItem value="fr">France</SelectItem>
+                  <SelectItem value="de">Germany</SelectItem>
+                  <SelectItem value="nl">Netherlands</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -898,7 +898,7 @@ export const AdvancedRateFilters = React.memo(({
             {/* Carrier - Multiselect */}
             <div className="space-y-2 w-[200px]">
               <label className="text-sm font-medium">
-                Corrieri
+                Carriers
               </label>
               <CarrierMultiSelect />
             </div>
@@ -906,7 +906,7 @@ export const AdvancedRateFilters = React.memo(({
             {/* Service - Multiselect */}
             <div className="space-y-2 w-[200px]">
               <label className="text-sm font-medium">
-                Servizi
+                Services
               </label>
               <ServiceMultiSelect />
             </div>
@@ -915,7 +915,7 @@ export const AdvancedRateFilters = React.memo(({
             {shouldShowCountryFilter && (
               <div className="space-y-2 w-[200px]">
                 <label className="text-sm font-medium">
-                  Paesi
+                  Countries
                 </label>
                 <CountryMultiSelect />
               </div>
@@ -924,7 +924,7 @@ export const AdvancedRateFilters = React.memo(({
             {/* Weight */}
             <div className="space-y-2 w-[120px]">
               <label htmlFor="weight" className="text-sm font-medium">
-                Peso (kg)
+                Weight (kg)
               </label>
               <Input
                 id="weight"
@@ -951,7 +951,7 @@ export const AdvancedRateFilters = React.memo(({
           <AccordionItem value="advanced" className="border-none rounded-md overflow-hidden">
             <AccordionTrigger className="py-2 px-3 hover:no-underline bg-muted/50 hover:bg-muted rounded-md">
               <div className="flex items-center">
-                <span className="font-medium">Filtri Avanzati</span>
+                <span className="font-medium">Advanced Filters</span>
                 {getActiveFilterCount("advanced") > 0 && (
                   <Badge variant="secondary" className="ml-2 py-0 px-1.5 h-5">
                     {getActiveFilterCount("advanced")}
@@ -964,7 +964,7 @@ export const AdvancedRateFilters = React.memo(({
                 {/* Volume */}
                 <div className="space-y-2 w-[150px]">
                   <label htmlFor="volume" className="text-sm font-medium">
-                    Volume Mensile
+                    Monthly Volume
                   </label>
                   <Input
                     id="volume"
@@ -979,7 +979,7 @@ export const AdvancedRateFilters = React.memo(({
                 {/* Max Price */}
                 <div className="space-y-2 w-[150px]">
                   <label htmlFor="maxPrice" className="text-sm font-medium">
-                    Prezzo Max €
+                    Max Price €
                   </label>
                   <Input
                     id="maxPrice"
@@ -988,14 +988,14 @@ export const AdvancedRateFilters = React.memo(({
                     value={filters.maxPrice?.toString() || ""}
                     onChange={(e) => onFilterChange("maxPrice", e.target.value)}
                     className="h-10"
-                    placeholder="Nessun limite"
+                    placeholder="No limit"
                   />
                 </div>
                 
                 {/* Min Margin */}
                 <div className="space-y-2 w-[150px]">
                   <label htmlFor="minMargin" className="text-sm font-medium">
-                    Margine Min %
+                    Min Margin %
                   </label>
                   <Input
                     id="minMargin"
@@ -1005,29 +1005,29 @@ export const AdvancedRateFilters = React.memo(({
                     value={filters.minMargin?.toString() || ""}
                     onChange={(e) => onFilterChange("minMargin", e.target.value)}
                     className="h-10"
-                    placeholder="Nessun limite"
+                    placeholder="No limit"
                   />
                 </div>
                 
                 {/* Service Type */}
                 <div className="space-y-2 w-[150px]">
                   <label htmlFor="serviceType" className="text-sm font-medium">
-                    Tipo Servizio
+                    Service Type
                   </label>
                   <Select 
                     value={filters.serviceType?.toString() || "all"} 
                     onValueChange={(value) => onFilterChange("serviceType", value)}
                   >
                     <SelectTrigger id="serviceType">
-                      <SelectValue placeholder="Tutti i tipi" />
+                      <SelectValue placeholder="All types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tutti i tipi</SelectItem>
+                      <SelectItem value="all">All types</SelectItem>
                       <SelectItem value="normal">Standard</SelectItem>
-                      <SelectItem value="pudo">Punto di Ritiro</SelectItem>
+                      <SelectItem value="pudo">Pickup Point</SelectItem>
                       <SelectItem value="locker">Locker</SelectItem>
-                      <SelectItem value="return">Reso</SelectItem>
-                      <SelectItem value="other">Altro</SelectItem>
+                      <SelectItem value="return">Return</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1039,7 +1039,7 @@ export const AdvancedRateFilters = React.memo(({
           <AccordionItem value="technical" className="border-none rounded-md overflow-hidden mt-2">
             <AccordionTrigger className="py-2 px-3 hover:no-underline bg-muted/50 hover:bg-muted rounded-md">
               <div className="flex items-center">
-                <span className="font-medium">Filtri Tecnici</span>
+                <span className="font-medium">Technical Filters</span>
                 {getActiveFilterCount("technical") > 0 && (
                   <Badge variant="secondary" className="ml-2 py-0 px-1.5 h-5">
                     {getActiveFilterCount("technical")}
@@ -1053,19 +1053,19 @@ export const AdvancedRateFilters = React.memo(({
                 {shouldShowCountryFilter && (
                   <div className="space-y-2 w-[150px]">
                     <label htmlFor="euType" className="text-sm font-medium">
-                      Regione
+                      Region
                     </label>
                     <Select 
                       value={filters.euType?.toString() || "all"} 
                       onValueChange={(value) => onFilterChange("euType", value)}
                     >
                       <SelectTrigger id="euType">
-                        <SelectValue placeholder="Tutte le regioni" />
+                        <SelectValue placeholder="All regions" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Tutte le regioni</SelectItem>
-                        <SelectItem value="eu">Solo EU</SelectItem>
-                        <SelectItem value="extra_eu">Solo Extra EU</SelectItem>
+                        <SelectItem value="all">All regions</SelectItem>
+                        <SelectItem value="eu">EU Only</SelectItem>
+                        <SelectItem value="extra_eu">Extra EU Only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1075,7 +1075,7 @@ export const AdvancedRateFilters = React.memo(({
                 <div className="space-y-2 w-full">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="fuel-surcharge-toggle" className="text-sm font-medium">
-                      Includi Fuel Surcharge nei prezzi
+                      Include Fuel Surcharge in prices
                     </Label>
                     <Switch
                       checked={includeFuelSurcharge}
@@ -1084,7 +1084,7 @@ export const AdvancedRateFilters = React.memo(({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Quando abilitato, il fuel surcharge viene incluso nel calcolo del prezzo finale.
+                    When enabled, fuel surcharge is included in the final price calculation.
                   </p>
                 </div>
               </div>
@@ -1095,7 +1095,7 @@ export const AdvancedRateFilters = React.memo(({
         {/* Azioni rapide e filtri attivi */}
         <div className="mt-5 pt-4 border-t border-border">
           <div className="flex justify-between mb-2">
-            <span className="text-sm font-medium">Filtri attivi</span>
+            <span className="text-sm font-medium">Active filters</span>
             {(getActiveFilterCount("primary") + getActiveFilterCount("advanced") + getActiveFilterCount("technical")) > 0 && (
               <Button 
                 variant="ghost" 
@@ -1104,7 +1104,7 @@ export const AdvancedRateFilters = React.memo(({
                 onClick={onFilterReset}
               >
                 <RotateCcw className="h-3 w-3 mr-1" />
-                Azzera filtri
+                Reset filters
               </Button>
             )}
           </div>
