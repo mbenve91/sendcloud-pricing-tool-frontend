@@ -969,7 +969,14 @@ export default function RateComparisonCard() {
         ...rate,
         userDiscount: requiredDiscount,
         finalPrice: finalPrice,
-        adjustedMargin: adjustedMargin
+        adjustedMargin: adjustedMargin,
+        // Aggiorna anche le fasce di peso se presenti
+        weightRanges: rate.weightRanges && rate.weightRanges.length > 0 
+          ? rate.weightRanges.map(wr => ({
+              ...wr,
+              userDiscount: requiredDiscount
+            }))
+          : rate.weightRanges
       };
     });
   };
