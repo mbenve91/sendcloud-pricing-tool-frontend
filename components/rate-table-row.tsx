@@ -507,7 +507,7 @@ const RateTableRow = React.memo(({
                               onCheckedChange={(checked) => 
                                 handleRowSelect(`${rate.id}-${weightRange.id}`, !!checked, true, rate.id)
                               }
-                              aria-label={`Seleziona fascia di peso ${weightRange.label}`}
+                              aria-label={`Select weight range ${weightRange.label}`}
                             />
                           </TableCell>
                           <TableCell className="font-medium">{weightRange.label}</TableCell>

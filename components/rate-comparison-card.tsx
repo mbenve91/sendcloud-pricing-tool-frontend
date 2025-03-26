@@ -895,7 +895,6 @@ export default function RateComparisonCard() {
     }).format(value);
   };
 
-  // Nella funzione loadRates, dopo il caricamento delle tariffe originali
   // aggiungi questo codice per calcolare automaticamente gli sconti necessari
   const applyMaxPriceFilter = (rates: Rate[]): Rate[] => {
     if (!filters.maxPrice || parseFloat(filters.maxPrice) <= 0) {
@@ -907,12 +906,17 @@ export default function RateComparisonCard() {
     // Prima filtriamo le tariffe che possono potenzialmente raggiungere il prezzo massimo
     // anche con lo sconto massimo (90% del margine)
     const filteredRates = rates.filter(rate => {
-      // Determina il prezzo base VISUALIZZATO (NON lo modifichiamo MAI)
-      const displayedBasePrice = rate.displayBasePrice || rate.basePrice;
+      // Calcola il prezzo minimo raggiungibile con sconto massimo del 90%
+      const purchasePrice = rate.purchasePrice || (rate.basePrice - rate.actualMargin);
       
-      // Determina il prezzo minimo raggiungibile applicando lo sconto massimo (90%)
-      const maxDiscountAmount = rate.actualMargin * 0.9; // 90% del margine
-      const lowestPossiblePrice = displayedBasePrice - maxDiscountAmount;
+      // Calcola il prezzo finale più basso possibile (con 90% di sconto sul margine)
+      const lowestPossiblePrice = calculateFinalPrice(
+        rate.basePrice, 
+        rate.actualMargin, 
+        90, // sconto massimo del 90%
+        rate.fuelSurcharge || 0,
+        includeFuelSurcharge
+      );
       
       // Mantieni solo le tariffe che possono raggiungere il prezzo massimo richiesto
       return lowestPossiblePrice <= maxPrice;
@@ -920,80 +924,53 @@ export default function RateComparisonCard() {
     
     // Ora per ciascuna tariffa filtrata, calcoliamo lo sconto necessario
     return filteredRates.map(rate => {
-      // Preserva sempre il prezzo base originale e il prezzo base visualizzato
-      const originalBasePrice = rate.basePrice;
-      const displayedBasePrice = rate.displayBasePrice || rate.basePrice;
-      
       // Se il prezzo finale attuale è già inferiore al prezzo massimo, mantieni lo sconto attuale
-      const currentDiscount = rate.userDiscount || 0;
-      const currentDiscountAmount = rate.actualMargin * (currentDiscount / 100);
-      const currentFinalPrice = displayedBasePrice - currentDiscountAmount;
-      
-      if (currentFinalPrice <= maxPrice) {
-        return rate; // Mantieni lo sconto attuale
+      if (rate.finalPrice <= maxPrice) {
+        return rate;
       }
       
       // Calcola lo sconto necessario per raggiungere il prezzo massimo
-      // Formula: displayedBasePrice - (marginAmount * discountPercentage/100) = maxPrice
-      // Quindi: discountPercentage = ((displayedBasePrice - maxPrice) / marginAmount) * 100
-      const priceDifference = displayedBasePrice - maxPrice;
-      const requiredDiscountPercentage = Math.min(90, Math.max(0, 
-        Math.round((priceDifference / rate.actualMargin) * 100 * 100) / 100
-      ));
+      // Dobbiamo trovare uno sconto (in percentuale intera) che porti il prezzo finale <= maxPrice
+      let requiredDiscount = 0;
+      let finalPrice = rate.basePrice; // Prezzo senza sconto
       
-      // Calcola il prezzo finale con il nuovo sconto
-      const newDiscountAmount = rate.actualMargin * (requiredDiscountPercentage / 100);
-      const finalPrice = displayedBasePrice - newDiscountAmount;
-      
-      // Aggiorna SOLO lo sconto e i valori correlati, preservando il prezzo base originale e quello visualizzato
-      const discountedRate = {
-        ...rate,
-        basePrice: originalBasePrice, // Mantieni il prezzo base originale
-        displayBasePrice: displayedBasePrice, // Mantieni il prezzo base visualizzato
-        userDiscount: requiredDiscountPercentage,
-        finalPrice: finalPrice,
-        adjustedMargin: rate.actualMargin - newDiscountAmount
-      };
-      
-      // Aggiorna anche tutte le fasce di peso con la stessa logica
-      if (discountedRate.weightRanges && discountedRate.weightRanges.length > 0) {
-        discountedRate.weightRanges = rate.weightRanges.map(weightRange => {
-          // Preserva il prezzo base originale e quello visualizzato della fascia di peso
-          const weightOriginalBasePrice = weightRange.basePrice;
-          const weightDisplayedBasePrice = weightRange.displayBasePrice || weightRange.basePrice;
-          
-          // Verifica se il prezzo attuale è già sotto il massimo
-          const weightCurrentDiscount = weightRange.userDiscount || currentDiscount;
-          const weightCurrentDiscountAmount = weightRange.actualMargin * (weightCurrentDiscount / 100);
-          const weightCurrentFinalPrice = weightDisplayedBasePrice - weightCurrentDiscountAmount;
-          
-          if (weightCurrentFinalPrice <= maxPrice) {
-            return weightRange; // Mantieni lo sconto attuale
-          }
-          
-          // Calcola lo sconto necessario per la fascia di peso
-          const weightPriceDifference = weightDisplayedBasePrice - maxPrice;
-          const weightRequiredDiscountPercentage = Math.min(90, Math.max(0, 
-            Math.round((weightPriceDifference / weightRange.actualMargin) * 100 * 100) / 100
-          ));
-          
-          // Calcola il nuovo prezzo finale
-          const weightNewDiscountAmount = weightRange.actualMargin * (weightRequiredDiscountPercentage / 100);
-          const weightFinalPrice = weightDisplayedBasePrice - weightNewDiscountAmount;
-          
-          // Aggiorna SOLO lo sconto e i valori correlati, preservando i prezzi base
-          return {
-            ...weightRange,
-            basePrice: weightOriginalBasePrice, // Mantieni il prezzo base originale
-            displayBasePrice: weightDisplayedBasePrice, // Mantieni il prezzo base visualizzato
-            userDiscount: weightRequiredDiscountPercentage,
-            finalPrice: weightFinalPrice,
-            adjustedMargin: weightRange.actualMargin - weightNewDiscountAmount
-          };
-        });
+      // Calcola il prezzo finale per ogni percentuale di sconto fino a trovare quella giusta
+      // Incrementa di 1% alla volta per ottenere valori interi
+      for (let discount = 0; discount <= 90; discount++) {
+        finalPrice = calculateFinalPrice(
+          rate.basePrice,
+          rate.actualMargin,
+          discount,
+          rate.fuelSurcharge || 0,
+          includeFuelSurcharge
+        );
+        
+        if (finalPrice <= maxPrice) {
+          requiredDiscount = discount;
+          break;
+        }
       }
       
-      return discountedRate;
+      // Calcola il nuovo prezzo finale con lo sconto necessario
+      finalPrice = calculateFinalPrice(
+        rate.basePrice,
+        rate.actualMargin,
+        requiredDiscount,
+        rate.fuelSurcharge || 0,
+        includeFuelSurcharge
+      );
+      
+      // Calcola il margine aggiustato dopo lo sconto
+      const discountAmount = calculateDiscountAmount(rate.actualMargin, requiredDiscount);
+      const adjustedMargin = rate.actualMargin - discountAmount;
+      
+      // Aggiorna la tariffa con il nuovo sconto e prezzo finale
+      return {
+        ...rate,
+        userDiscount: requiredDiscount,
+        finalPrice: finalPrice,
+        adjustedMargin: adjustedMargin
+      };
     });
   };
 
@@ -1436,7 +1413,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('carrierName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Corriere</span>
+                              <span>Carrier</span>
                               {getSortIcon('carrierName')}
                             </div>
                           </TableHead>
@@ -1448,7 +1425,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('serviceName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Servizio</span>
+                              <span>Service</span>
                               {getSortIcon('serviceName')}
                             </div>
                           </TableHead>
@@ -1460,7 +1437,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('countryName')}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Paese</span>
+                              <span>Country</span>
                               {getSortIcon('countryName')}
                             </div>
                           </TableHead>
@@ -1472,7 +1449,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('basePrice')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Prezzo Base</span>
+                              <span>Base Price</span>
                               {getSortIcon('basePrice')}
                             </div>
                           </TableHead>
@@ -1484,7 +1461,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('userDiscount')}
                           >
                             <div className="flex items-center justify-end">
-                              <span>Sconto</span>
+                              <span>Discount</span>
                               {getSortIcon('userDiscount')}
                             </div>
                           </TableHead>
@@ -1496,7 +1473,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('finalPrice')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Prezzo Finale</span>
+                              <span>Final Price</span>
                               {getSortIcon('finalPrice')}
                             </div>
                           </TableHead>
@@ -1508,7 +1485,7 @@ export default function RateComparisonCard() {
                             onClick={() => requestSort('actualMargin')}
                           >
                             <div className="flex items-center justify-center">
-                              <span>Margine</span>
+                              <span>Margin</span>
                               {getSortIcon('actualMargin')}
                             </div>
                           </TableHead>
@@ -1517,7 +1494,7 @@ export default function RateComparisonCard() {
                         {visibleColumns.find((col) => col.id === "delivery")?.isVisible && (
                           <TableHead className="text-center text-white">
                             <div className="flex items-center justify-center">
-                              <span>Consegna</span>
+                              <span>Delivery</span>
                             </div>
                           </TableHead>
                         )}
@@ -1525,7 +1502,7 @@ export default function RateComparisonCard() {
                         {visibleColumns.find((col) => col.id === "details")?.isVisible && (
                           <TableHead className="text-center text-white">
                             <div className="flex items-center justify-center">
-                              <span>Dettagli</span>
+                              <span>Details</span>
                             </div>
                           </TableHead>
                         )}
@@ -1556,7 +1533,7 @@ export default function RateComparisonCard() {
                             colSpan={Object.values(visibleColumns).filter(col => col.isVisible).length + 2}
                             className="h-24 text-center text-muted-foreground"
                           >
-                            Nessun risultato trovato. Prova a modificare i filtri.
+                            No results found. Try modifying the filters.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -1651,7 +1628,7 @@ export default function RateComparisonCard() {
                 <div className="flex items-center">
                   <ShoppingCart className="mr-2 h-5 w-5" />
                   <span>
-                    {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'tariffa selezionata' : 'tariffe selezionate'}
+                    {getSelectedRowsCount()} {getSelectedRowsCount() === 1 ? 'rate selected' : 'rates selected'}
                   </span>
                 </div>
                 <Button
@@ -1660,7 +1637,7 @@ export default function RateComparisonCard() {
                   size="sm"
                   className="bg-white text-primary hover:bg-white/90"
                 >
-                  Aggiungi rates al carrello
+                  Add rates to cart
                 </Button>
               </div>
             </div>
