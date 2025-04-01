@@ -82,6 +82,20 @@ const calculateFinalPrice = (
   return finalPrice;
 };
 
+// Funzione per calcolare il prezzo base con il pedaggio GLS incluso
+const getBasePrice = (basePrice: number, carrierName: string, tollFee: number = 0): number => {
+  // Se è GLS, aggiungi il supplemento pedaggio al prezzo base
+  if (carrierName === 'GLS') {
+    return basePrice + 0.05;
+  }
+  // Altrimenti aggiungi il tollFee se presente
+  else if (tollFee > 0) {
+    return basePrice + tollFee;
+  }
+  
+  return basePrice;
+};
+
 const RateTableRow = React.memo(({
   rate,
   selectedRows,
@@ -235,7 +249,7 @@ const RateTableRow = React.memo(({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center justify-center cursor-help">
-                    <span>{formatCurrency(rate.displayBasePrice || rate.basePrice)}</span>
+                    <span>{formatCurrency(getBasePrice(rate.displayBasePrice || rate.basePrice, rate.carrierName, tollFee))}</span>
                     <Info className="ml-1 h-4 w-4 text-muted-foreground" />
                   </div>
                 </TooltipTrigger>
@@ -249,6 +263,7 @@ const RateTableRow = React.memo(({
                             <span>Retail Price:</span>
                             <span>{formatCurrency(rate.basePrice)}</span>
                           </div>
+                          {renderTollFeeInfo()}
                           <div className="flex justify-between">
                             <span>+ Customer Fuel ({fuelSurchargePercentage}%):</span>
                             <span>{formatCurrency(fuelSurchargeAmount)}</span>
@@ -267,7 +282,7 @@ const RateTableRow = React.memo(({
                           </div>
                           <div className="border-t pt-1 flex justify-between font-medium">
                             <span>= Total Base Price:</span>
-                            <span>{formatCurrency((rate.displayBasePrice || rate.basePrice))}</span>
+                            <span>{formatCurrency(getBasePrice(rate.displayBasePrice || rate.basePrice, rate.carrierName, tollFee))}</span>
                           </div>
                         </>
                       ) : (
@@ -275,6 +290,11 @@ const RateTableRow = React.memo(({
                           <div className="flex justify-between">
                             <span>Retail Price:</span>
                             <span>{formatCurrency(rate.basePrice)}</span>
+                          </div>
+                          {renderTollFeeInfo()}
+                          <div className="border-t pt-1 flex justify-between font-medium">
+                            <span>= Total Base Price:</span>
+                            <span>{formatCurrency(getBasePrice(rate.basePrice, rate.carrierName, tollFee))}</span>
                           </div>
                           <div className="text-muted-foreground text-xs mt-1">
                             <em>Fuel not included ({fuelSurchargePercentage}% = {formatCurrency(fuelSurchargeAmount)})</em>
@@ -563,7 +583,7 @@ const RateTableRow = React.memo(({
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center justify-end space-x-1 cursor-help">
                                     <span>
-                                      {formatCurrency(weightRange.basePrice || 0)}
+                                      {formatCurrency(getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee))}
                                     </span>
                                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
                                   </div>
@@ -575,6 +595,11 @@ const RateTableRow = React.memo(({
                                       <div className="flex justify-between">
                                         <span>Retail Price:</span>
                                         <span>{formatCurrency(weightRange.basePrice || 0)}</span>
+                                      </div>
+                                      {renderTollFeeInfo()}
+                                      <div className="border-t pt-1 flex justify-between font-medium">
+                                        <span>= Total Base Price:</span>
+                                        <span>{formatCurrency(getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee))}</span>
                                       </div>
                                       <div className="text-xs mt-1 text-muted-foreground">
                                         <em>This is the list price for this weight range.</em>
