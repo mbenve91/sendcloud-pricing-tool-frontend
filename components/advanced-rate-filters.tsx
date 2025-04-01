@@ -545,6 +545,24 @@ export const AdvancedRateFilters = React.memo(({
                   </CommandGroup>
                 </>
               )}
+              {carriers.length > 0 && selectedCarriers.length < carriers.length && (
+                <>
+                  {selectedCarriers.length > 0 ? null : <CommandSeparator />}
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        handleLocalFilterChange("carriers", carriers.map(carrier => String(carrier._id)));
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      className="justify-center text-center"
+                    >
+                      Select all
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
@@ -682,6 +700,24 @@ export const AdvancedRateFilters = React.memo(({
                   </CommandGroup>
                 </>
               )}
+              {filteredServices.length > 0 && selectedServices.length < filteredServices.length && (
+                <>
+                  {selectedServices.length > 0 ? null : <CommandSeparator />}
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        handleLocalFilterChange("services", filteredServices.map(service => String(service._id)));
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      className="justify-center text-center"
+                    >
+                      Select all
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
@@ -772,6 +808,31 @@ export const AdvancedRateFilters = React.memo(({
                       className="justify-center text-center"
                     >
                       Deselect all
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+              {countryList.length > 0 && selectedCountries.length < countryList.length && (
+                <>
+                  {selectedCountries.length > 0 ? null : <CommandSeparator />}
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        const filteredCountries = countryList
+                          .filter(country => {
+                            const countryName = formatCountryName(String(country)).toLowerCase();
+                            const searchLower = searchValue.toLowerCase();
+                            return countryName.includes(searchLower) || String(country).toLowerCase().includes(searchLower);
+                          })
+                          .map(country => String(country));
+                        handleLocalFilterChange("countries", filteredCountries);
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      className="justify-center text-center"
+                    >
+                      Select all
                     </CommandItem>
                   </CommandGroup>
                 </>
