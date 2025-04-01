@@ -382,10 +382,10 @@ export const AdvancedRateFilters = React.memo(({
     if (activeTags.length === 0) return null;
 
     // Determina se mostrare il pulsante "Mostra più"
-    const MAX_VISIBLE_TAGS = 30;
+    const MAX_VISIBLE_TAGS = 10;
     const hasMoreTags = activeTags.length > MAX_VISIBLE_TAGS;
     
-    // Determina quali tag mostrare (tutti o solo i primi 30)
+    // Determina quali tag mostrare (tutti o solo i primi 10)
     const visibleTags = areTagsExpanded ? activeTags : activeTags.slice(0, MAX_VISIBLE_TAGS);
     
     return (
