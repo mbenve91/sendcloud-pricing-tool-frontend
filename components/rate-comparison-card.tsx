@@ -327,9 +327,6 @@ export default function RateComparisonCard() {
   const { toast } = useToast()
   const { addToCart, cartItems, isInCart } = useCart()
 
-  // Aggiungi lo stato per targetPrice
-  const [targetPrice, setTargetPrice] = useState<string>("");
-
   // Modifichiamo la funzione loadServiceWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
     if (!serviceId) {
@@ -1487,89 +1484,6 @@ export default function RateComparisonCard() {
     setColumnsDialogOpen(true);
   };
 
-  // Gestisce il cambiamento del prezzo target
-  const handleTargetPriceChange = (value: string) => {
-    setTargetPrice(value);
-    
-    // Se il valore è valido, applica il filtro
-    if (value && parseFloat(value) > 0) {
-      applyTargetPriceFilter(rates);
-    } else {
-      // Se il prezzo target è stato rimosso o impostato a 0, ricarica i dati originali
-      loadRates();
-    }
-  };
-  
-  // Funzione per calcolare lo sconto necessario per raggiungere il prezzo target
-  const applyTargetPriceFilter = (rates: Rate[]) => {
-    if (!targetPrice || parseFloat(targetPrice) <= 0) {
-      return; // Se non è specificato un prezzo target, non fare nulla
-    }
-    
-    const targetPriceValue = parseFloat(targetPrice);
-    
-    // Prima filtriamo le tariffe che possono potenzialmente raggiungere il prezzo target
-    // anche con lo sconto massimo (90% del margine)
-    const filteredRates = rates.filter(rate => {
-      const basePrice = rate.basePrice;
-      const purchasePrice = rate.purchasePrice || (basePrice - rate.actualMargin);
-      const margin = basePrice - purchasePrice;
-      
-      // Calcola il prezzo base visualizzato (con fuel surcharge se abilitato)
-      const displayedBasePrice = rate.displayBasePrice || basePrice;
-      
-      // Calcola il prezzo più basso possibile con lo sconto massimo del 90%
-      // Considerando che lo sconto si applica solo al margine
-      const maxDiscount = margin * 0.9; // 90% del margine
-      const minPossiblePrice = displayedBasePrice - maxDiscount;
-      
-      // Mantieni la tariffa solo se può raggiungere il prezzo target con uno sconto ≤ 90%
-      return minPossiblePrice <= targetPriceValue;
-    });
-    
-    // Ora per ogni tariffa filtrata, calcoliamo lo sconto percentuale necessario
-    const updatedRates = filteredRates.map(rate => {
-      const basePrice = rate.basePrice;
-      const purchasePrice = rate.purchasePrice || (basePrice - rate.actualMargin);
-      const margin = basePrice - purchasePrice;
-      const displayedBasePrice = rate.displayBasePrice || basePrice;
-      
-      // Se il prezzo base (con fuel) è già <= al prezzo target, mantieni lo sconto a 0
-      if (displayedBasePrice <= targetPriceValue) {
-        return {
-          ...rate,
-          userDiscount: 0,
-          finalPrice: displayedBasePrice
-        };
-      }
-      
-      // Calcola lo sconto necessario per raggiungere esattamente il prezzo target
-      // Formula: displayedBasePrice - (margin * discountPercentage/100) = targetPrice
-      // Risolviamo per discountPercentage: discountPercentage = (displayedBasePrice - targetPrice) / margin * 100
-      const priceDifference = displayedBasePrice - targetPriceValue;
-      
-      // Calcola la percentuale di sconto necessaria (arrotondata all'intero)
-      let discountPercentage = Math.min(90, Math.round((priceDifference / margin) * 100));
-      
-      // Assicurati che sia almeno 0
-      discountPercentage = Math.max(0, discountPercentage);
-      
-      // Calcola il nuovo prezzo finale con lo sconto determinato
-      const discountAmount = margin * (discountPercentage / 100);
-      const finalPrice = displayedBasePrice - discountAmount;
-      
-      // Aggiorna lo sconto e il prezzo finale
-      return {
-        ...rate,
-        userDiscount: discountPercentage,
-        finalPrice: finalPrice
-      };
-    });
-    
-    // Aggiorna le rates con le tariffe filtrate e con gli sconti calcolati
-    setRates(updatedRates);
-  };
-
   return (
     <div className="w-full">
       <Card className="w-full shadow-md">
@@ -1619,26 +1533,20 @@ export default function RateComparisonCard() {
             <TabsContent value={activeTab} className="space-y-4">
               {/* Componente Advanced Rate Filters */}
               <div className="mb-5 mt-2">
-                <RateFilters
-                  filters={{
-                    sourceCountry: filters.sourceCountry || "all",
-                    carrierId: Array.isArray(filters.carriers) && filters.carriers.length > 0 ? filters.carriers[0] : "all",
-                    service: Array.isArray(filters.services) && filters.services.length > 0 ? filters.services[0] : "all",
-                    country: Array.isArray(filters.countries) && filters.countries.length > 0 ? filters.countries[0] : "all",
-                    weight: filters.weight || "1",
-                    volume: filters.volume || "100",
-                    maxPrice: filters.maxPrice || ""
-                  }}
+                <AdvancedRateFilters
+                  filters={filters as any}
                   onFilterChange={handleFilterChange}
+                  onFilterReset={resetFilters}
                   carriers={carriers}
                   services={services}
                   activeTab={activeTab}
-                  countryList={EU_COUNTRIES.map(c => c.id)}
+                  countryList={getCountryList()}
                   onColumnsDialogOpen={() => setColumnsDialogOpen(true)}
                   includeFuelSurcharge={includeFuelSurcharge}
                   onFuelSurchargeChange={setIncludeFuelSurcharge}
-                  targetPrice={targetPrice}
-                  onTargetPriceChange={handleTargetPriceChange}
+                  onSaveFilterSet={handleSaveFilterSet}
+                  onLoadFilterSet={handleLoadFilterSet}
+                  savedFilterSets={savedFilterSets}
                 />
               </div>
               
