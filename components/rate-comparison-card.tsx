@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -306,8 +306,9 @@ export default function RateComparisonCard() {
   // Aggiungi uno stato per tenere traccia delle righe espanse
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
-  // Aggiungiamo un token per le richieste al server
-  const [requestToken, setRequestToken] = useState<string>(Date.now().toString());
+  // Sostituisco lo stato requestToken con un ref
+  // const [requestToken, setRequestToken] = useState<string>(Date.now().toString());
+  const latestRequestRef = useRef<string>(Date.now().toString());
 
   const router = useRouter()
   const { toast } = useToast()
@@ -490,7 +491,8 @@ export default function RateComparisonCard() {
     
     // Generiamo un nuovo token per questa richiesta
     const currentRequestToken = Date.now().toString();
-    setRequestToken(currentRequestToken);
+    // Invece di aggiornare lo stato, aggiorniamo il ref
+    latestRequestRef.current = currentRequestToken;
     
     setError(null);
     setLoadingStage("Caricamento tariffe...");
@@ -555,7 +557,7 @@ export default function RateComparisonCard() {
       const ratesData = await api.compareRates(apiFilters);
       
       // Verifica se il token è ancora valido prima di aggiornare lo stato
-      if (currentRequestToken !== requestToken) {
+      if (currentRequestToken !== latestRequestRef.current) {
         console.log('Richiesta obsoleta ignorata, token non corrispondente');
         return; // Non aggiornare lo stato se questa è una richiesta obsoleta
       }
@@ -651,7 +653,7 @@ export default function RateComparisonCard() {
       setSuggestions(newSuggestions);
     } catch (error) {
       // Verifica se il token è ancora valido prima di aggiornare lo stato di errore
-      if (currentRequestToken !== requestToken) {
+      if (currentRequestToken !== latestRequestRef.current) {
         console.log('Errore da richiesta obsoleta ignorato');
         return;
       }
@@ -664,12 +666,12 @@ export default function RateComparisonCard() {
       setSuggestions([]);
     } finally {
       // Aggiorna lo stato di loading solo se la richiesta è ancora quella corrente
-      if (currentRequestToken === requestToken) {
+      if (currentRequestToken === latestRequestRef.current) {
         setLoading(false);
       }
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers, requestToken]);
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]); // Rimuovo requestToken dalle dipendenze
 
   // Load initial data
   useEffect(() => {
