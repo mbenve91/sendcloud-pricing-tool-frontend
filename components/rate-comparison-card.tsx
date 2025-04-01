@@ -56,6 +56,7 @@ import RateFilters from './rate-filters'; // Aggiungi l'import del nuovo compone
 import AdvancedRateFilters, { FilterValue } from '@/components/advanced-rate-filters';
 import useFilterPersistence from '@/hooks/useFilterPersistence';
 import useRateFilters from '@/hooks/use-persistent-filters';
+import { debounce } from "lodash"
 
 // Mock data for carriers
 const CARRIERS = [
@@ -314,6 +315,9 @@ export default function RateComparisonCard() {
   const { toast } = useToast()
   const { addToCart, cartItems, isInCart } = useCart()
 
+  // Referenza per AbortController
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Modifichiamo la funzione loadServiceWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
     if (!serviceId) {
@@ -486,13 +490,21 @@ export default function RateComparisonCard() {
   }, [filters.carriers.length, carriers.length]);
 
   // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
-  const loadRates = useCallback(async () => {
+  const loadRatesImpl = useCallback(async () => {
     setLoading(true);
     
     // Generiamo un nuovo token per questa richiesta
     const currentRequestToken = Date.now().toString();
     // Invece di aggiornare lo stato, aggiorniamo il ref
     latestRequestRef.current = currentRequestToken;
+    
+    // Annulla richiesta precedente se esiste
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Crea un nuovo controller
+    abortControllerRef.current = new AbortController();
     
     setError(null);
     setLoadingStage("Caricamento tariffe...");
@@ -552,9 +564,10 @@ export default function RateComparisonCard() {
         apiFilters.serviceType = filters.serviceType;
       }
       
-      // Effettua la chiamata API
+      // Effettua la chiamata API con il signal di AbortController
       setLoadingStage("Ricerca tariffe in corso...");
-      const ratesData = await api.compareRates(apiFilters);
+      // @ts-ignore - Ignoriamo temporaneamente l'errore di typescript per il signal
+      const ratesData = await api.compareRates(apiFilters, abortControllerRef.current.signal);
       
       // Verifica se il token è ancora valido prima di aggiornare lo stato
       if (currentRequestToken !== latestRequestRef.current) {
@@ -651,7 +664,13 @@ export default function RateComparisonCard() {
       // Per le suggestioni, per ora lasciamo quelle simulate (potrebbero essere gestite separatamente)
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
-    } catch (error) {
+    } catch (error: unknown) {
+      // Ignora errori causati dall'abort
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Richiesta annullata perché obsoleta');
+        return;
+      }
+      
       // Verifica se il token è ancora valido prima di aggiornare lo stato di errore
       if (currentRequestToken !== latestRequestRef.current) {
         console.log('Errore da richiesta obsoleta ignorato');
@@ -671,7 +690,16 @@ export default function RateComparisonCard() {
       }
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]); // Rimuovo requestToken dalle dipendenze
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]);
+
+  // Creiamo una versione debounced della funzione loadRates
+  const loadRates = useCallback(
+    debounce(() => {
+      console.log('Chiamata API debounced in esecuzione');
+      loadRatesImpl();
+    }, 400), // 400ms di debounce
+    [loadRatesImpl]
+  );
 
   // Load initial data
   useEffect(() => {

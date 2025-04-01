@@ -131,6 +131,11 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit) {
     
     return await response.json();
   } catch (error) {
+    // Propaga l'errore AbortError senza modificarlo
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+    
     console.error(`Errore nella chiamata API a ${url}:`, error);
     throw error;
   }
@@ -430,8 +435,9 @@ export async function deleteRate(id: string) {
 /**
  * Confronta le tariffe in base ai filtri specificati
  * @param filters - Filtri per la ricerca (peso, tipo destinazione, paese, ecc.)
+ * @param signal - AbortSignal opzionale per cancellare la richiesta
  */
-export async function compareRates(filters: RateFilters) {
+export async function compareRates(filters: RateFilters, signal?: AbortSignal) {
   try {
     // Costruisci i parametri di query
     const queryParams = new URLSearchParams();
@@ -501,12 +507,14 @@ export async function compareRates(filters: RateFilters) {
     
     console.log('API call:', `${API_URL}/rates/compare?${queryParams.toString()}`);
     
-    // Usa la funzione di utilità per fare la chiamata API
-    const data = await fetchWithErrorHandling(`${API_URL}/rates/compare?${queryParams.toString()}`);
+    // Usa la funzione di utilità per fare la chiamata API, passando il signal
+    const data = await fetchWithErrorHandling(`${API_URL}/rates/compare?${queryParams.toString()}`, {
+      signal: signal,
+    });
     return data.data;
   } catch (error) {
     console.error('Errore nel servizio compareRates:', error);
-    return []; // Restituisci un array vuoto in caso di errore
+    throw error; // Propaghiamo l'errore per gestirlo nel componente
   }
 }
 
