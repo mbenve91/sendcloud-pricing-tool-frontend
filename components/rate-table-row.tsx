@@ -134,8 +134,8 @@ const RateTableRow = React.memo(({
   
   // Calcola il margine finale (base + fuel se abilitato)
   const finalMargin = includeFuelSurcharge 
-    ? discountedBaseMargin + fuelSurchargeMargin
-    : discountedBaseMargin;
+    ? discountedBaseMargin + fuelSurchargeMargin + (tollFee || 0)
+    : discountedBaseMargin + (tollFee || 0);
   
   // Aggiungi questa funzione per visualizzare il supplemento pedaggio nel tooltip
   const renderTollFeeInfo = () => {
@@ -363,6 +363,12 @@ const RateTableRow = React.memo(({
                             <span>- Purchase Price:</span>
                             <span className="text-destructive">-{formatCurrency(rate.purchasePrice || (rate.basePrice - rate.actualMargin))}</span>
                           </div>
+                          {tollFee > 0 && (
+                            <div className="flex justify-between">
+                              <span>+ Supplemento pedaggio:</span>
+                              <span>{formatCurrency(tollFee)}</span>
+                            </div>
+                          )}
                           <div className="border-t pt-1 flex justify-between font-medium">
                             <span>= Final Price:</span>
                             <span>{formatCurrency(rate.finalPrice)}</span>
@@ -449,6 +455,12 @@ const RateTableRow = React.memo(({
                             <span>- Purchase Price:</span>
                             <span className="text-destructive">-{formatCurrency(rate.purchasePrice || (rate.basePrice - rate.actualMargin))}</span>
                           </div>
+                          {tollFee > 0 && (
+                            <div className="flex justify-between">
+                              <span>+ Supplemento pedaggio:</span>
+                              <span>{formatCurrency(tollFee)}</span>
+                            </div>
+                          )}
                           <div className="border-t pt-1 flex justify-between font-medium">
                             <span>= Total Margin:</span>
                             <span>{formatCurrency(finalMargin)}</span>
@@ -676,11 +688,18 @@ const RateTableRow = React.memo(({
                                                 fuelSurchargePercentage / 100
                                               )}</span>
                                             </div>
+                                            {tollFee > 0 && (
+                                              <div className="flex justify-between">
+                                                <span>+ Toll Fee:</span>
+                                                <span>{formatCurrency(tollFee)}</span>
+                                              </div>
+                                            )}
                                             <div className="border-t pt-1 flex justify-between font-medium">
                                               <span>= Final Price:</span>
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + // margine scontato
+                                                (tollFee || 0) // supplemento pedaggio
                                               )}</span>
                                             </div>
                                           </>
@@ -706,8 +725,8 @@ const RateTableRow = React.memo(({
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
                                                 fuelSurchargePercentage / 100 - 
                                                 (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                              ) 
-                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
+                                              ) + (tollFee || 0)
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (tollFee || 0)
                                         ) as any}
                                       >
                                         {formatCurrency(
@@ -717,8 +736,8 @@ const RateTableRow = React.memo(({
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
                                                 fuelSurchargePercentage / 100 - 
                                                 (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                              ) 
-                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))
+                                              ) + (tollFee || 0)
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (tollFee || 0)
                                         )}
                                       </Badge>
                                       <Info className="ml-1 h-4 w-4 text-muted-foreground" />
@@ -805,11 +824,18 @@ const RateTableRow = React.memo(({
                                                 fuelSurchargePercentage / 100
                                               )}</span>
                                             </div>
+                                            {tollFee > 0 && (
+                                              <div className="flex justify-between">
+                                                <span>+ Toll Fee:</span>
+                                                <span>{formatCurrency(tollFee)}</span>
+                                              </div>
+                                            )}
                                             <div className="border-t pt-1 flex justify-between font-medium">
                                               <span>= Final Price:</span>
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) // margine scontato
+                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + // margine scontato
+                                                (tollFee || 0) // supplemento pedaggio
                                               )}</span>
                                             </div>
                                           </>
