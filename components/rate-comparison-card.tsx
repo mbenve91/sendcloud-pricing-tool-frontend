@@ -599,11 +599,6 @@ export default function RateComparisonCard() {
         return;
       }
       
-      // Reset targetPrice filter to avoid automatic application on initial load
-      if (filters.targetPrice) {
-        setFilters(prev => ({...prev, targetPrice: ""}));
-      }
-      
       // Formatta i dati e aggiorna lo stato
       // ... existing code che formatta i dati ...
       const formattedRates = ratesData.map((rate: any) => {
@@ -1096,115 +1091,6 @@ export default function RateComparisonCard() {
       };
     });
   };
-
-  // Aggiungi una nuova funzione per gestire il calcolo del prezzo target
-  const applyTargetPriceFilter = (rates: Rate[]): Rate[] => {
-    if (!filters.targetPrice || parseFloat(String(filters.targetPrice)) <= 0) {
-      return rates; // Se non è specificato un prezzo target, restituisci tutte le tariffe
-    }
-    
-    const targetPrice = parseFloat(String(filters.targetPrice));
-    
-    // Prima filtriamo le tariffe che possono potenzialmente raggiungere il prezzo target
-    // anche con lo sconto massimo (90% del margine)
-    const filteredRates = rates.filter(rate => {
-      const basePrice = rate.basePrice;
-      const purchasePrice = rate.purchasePrice || (basePrice - rate.actualMargin);
-      const margin = basePrice - purchasePrice;
-      
-      // Calcola il prezzo finale con lo sconto massimo, includendo fuel e toll
-      const minPossiblePrice = calculateFinalPrice(
-        basePrice,
-        margin,
-        90, // 90% discount
-        rate.fuelSurcharge || 0,
-        includeFuelSurcharge,
-        rate.tollFee || 0
-      );
-      
-      // Mantieni la tariffa solo se può raggiungere il prezzo target con uno sconto ≤ 90%
-      return minPossiblePrice <= targetPrice;
-    });
-    
-    // Ora per ogni tariffa filtrata, calcoliamo lo sconto percentuale necessario
-    return filteredRates.map(rate => {
-      const basePrice = rate.basePrice;
-      const purchasePrice = rate.purchasePrice || (basePrice - rate.actualMargin);
-      const margin = basePrice - purchasePrice;
-      
-      // Usiamo una funzione di approssimazione binaria per trovare lo sconto necessario
-      // per ottenere esattamente il prezzo target
-      let minDiscount = 0;
-      let maxDiscount = 90;
-      let targetDiscount = 0;
-      let closestPrice = 0;
-      
-      // Ripeti fino a quando non troviamo una buona approssimazione
-      for (let i = 0; i < 10; i++) {
-        // Prova con lo sconto medio dell'intervallo attuale
-        const testDiscount = (minDiscount + maxDiscount) / 2;
-        
-        // Calcola il prezzo finale con questo sconto
-        const finalPrice = calculateFinalPrice(
-          basePrice,
-          margin,
-          testDiscount,
-          rate.fuelSurcharge || 0,
-          includeFuelSurcharge,
-          rate.tollFee || 0
-        );
-        
-        // Salva il risultato più vicino finora
-        if (i === 0 || Math.abs(finalPrice - targetPrice) < Math.abs(closestPrice - targetPrice)) {
-          closestPrice = finalPrice;
-          targetDiscount = testDiscount;
-        }
-        
-        // Regola l'intervallo di ricerca in base al risultato
-        if (finalPrice > targetPrice) {
-          // Se il prezzo è ancora troppo alto, aumenta lo sconto (cerca nella metà superiore)
-          minDiscount = testDiscount;
-        } else {
-          // Se il prezzo è troppo basso, riduci lo sconto (cerca nella metà inferiore)
-          maxDiscount = testDiscount;
-        }
-        
-        // Se siamo abbastanza vicini al prezzo target, interrompi il ciclo
-        if (Math.abs(finalPrice - targetPrice) < 0.01) {
-          break;
-        }
-      }
-      
-      // Arrotonda lo sconto calcolato all'intero più vicino
-      targetDiscount = Math.round(targetDiscount);
-      
-      // Ricalcola il prezzo finale con lo sconto arrotondato
-      const finalPrice = calculateFinalPrice(
-        basePrice,
-        margin,
-        targetDiscount,
-        rate.fuelSurcharge || 0,
-        includeFuelSurcharge,
-        rate.tollFee || 0
-      );
-      
-      // Aggiorna la tariffa con lo sconto calcolato e il prezzo finale
-      return {
-        ...rate,
-        userDiscount: targetDiscount,
-        finalPrice: finalPrice
-      };
-    });
-  };
-
-  // Modifica anche l'useEffect per gestire meglio i tipi
-  useEffect(() => {
-    if (filters.targetPrice && parseFloat(String(filters.targetPrice)) > 0 && rates.length > 0) {
-      // Applica il filtro e aggiorna le tariffe
-      const filteredRates = applyTargetPriceFilter([...rates]);
-      setRates(filteredRates);
-    }
-  }, [filters.targetPrice, includeFuelSurcharge]);
 
   // Modifica la funzione di conteggio per distinguere tra servizi e fasce di peso
   const selectedItemsCount = Object.entries(selectedRows)

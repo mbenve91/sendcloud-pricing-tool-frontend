@@ -1241,60 +1241,6 @@ export const AdvancedRateFilters = React.memo(({
           </AccordionItem>
         </Accordion>
         
-        {/* Target Price Calculator */}
-        <div className="mt-5 p-3 border-t border-dashed pt-4">
-          <div className="flex items-center mb-2">
-            <h4 className="font-medium">Target Price Calculator</h4>
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Enter your target price and the system will calculate the discount needed for each rate to match it.
-            Rates that cannot reach the target price (even with maximum discount of 90%) will be hidden.
-          </p>
-          
-          <div className="flex items-end gap-2">
-            <div className="space-y-2 flex-1">
-              <label htmlFor="targetPrice" className="text-sm font-medium">
-                Target Final Price €
-              </label>
-              <Input
-                id="targetPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={localFilters.targetPrice?.toString() || ""}
-                onChange={(e) => handleLocalFilterChange("targetPrice", e.target.value)}
-                className="h-10"
-                placeholder="Enter target price"
-              />
-            </div>
-            
-            <Button 
-              variant="secondary" 
-              className="h-10"
-              onClick={() => {
-                if (localFilters.targetPrice) {
-                  applyFilters();
-                }
-              }}
-              disabled={!hasUnappliedChanges || !localFilters.targetPrice}
-            >
-              Calculate Discounts
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              className="h-10"
-              onClick={() => {
-                handleLocalFilterChange("targetPrice", "");
-                applyFilters();
-              }}
-              disabled={!localFilters.targetPrice}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
-        
         {/* Bottone per applicare i filtri */}
         <div className="mt-5 flex justify-between items-center">
           <Button 
