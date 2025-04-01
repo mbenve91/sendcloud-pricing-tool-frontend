@@ -316,6 +316,12 @@ export default function RateComparisonCard() {
 
   // Flag per rilevare il montaggio iniziale
   const isInitialMountRef = useRef(true);
+  
+  // Ref per verificare se una richiesta con gli stessi parametri è già stata inviata
+  const lastRequestParamsRef = useRef("");
+  
+  // Referenza per tenere traccia se una richiesta è in corso
+  const isLoadingRef = useRef(false);
 
   const router = useRouter()
   const { toast } = useToast()
@@ -492,16 +498,68 @@ export default function RateComparisonCard() {
     loadServices();
   }, [filters.carriers.length, carriers.length]);
 
-  // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
+  // Modifica alla funzione loadRatesImpl per prevenire richieste duplicate
   const loadRatesImpl = useCallback(async () => {
+    // Ottieni una stringa che rappresenta i parametri della richiesta
+    const apiFilters: ApiRateFilters = {
+      destinationType: activeTab,
+      weight: filters.weight?.toString() || "1",
+      volume: filters.volume?.toString() || "100",
+    };
+    
+    if (typeof filters.sourceCountry === 'string' && filters.sourceCountry !== "all") {
+      apiFilters.sourceCountry = filters.sourceCountry;
+    }
+    
+    if (Array.isArray(filters.carriers) && filters.carriers.length > 0) {
+      apiFilters.carriers = filters.carriers.map(c => c.toString());
+    }
+    
+    if (Array.isArray(filters.services) && filters.services.length > 0) {
+      apiFilters.services = filters.services.map(s => s.toString());
+    }
+    
+    if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+      apiFilters.countries = filters.countries.map(c => c.toString());
+    }
+    
+    if (typeof filters.euType === 'string' && filters.euType !== "all") {
+      apiFilters.euType = filters.euType;
+    }
+    
+    if (filters.minMargin) apiFilters.minMargin = filters.minMargin.toString();
+    if (filters.maxPrice) apiFilters.maxPrice = filters.maxPrice.toString();
+    if (typeof filters.serviceType === 'string' && filters.serviceType !== "all") {
+      apiFilters.serviceType = filters.serviceType;
+    }
+    
+    // Crea una stringa che rappresenta i parametri della richiesta
+    const requestParamsString = JSON.stringify(apiFilters);
+    
+    // Se la richiesta con gli stessi parametri è già stata inviata, non fare nulla
+    if (lastRequestParamsRef.current === requestParamsString && !isInitialMountRef.current) {
+      console.log('Richiesta con stessi parametri già inviata, salto la chiamata API');
+      return;
+    }
+    
+    // Se c'è già una richiesta in corso, non fare nulla
+    if (isLoadingRef.current && !isInitialMountRef.current) {
+      console.log('Richiesta già in corso, salto la chiamata API');
+      return;
+    }
+    
+    // Aggiorna lo stato di caricamento
+    isLoadingRef.current = true;
     setLoading(true);
     
-    // Generiamo un nuovo token per questa richiesta
+    // Salva i parametri della richiesta
+    lastRequestParamsRef.current = requestParamsString;
+    
+    // Genera un nuovo token
     const currentRequestToken = Date.now().toString();
-    // Invece di aggiornare lo stato, aggiorniamo il ref
     latestRequestRef.current = currentRequestToken;
     
-    // Annulla richiesta precedente se esiste
+    // Annulla le richieste precedenti
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -513,72 +571,36 @@ export default function RateComparisonCard() {
     setLoadingStage("Caricamento tariffe...");
     
     try {
-      // Carica corrieri se non sono già stati caricati
+      // Carica corrieri se necessario
       if (carriers.length === 0) {
         setLoadingStage("Caricamento corrieri...");
         const carriersData = await api.getCarriers();
         setCarriers(carriersData);
       }
       
-      // Carica servizi se non sono già stati caricati
+      // Carica servizi se necessario
       if (services.length === 0) {
         setLoadingStage("Caricamento servizi...");
         const servicesData = await api.getServices();
         setServices(servicesData);
       }
       
-      // Costruisci oggetto per parametri API
-      const apiFilters: ApiRateFilters = {
-        // Tipo di destinazione in base alla tab
-        destinationType: activeTab,
-        weight: filters.weight?.toString() || "1",
-        volume: filters.volume?.toString() || "100",
-      };
-      
-      // Aggiungi sourceCountry se specificato
-      if (typeof filters.sourceCountry === 'string' && filters.sourceCountry !== "all") {
-        apiFilters.sourceCountry = filters.sourceCountry;
-      }
-      
-      // Supporto multi-corriere
-      if (Array.isArray(filters.carriers) && filters.carriers.length > 0) {
-        apiFilters.carriers = filters.carriers.map(c => c.toString());
-      }
-      
-      // Supporto multi-servizio
-      if (Array.isArray(filters.services) && filters.services.length > 0) {
-        apiFilters.services = filters.services.map(s => s.toString());
-      }
-      
-      // Supporto multi-paese
-      if (Array.isArray(filters.countries) && filters.countries.length > 0) {
-        apiFilters.countries = filters.countries.map(c => c.toString());
-      }
-      
-      // Aggiungi filtro euType se specificato
-      if (typeof filters.euType === 'string' && filters.euType !== "all") {
-        apiFilters.euType = filters.euType;
-      }
-      
-      // Aggiungi altri filtri se specificati
-      if (filters.minMargin) apiFilters.minMargin = filters.minMargin.toString();
-      if (filters.maxPrice) apiFilters.maxPrice = filters.maxPrice.toString();
-      if (typeof filters.serviceType === 'string' && filters.serviceType !== "all") {
-        apiFilters.serviceType = filters.serviceType;
-      }
-      
-      // Effettua la chiamata API con il signal di AbortController
+      // Effettua la chiamata API
       setLoadingStage("Ricerca tariffe in corso...");
+      
+      console.log('API call con parametri:', requestParamsString);
+      
       // @ts-ignore - Ignoriamo temporaneamente l'errore di typescript per il signal
       const ratesData = await api.compareRates(apiFilters, abortControllerRef.current.signal);
       
-      // Verifica se il token è ancora valido prima di aggiornare lo stato
+      // Verifica se il token è ancora valido
       if (currentRequestToken !== latestRequestRef.current) {
         console.log('Richiesta obsoleta ignorata, token non corrispondente');
-        return; // Non aggiornare lo stato se questa è una richiesta obsoleta
+        return;
       }
       
-      // Formatta i dati
+      // Formatta i dati e aggiorna lo stato
+      // ... existing code che formatta i dati ...
       const formattedRates = ratesData.map((rate: any) => {
         // Find service details
         const service = rate.service || services.find(s => s._id === rate.service) || {};
@@ -670,11 +692,11 @@ export default function RateComparisonCard() {
     } catch (error: unknown) {
       // Ignora errori causati dall'abort
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Richiesta annullata perché obsoleta');
+        console.log('Richiesta annullata intenzionalmente');
         return;
       }
       
-      // Verifica se il token è ancora valido prima di aggiornare lo stato di errore
+      // Gestione degli errori come prima
       if (currentRequestToken !== latestRequestRef.current) {
         console.log('Errore da richiesta obsoleta ignorato');
         return;
@@ -683,32 +705,31 @@ export default function RateComparisonCard() {
       console.error('Errore durante il caricamento delle tariffe:', error);
       setError(error instanceof Error ? error.message : "Si è verificato un errore sconosciuto");
       
-      // Non generiamo più tariffe simulate, mostriamo solo l'errore
       setRates([]);
       setSuggestions([]);
     } finally {
-      // Aggiorna lo stato di loading solo se la richiesta è ancora quella corrente
+      // Fine del caricamento
       if (currentRequestToken === latestRequestRef.current) {
         setLoading(false);
       }
+      isLoadingRef.current = false;
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]);
+  }, [activeTab, filters, carriers, services, includeFuelSurcharge, generateMockSuggestions]);
 
-  // Creiamo una versione debounced della funzione loadRates
-  const loadRates = useCallback(
+  // Versione debounced della funzione loadRates con tempo aumentato
+  const loadRates = useMemo(() => 
     debounce(() => {
       console.log('Chiamata API debounced in esecuzione');
       loadRatesImpl();
-    }, 400), // 400ms di debounce
+    }, 800), // Aumentato a 800ms per maggiore stabilità
     [loadRatesImpl]
   );
 
-  // Effetto per caricare i dati iniziali - MODIFICATO
+  // Effetto per il caricamento iniziale - solo al primo montaggio
   useEffect(() => {
     // Carica i filtri salvati se presenti
     try {
-      // Verifica se siamo in un ambiente browser prima di accedere a localStorage
       if (typeof window !== 'undefined') {
         const savedFilterSetsJson = localStorage.getItem('saved-filter-sets');
         if (savedFilterSetsJson) {
@@ -720,20 +741,21 @@ export default function RateComparisonCard() {
       console.error('Errore nel caricamento dei filtri salvati:', error);
     }
     
-    // Carica le tariffe solo al primo montaggio
+    // Carica le tariffe solo al primo montaggio - usando direttamente loadRatesImpl
     if (isInitialMountRef.current) {
-      loadRates();
+      console.log('Caricamento iniziale dei dati - chiamata diretta');
+      loadRatesImpl(); // Chiamata diretta bypassando il debounce
       isInitialMountRef.current = false;
     }
-  }, []); // Dipendenze vuote per eseguire solo al montaggio iniziale
+  }, []); // Nessuna dipendenza, eseguito solo al montaggio
 
-  // Nuovo effetto per aggiornare i dati quando cambiano i filtri
+  // Effetto per gestire le modifiche ai filtri - molto più semplice ora
   useEffect(() => {
-    // Salta il primo render (caricamento iniziale)
     if (!isInitialMountRef.current) {
+      // Usa la versione debounced per gli aggiornamenti
       loadRates();
     }
-  }, [activeTab, filters, loadRates]);
+  }, [activeTab, filters]); // Rimosso loadRates dalle dipendenze
 
   // Aggiorna la funzione di gestione dei cambiamenti nei filtri
   const handleFilterChange = (name: string, value: any) => {
