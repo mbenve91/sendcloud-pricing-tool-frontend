@@ -51,7 +51,8 @@ const calculateFinalPrice = (
   fuelSurchargePercentage: number,
   includeFuelSurcharge: boolean,
   purchasePrice: number = 0,
-  tollFee: number = 0
+  tollFee: number = 0,
+  carrierName: string = ''
 ): number => {
   // Calcola il margine (differenza tra prezzo retail e prezzo d'acquisto)
   const margin = basePrice - purchasePrice;
@@ -69,8 +70,12 @@ const calculateFinalPrice = (
     finalPrice += discountedPrice * fuelSurchargePercentage / 100;
   }
   
-  // Aggiungi il supplemento pedaggio se presente
-  if (tollFee > 0) {
+  // Forza il supplemento pedaggio per GLS
+  if (carrierName === 'GLS') {
+    finalPrice += 0.05;
+  }
+  // Altrimenti aggiungi il supplemento pedaggio se presente
+  else if (tollFee > 0) {
     finalPrice += tollFee;
   }
   
@@ -599,7 +604,8 @@ const RateTableRow = React.memo(({
                                             fuelSurchargePercentage,
                                             includeFuelSurcharge,
                                             (weightRange.basePrice || 0) - weightRange.actualMargin,
-                                            tollFee
+                                            tollFee,
+                                            rate.carrierName
                                           )
                                         )}
                                       </span>
@@ -645,10 +651,7 @@ const RateTableRow = React.memo(({
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + // margine scontato
-                                                (((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
-                                                (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
-                                                fuelSurchargePercentage / 100 +
-                                                (tollFee || 0) // supplemento pedaggio
+                                                ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0)) // supplemento pedaggio
                                               )}</span>
                                             </div>
                                           </>
@@ -687,7 +690,7 @@ const RateTableRow = React.memo(({
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + // margine scontato
-                                                (tollFee || 0) // supplemento pedaggio
+                                                ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0)) // supplemento pedaggio
                                               )}</span>
                                             </div>
                                           </>
@@ -713,8 +716,8 @@ const RateTableRow = React.memo(({
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
                                                 fuelSurchargePercentage / 100 - 
                                                 (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                              ) + (tollFee || 0)
-                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (tollFee || 0)
+                                              ) + ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0))
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0))
                                         ) as any}
                                       >
                                         {formatCurrency(
@@ -724,8 +727,8 @@ const RateTableRow = React.memo(({
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100))) * // margine scontato
                                                 fuelSurchargePercentage / 100 - 
                                                 (((weightRange.basePrice || 0) - weightRange.actualMargin) * fuelSurchargePercentage / 100)
-                                              ) + (tollFee || 0)
-                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + (tollFee || 0)
+                                              ) + ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0))
+                                            : (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0))
                                         )}
                                       </Badge>
                                       <Info className="ml-1 h-4 w-4 text-muted-foreground" />
@@ -820,7 +823,7 @@ const RateTableRow = React.memo(({
                                               <span>{formatCurrency(
                                                 ((weightRange.basePrice || 0) - weightRange.actualMargin) + // prezzo d'acquisto
                                                 (weightRange.actualMargin - (weightRange.actualMargin * (rate.userDiscount || 0) / 100)) + // margine scontato
-                                                (tollFee || 0) // supplemento pedaggio
+                                                ((rate.carrierName === 'GLS') ? 0.05 : (tollFee || 0)) // supplemento pedaggio
                                               )}</span>
                                             </div>
                                           </>
