@@ -583,7 +583,12 @@ const RateTableRow = React.memo(({
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center justify-end space-x-1 cursor-help">
                                     <span>
-                                      {formatCurrency(getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee))}
+                                      {formatCurrency(
+                                        includeFuelSurcharge
+                                          ? getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee) + 
+                                            ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)
+                                          : getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee)
+                                      )}
                                     </span>
                                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
                                   </div>
@@ -597,13 +602,26 @@ const RateTableRow = React.memo(({
                                         <span>{formatCurrency(weightRange.basePrice || 0)}</span>
                                       </div>
                                       {renderTollFeeInfo()}
+                                      {includeFuelSurcharge && (
+                                        <div className="flex justify-between">
+                                          <span>+ Customer Fuel ({fuelSurchargePercentage}%):</span>
+                                          <span>{formatCurrency((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)}</span>
+                                        </div>
+                                      )}
                                       <div className="border-t pt-1 flex justify-between font-medium">
                                         <span>= Total Base Price:</span>
-                                        <span>{formatCurrency(getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee))}</span>
+                                        <span>{formatCurrency(
+                                          includeFuelSurcharge
+                                            ? getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee) + 
+                                              ((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)
+                                            : getBasePrice(weightRange.basePrice || 0, rate.carrierName, tollFee)
+                                        )}</span>
                                       </div>
-                                      <div className="text-xs mt-1 text-muted-foreground">
-                                        <em>This is the list price for this weight range.</em>
-                                      </div>
+                                      {!includeFuelSurcharge && (
+                                        <div className="text-xs mt-1 text-muted-foreground">
+                                          <em>Fuel not included ({fuelSurchargePercentage}% = {formatCurrency((weightRange.basePrice || 0) * fuelSurchargePercentage / 100)})</em>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </TooltipContent>

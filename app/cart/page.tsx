@@ -75,12 +75,15 @@ export default function CartPage() {
     service: true,
     destination: true,
     weight: true,
-    basePrice: true,
-    discount: true,
+    basePrice: false,
+    discount: false,
     fuelSurcharge: true,
     totalPrice: true,
     deliveryTime: false
   })
+  
+  // Aggiungiamo uno stato per contare il numero di colonne selezionate
+  const [columnsCount, setColumnsCount] = useState(6)
   
   // Se non ci sono elementi nel carrello, mostra messaggio e bottone per tornare alla pagina principale
   if (cartItems.length === 0) {
@@ -156,10 +159,41 @@ export default function CartPage() {
 
   // Funzione per gestire il cambio di stato di una colonna
   const handleColumnToggle = (columnName: string) => {
-    setSelectedColumns(prev => ({
-      ...prev,
-      [columnName]: !prev[columnName as keyof typeof prev]
-    }));
+    // Otteniamo lo stato attuale della colonna che stiamo per cambiare
+    const isCurrentlySelected = selectedColumns[columnName as keyof typeof selectedColumns];
+    
+    // Se stiamo deselezionando una colonna, è sempre possibile
+    if (isCurrentlySelected) {
+      const newSelectedColumns = {
+        ...selectedColumns,
+        [columnName]: false
+      };
+      setSelectedColumns(newSelectedColumns);
+      
+      // Aggiorniamo il conteggio delle colonne
+      setColumnsCount(Object.values(newSelectedColumns).filter(Boolean).length);
+    } 
+    // Se stiamo selezionando una colonna, verifichiamo il limite
+    else {
+      // Se abbiamo già 6 colonne selezionate, non permettiamo di selezionarne altre
+      if (columnsCount >= 6) {
+        return;
+      }
+      
+      const newSelectedColumns = {
+        ...selectedColumns,
+        [columnName]: true
+      };
+      setSelectedColumns(newSelectedColumns);
+      
+      // Aggiorniamo il conteggio delle colonne
+      setColumnsCount(Object.values(newSelectedColumns).filter(Boolean).length);
+    }
+  };
+
+  // Funzione per verificare se abbiamo raggiunto il limite di colonne
+  const isColumnLimitReached = () => {
+    return columnsCount >= 6;
   };
 
   // Funzione per formattare i valori monetari
@@ -366,51 +400,63 @@ export default function CartPage() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setSelectedColumns({
-                      carrier: true,
-                      service: true,
-                      destination: true,
-                      weight: true,
-                      basePrice: true,
-                      discount: true,
-                      fuelSurcharge: true,
-                      totalPrice: true,
-                      deliveryTime: false
-                    })}
+                    onClick={() => {
+                      const newColumns = {
+                        carrier: true,
+                        service: true,
+                        destination: true,
+                        weight: true,
+                        basePrice: false,
+                        discount: false,
+                        fuelSurcharge: true,
+                        totalPrice: true,
+                        deliveryTime: false
+                      };
+                      setSelectedColumns(newColumns);
+                      setColumnsCount(Object.values(newColumns).filter(Boolean).length);
+                    }}
                   >
                     Reset
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setSelectedColumns({
-                      carrier: true,
-                      service: true,
-                      destination: true,
-                      weight: true,
-                      basePrice: false,
-                      discount: false,
-                      fuelSurcharge: false,
-                      totalPrice: true,
-                      deliveryTime: true
-                    })}
+                    onClick={() => {
+                      const newColumns = {
+                        carrier: true,
+                        service: true,
+                        destination: true,
+                        weight: true,
+                        basePrice: false,
+                        discount: false,
+                        fuelSurcharge: false,
+                        totalPrice: true,
+                        deliveryTime: true
+                      };
+                      setSelectedColumns(newColumns);
+                      setColumnsCount(Object.values(newColumns).filter(Boolean).length);
+                    }}
                   >
                     Simplified
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setSelectedColumns({
-                      carrier: true,
-                      service: true,
-                      destination: true,
-                      weight: true,
-                      basePrice: true,
-                      discount: true,
-                      fuelSurcharge: true,
-                      totalPrice: true,
-                      deliveryTime: true
-                    })}
+                    onClick={() => {
+                      const newColumns = {
+                        carrier: true,
+                        service: true,
+                        destination: true,
+                        weight: true,
+                        basePrice: true,
+                        discount: false,
+                        fuelSurcharge: true,
+                        totalPrice: true,
+                        deliveryTime: false
+                      };
+                      setSelectedColumns(newColumns);
+                      setColumnsCount(Object.values(newColumns).filter(Boolean).length);
+                    }}
                   >
                     All
                   </Button>
@@ -429,6 +475,7 @@ export default function CartPage() {
                       checked={selectedColumns.carrier}
                       onChange={() => handleColumnToggle('carrier')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.carrier && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-carrier">Carrier</Label>
                   </div>
@@ -440,6 +487,7 @@ export default function CartPage() {
                       checked={selectedColumns.service}
                       onChange={() => handleColumnToggle('service')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.service && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-service">Service</Label>
                   </div>
@@ -451,6 +499,7 @@ export default function CartPage() {
                       checked={selectedColumns.destination}
                       onChange={() => handleColumnToggle('destination')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.destination && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-destination">Destination</Label>
                   </div>
@@ -464,6 +513,7 @@ export default function CartPage() {
                       checked={selectedColumns.weight}
                       onChange={() => handleColumnToggle('weight')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.weight && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-weight">Weight</Label>
                   </div>
@@ -475,6 +525,7 @@ export default function CartPage() {
                       checked={selectedColumns.deliveryTime}
                       onChange={() => handleColumnToggle('deliveryTime')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.deliveryTime && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-deliveryTime">Delivery Time</Label>
                   </div>
@@ -486,6 +537,7 @@ export default function CartPage() {
                       checked={selectedColumns.basePrice}
                       onChange={() => handleColumnToggle('basePrice')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.basePrice && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-basePrice">Base Price</Label>
                   </div>
@@ -499,6 +551,7 @@ export default function CartPage() {
                       checked={selectedColumns.discount}
                       onChange={() => handleColumnToggle('discount')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.discount && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-discount">Discount</Label>
                   </div>
@@ -510,6 +563,7 @@ export default function CartPage() {
                       checked={selectedColumns.fuelSurcharge}
                       onChange={() => handleColumnToggle('fuelSurcharge')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.fuelSurcharge && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-fuelSurcharge">Fuel Surcharge</Label>
                   </div>
@@ -521,6 +575,7 @@ export default function CartPage() {
                       checked={selectedColumns.totalPrice}
                       onChange={() => handleColumnToggle('totalPrice')}
                       className="mr-2 h-4 w-4"
+                      disabled={!selectedColumns.totalPrice && isColumnLimitReached()}
                     />
                     <Label htmlFor="col-totalPrice">Total Price</Label>
                   </div>
@@ -530,7 +585,7 @@ export default function CartPage() {
             
             {/* Column preview */}
             <div className="bg-muted p-2 rounded text-xs">
-              <p className="font-medium mb-1">Column preview:</p>
+              <p className="font-medium mb-1">Column preview: <span className="text-muted-foreground">(massimo 6 colonne)</span></p>
               <div className="flex flex-wrap gap-1">
                 {selectedColumns.carrier && (
                   <div className="bg-primary/10 border border-primary/30 rounded px-2 py-1 whitespace-nowrap">
