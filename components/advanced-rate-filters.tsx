@@ -251,6 +251,9 @@ export const AdvancedRateFilters = React.memo(({
     // Array per contenere tutti i filtri attivi
     const activeTags: {id: string, label: string, value: string, category: string}[] = [];
     
+    // Stato per tracciare se i tag sono espansi o meno
+    const [areTagsExpanded, setAreTagsExpanded] = useState(false);
+    
     // Otteniamo le informazioni sui filtri attivi
     
     // Carrier
@@ -377,10 +380,17 @@ export const AdvancedRateFilters = React.memo(({
     
     // Se non ci sono tag attivi, non mostrare nulla
     if (activeTags.length === 0) return null;
+
+    // Determina se mostrare il pulsante "Mostra più"
+    const MAX_VISIBLE_TAGS = 30;
+    const hasMoreTags = activeTags.length > MAX_VISIBLE_TAGS;
+    
+    // Determina quali tag mostrare (tutti o solo i primi 30)
+    const visibleTags = areTagsExpanded ? activeTags : activeTags.slice(0, MAX_VISIBLE_TAGS);
     
     return (
       <div className="flex flex-wrap gap-2 mt-3">
-        {activeTags.map(tag => (
+        {visibleTags.map(tag => (
           <Badge key={tag.id} variant="secondary" className="flex items-center gap-1 py-1 px-2">
             <span className="text-xs text-muted-foreground">{tag.label}:</span>
             <span className="text-xs font-medium">{tag.value}</span>
@@ -432,6 +442,32 @@ export const AdvancedRateFilters = React.memo(({
             </Button>
           </Badge>
         ))}
+        
+        {/* Pulsante "Show more" per espandere i tag */}
+        {hasMoreTags && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-xs flex items-center gap-1"
+            onClick={() => setAreTagsExpanded(!areTagsExpanded)}
+          >
+            {areTagsExpanded ? (
+              <>
+                <span>Show less</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              </>
+            ) : (
+              <>
+                <span>{`Show ${activeTags.length - MAX_VISIBLE_TAGS} more`}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </>
+            )}
+          </Button>
+        )}
         
         {activeTags.length > 0 && (
           <Button 
