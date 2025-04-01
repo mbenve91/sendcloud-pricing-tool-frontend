@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Filter, Columns, Plus, Minus, Star, Save, RotateCcw } from "lucide-react";
+import { Filter, Columns, Plus, Minus, Star, Save, RotateCcw, Target } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -94,6 +94,8 @@ interface AdvancedRateFiltersProps {
   onSaveFilterSet?: (name: string, values: FilterValue) => void;
   onLoadFilterSet?: (filterId: string) => void;
   savedFilterSets?: SavedFilterSet[];
+  targetPrice?: string;
+  onTargetPriceChange?: (value: string) => void;
 }
 
 // Funzione per formattare i nomi dei paesi
@@ -142,7 +144,9 @@ export const AdvancedRateFilters = React.memo(({
   onFuelSurchargeChange,
   onSaveFilterSet,
   onLoadFilterSet,
-  savedFilterSets = []
+  savedFilterSets = [],
+  targetPrice,
+  onTargetPriceChange
 }: AdvancedRateFiltersProps) => {
   // State per sezioni di filtro espanse
   const [expandedSection, setExpandedSection] = useState<string>("primary");
@@ -989,6 +993,7 @@ export const AdvancedRateFilters = React.memo(({
             <Filter className="mr-2 h-5 w-5" />
             <h3 className="font-medium">Filters</h3>
           </div>
+          
           <div className="flex items-center gap-2">
             {onSaveFilterSet && (
               <SavedFiltersMenu />
@@ -1004,7 +1009,7 @@ export const AdvancedRateFilters = React.memo(({
             </Button>
           </div>
         </div>
-
+        
         <Separator className="mb-4" />
         
         {/* Filtri Primari - Sempre visibili */}
@@ -1278,6 +1283,40 @@ export const AdvancedRateFilters = React.memo(({
           </div>
           
           <FilterTags />
+        </div>
+        
+        {/* Target Price Section */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center mb-2">
+            <Target className="mr-2 h-5 w-5" />
+            <h3 className="font-medium">Target Price</h3>
+          </div>
+          
+          <Separator className="mb-4" />
+          
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-2 w-[200px]">
+              <label htmlFor="targetPrice" className="text-sm font-medium">
+                Target Price (€)
+              </label>
+              <Input
+                id="targetPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={targetPrice || ""}
+                onChange={(e) => onTargetPriceChange && onTargetPriceChange(e.target.value)}
+                className="h-10"
+                placeholder="Set your target price"
+              />
+            </div>
+            <div className="ml-2">
+              <p className="text-xs text-muted-foreground max-w-md">
+                Enter a target price to automatically calculate the necessary discount (max 90%) to reach that price.
+                Rates that cannot reach the target price will be hidden.
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

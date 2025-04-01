@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Filter, Columns } from "lucide-react";
+import { Filter, Columns, Target } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,8 @@ interface RateFiltersProps {
   onColumnsDialogOpen: () => void;
   includeFuelSurcharge: boolean;
   onFuelSurchargeChange: (checked: boolean) => void;
+  targetPrice?: string;
+  onTargetPriceChange?: (value: string) => void;
 }
 
 const RateFilters = React.memo(({
@@ -60,7 +62,9 @@ const RateFilters = React.memo(({
   countryList,
   onColumnsDialogOpen,
   includeFuelSurcharge,
-  onFuelSurchargeChange
+  onFuelSurchargeChange,
+  targetPrice,
+  onTargetPriceChange
 }: RateFiltersProps) => {
   // Determina se mostrare il filtro paese in base alla tab attiva
   const shouldShowCountryFilter = activeTab === "international";
@@ -238,6 +242,34 @@ const RateFilters = React.memo(({
             <Label htmlFor="fuel-surcharge-toggle" className="text-sm whitespace-nowrap">
               Includi Fuel
             </Label>
+          </div>
+        </div>
+        
+        {/* Target Price Section */}
+        <Separator className="my-4" />
+        
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2 w-[200px]">
+            <label htmlFor="targetPrice" className="text-sm font-medium flex items-center">
+              <Target className="h-4 w-4 mr-1" />
+              <span>Target Price (€)</span>
+            </label>
+            <Input
+              id="targetPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              value={targetPrice || ""}
+              onChange={(e) => onTargetPriceChange && onTargetPriceChange(e.target.value)}
+              className="h-10"
+              placeholder="Set your target price"
+            />
+          </div>
+          <div className="ml-2">
+            <p className="text-xs text-muted-foreground max-w-md">
+              Enter a target price to automatically calculate the necessary discount (max 90%) to reach that price.
+              Rates that cannot reach the target price will be hidden.
+            </p>
           </div>
         </div>
       </CardContent>
