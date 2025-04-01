@@ -1069,6 +1069,41 @@ export default function RateComparisonCard() {
           const weightRange = serviceWeightRanges[serviceId].find(wr => wr.id === weightRangeId);
           
           if (weightRange) {
+            // Ottieni la percentuale del fuel surcharge dal carrier
+            const fuelSurchargePercentage = parentRate.fuelSurcharge !== undefined 
+              ? parentRate.fuelSurcharge 
+              : 8; // default 8% se non specificato
+              
+            // Prezzo d'acquisto (dal weight range)
+            const purchasePrice = (weightRange.basePrice || 0) - weightRange.actualMargin;
+            
+            // Calcola il margine
+            const baseMargin = weightRange.actualMargin || 0;
+            const discountOnMargin = baseMargin * (parentRate.userDiscount || 0) / 100;
+            
+            // Prezzo scontato = prezzo d'acquisto + margine scontato
+            const discountedPrice = purchasePrice + (baseMargin - discountOnMargin);
+            
+            // Prezzo finale prima del supplemento pedaggio
+            let finalPrice = discountedPrice;
+            
+            // Aggiungi il fuel surcharge se abilitato
+            if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
+              finalPrice += discountedPrice * fuelSurchargePercentage / 100;
+            }
+            
+            // Ottieni il supplemento pedaggio (tollFee)
+            const tollFee = parentRate.tollFee || 0;
+            
+            // Aggiungi il supplemento pedaggio per GLS o altri vettori
+            if (parentRate.carrierName === 'GLS') {
+              // Per GLS aggiungiamo sempre il supplemento fisso di 0.05€
+              finalPrice += 0.05;
+            } else if (tollFee > 0) {
+              // Per altri vettori usiamo il tollFee se presente
+              finalPrice += tollFee;
+            }
+            
             // Crea un oggetto tariffa specifico per questa fascia di peso
             const weightRangeRate = {
               ...parentRate,
@@ -1076,12 +1111,17 @@ export default function RateComparisonCard() {
               weightMin: weightRange.min,
               weightMax: weightRange.max,
               basePrice: weightRange.basePrice,
-              userDiscount: weightRange.userDiscount,
-              finalPrice: weightRange.finalPrice,
+              userDiscount: parentRate.userDiscount || 0, // Usa lo sconto del genitore
+              finalPrice: finalPrice, // Usa il prezzo finale calcolato
               actualMargin: weightRange.actualMargin,
               isWeightRange: true,
               parentRateId: parentId
             };
+            
+            // Debug - verifica che il supplemento pedaggio GLS sia applicato
+            if (parentRate.carrierName === 'GLS') {
+              console.log(`GLS Weight Range: Prezzo finale con supplemento pedaggio: ${finalPrice.toFixed(2)}€ (Include 0.05€ di pedaggio)`);
+            }
             
             // Aggiungi al carrello se non è già presente
             if (!isInCart(id)) {
