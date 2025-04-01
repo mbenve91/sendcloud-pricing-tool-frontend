@@ -587,7 +587,15 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
-                        handleLocalFilterChange("carriers", carriers.map(carrier => String(carrier._id)));
+                        // Seleziona solo i carrier filtrati dalla ricerca
+                        const filteredCarriers = carriers
+                          .filter(carrier => 
+                            carrier.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+                            String(carrier._id).includes(searchValue)
+                          )
+                          .map(carrier => String(carrier._id));
+                        
+                        handleLocalFilterChange("carriers", filteredCarriers);
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -742,7 +750,16 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
-                        handleLocalFilterChange("services", filteredServices.map(service => String(service._id)));
+                        // Seleziona solo i servizi filtrati dalla ricerca
+                        const searchFilteredServices = filteredServices
+                          .filter(service => 
+                            service.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+                            (service.code && service.code.toLowerCase().includes(searchValue.toLowerCase())) ||
+                            String(service._id).includes(searchValue)
+                          )
+                          .map(service => String(service._id));
+                          
+                        handleLocalFilterChange("services", searchFilteredServices);
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -854,6 +871,7 @@ export const AdvancedRateFilters = React.memo(({
                   <CommandGroup>
                     <CommandItem
                       onSelect={() => {
+                        // Seleziona solo i paesi filtrati dalla ricerca
                         const filteredCountries = countryList
                           .filter(country => {
                             const countryName = formatCountryName(String(country)).toLowerCase();
