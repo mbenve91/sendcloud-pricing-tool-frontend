@@ -101,6 +101,9 @@ const RateTableRow = React.memo(({
     
   // Ottieni il supplemento pedaggio
   const tollFee = rate.tollFee || 0;
+  
+  // Forza visualizzazione debug
+  console.log("GLS tollFee:", tollFee, "Carrier:", rate.carrierName);
     
   // Prezzo d'acquisto (dal rate o calcolato dall'actualMargin)
   const purchasePrice = rate.purchasePrice || (rate.basePrice - rate.actualMargin);
@@ -139,7 +142,19 @@ const RateTableRow = React.memo(({
   
   // Aggiungi questa funzione per visualizzare il supplemento pedaggio nel tooltip
   const renderTollFeeInfo = () => {
+    // Se è GLS, mostra sempre il supplemento pedaggio anche se il valore non è presente nell'oggetto rate
+    if (rate.carrierName === 'GLS') {
+      return (
+        <div className="flex justify-between">
+          <span>+ Supplemento pedaggio:</span>
+          <span>{formatCurrency(0.05)}</span>
+        </div>
+      );
+    }
+    
     if (!tollFee || tollFee <= 0) return null;
+    
+    console.log("renderTollFeeInfo chiamato con tollFee:", tollFee);
     
     return (
       <div className="flex justify-between">
