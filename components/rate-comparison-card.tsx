@@ -306,6 +306,9 @@ export default function RateComparisonCard() {
   // Aggiungi uno stato per tenere traccia delle righe espanse
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
+  // Aggiungiamo un token per le richieste al server
+  const [requestToken, setRequestToken] = useState<string>(Date.now().toString());
+
   const router = useRouter()
   const { toast } = useToast()
   const { addToCart, cartItems, isInCart } = useCart()
@@ -484,6 +487,11 @@ export default function RateComparisonCard() {
   // Correzione della funzione loadRates per gestire meglio gli errori e mostrare lo stato di caricamento
   const loadRates = useCallback(async () => {
     setLoading(true);
+    
+    // Generiamo un nuovo token per questa richiesta
+    const currentRequestToken = Date.now().toString();
+    setRequestToken(currentRequestToken);
+    
     setError(null);
     setLoadingStage("Caricamento tariffe...");
     
@@ -545,6 +553,12 @@ export default function RateComparisonCard() {
       // Effettua la chiamata API
       setLoadingStage("Ricerca tariffe in corso...");
       const ratesData = await api.compareRates(apiFilters);
+      
+      // Verifica se il token è ancora valido prima di aggiornare lo stato
+      if (currentRequestToken !== requestToken) {
+        console.log('Richiesta obsoleta ignorata, token non corrispondente');
+        return; // Non aggiornare lo stato se questa è una richiesta obsoleta
+      }
       
       // Formatta i dati
       const formattedRates = ratesData.map((rate: any) => {
@@ -636,6 +650,12 @@ export default function RateComparisonCard() {
       const newSuggestions = generateMockSuggestions(activeTab, filters);
       setSuggestions(newSuggestions);
     } catch (error) {
+      // Verifica se il token è ancora valido prima di aggiornare lo stato di errore
+      if (currentRequestToken !== requestToken) {
+        console.log('Errore da richiesta obsoleta ignorato');
+        return;
+      }
+      
       console.error('Errore durante il caricamento delle tariffe:', error);
       setError(error instanceof Error ? error.message : "Si è verificato un errore sconosciuto");
       
@@ -643,10 +663,13 @@ export default function RateComparisonCard() {
       setRates([]);
       setSuggestions([]);
     } finally {
-      setLoading(false);
+      // Aggiorna lo stato di loading solo se la richiesta è ancora quella corrente
+      if (currentRequestToken === requestToken) {
+        setLoading(false);
+      }
       setLoadingStage("");
     }
-  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers]);
+  }, [activeTab, filters, carriers.length, services.length, includeFuelSurcharge, generateMockSuggestions, services, carriers, requestToken]);
 
   // Load initial data
   useEffect(() => {
