@@ -336,6 +336,7 @@ export default function RateComparisonCard() {
         // Trova la tariffa corrispondente per ottenere il fuel surcharge
         const correspondingRate = rates.find(r => r.service?._id === serviceId);
         const fuelSurchargePercentage = correspondingRate?.fuelSurcharge || 0;
+        const tollFee = correspondingRate?.tollFee || 0;
         
         const processedWeightRanges = weightRangesData.map((weightRange: WeightRange) => {
           const basePrice = weightRange.basePrice;
@@ -345,7 +346,8 @@ export default function RateComparisonCard() {
             weightRange.actualMargin, 
             weightRange.userDiscount || 0, 
             fuelSurchargePercentage, 
-            includeFuelSurcharge
+            includeFuelSurcharge,
+            tollFee
           );
           
           return {
@@ -555,6 +557,7 @@ export default function RateComparisonCard() {
         
         // Calculate fuel surcharge amount (when enabled)
         const fuelSurchargePercentage = carrier?.fuelSurcharge || 0;
+        const tollFee = carrier?.tollFee || 0;
         
         // Base price without fuel surcharge
         const basePrice = rate.retailPrice || 0;
@@ -574,7 +577,8 @@ export default function RateComparisonCard() {
           rate.marginPercentage || 0,
           rate.userDiscount || 0,
           fuelSurchargePercentage,
-          includeFuelSurcharge
+          includeFuelSurcharge,
+          tollFee
         );
         
         // Country name
