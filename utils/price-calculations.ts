@@ -49,7 +49,8 @@ export function calculateTotalMargin(
   purchasePrice: number, 
   fuelSurchargePercentage: number, 
   discountPercentage: number,
-  includeFuelSurcharge: boolean
+  includeFuelSurcharge: boolean,
+  tollFee: number = 0
 ): number {
   const baseMargin = basePrice - purchasePrice;
   const fuelMargin = calculateFuelSurchargeMargin(
@@ -60,6 +61,8 @@ export function calculateTotalMargin(
     includeFuelSurcharge
   );
   
+  // Il tollFee è un costo fisso che viene addebitato sia al cliente che al fornitore,
+  // quindi non influisce sul margine
   return baseMargin + fuelMargin;
 }
 
@@ -71,16 +74,42 @@ export function calculateFinalPrice(
   margin: number, 
   discountPercentage: number, 
   fuelSurchargePercentage: number, 
-  includeFuelSurcharge: boolean
+  includeFuelSurcharge: boolean,
+  tollFee: number = 0
 ): number {
   const discountAmount = calculateDiscountAmount(margin, discountPercentage);
   const priceAfterDiscount = basePrice - discountAmount;
   
+  let finalPrice = priceAfterDiscount;
+  
   if (includeFuelSurcharge && fuelSurchargePercentage > 0) {
-    return priceAfterDiscount * (1 + (fuelSurchargePercentage / 100));
+    finalPrice = finalPrice * (1 + (fuelSurchargePercentage / 100));
   }
   
-  return priceAfterDiscount;
+  // Aggiungi il supplemento pedaggio se presente
+  if (tollFee > 0) {
+    finalPrice += tollFee;
+  }
+  
+  return finalPrice;
+}
+
+/**
+ * Verifica se un carrier ha un supplemento pedaggio
+ */
+export function hasTollFee(tollFee: number | undefined): boolean {
+  return tollFee !== undefined && tollFee > 0;
+}
+
+/**
+ * Ottiene il testo del supplemento pedaggio
+ */
+export function getTollFeeText(tollFee: number | undefined): string | null {
+  if (!hasTollFee(tollFee)) {
+    return null;
+  }
+  
+  return `Supplemento pedaggio: ${formatCurrency(tollFee || 0)}`;
 }
 
 /**

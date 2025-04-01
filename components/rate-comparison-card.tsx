@@ -47,7 +47,9 @@ import {
   calculateFinalPrice,
   formatCurrency,
   getMarginColor,
-  getMarginLabel
+  getMarginLabel,
+  hasTollFee,
+  getTollFeeText
 } from "@/utils/price-calculations";
 import RateTableRow from './rate-table-row';
 import RateFilters from './rate-filters'; // Aggiungi l'import del nuovo componente
@@ -192,6 +194,7 @@ interface Rate {
   };
   isWeightRange?: boolean;
   parentRateId?: string;
+  tollFee?: number;
 }
 
 // Aggiungi questa lista dopo le altre liste di costanti
@@ -615,7 +618,8 @@ export default function RateComparisonCard() {
           service: {
             _id: service._id || rate.service?._id || '',
             name: service.name || rate.serviceName || 'Standard'
-          }
+          },
+          tollFee: rate.tollFee || 0
         };
       });
       
@@ -1251,26 +1255,44 @@ export default function RateComparisonCard() {
 
   // Aggiungi questa funzione di utilità
   const getFuelSurchargeText = (rate: Rate) => {
-    if (!includeFuelSurcharge || !rate.fuelSurcharge || rate.fuelSurcharge <= 0) {
+    let elements = [];
+
+    // Aggiungi il testo del fuel surcharge se presente
+    if (includeFuelSurcharge && rate.fuelSurcharge && rate.fuelSurcharge > 0) {
+      // Calcolo lo sconto applicato al margine
+      const discountPercentage = rate.userDiscount || 0;
+      const discountAmount = calculateDiscountAmount(rate.actualMargin, discountPercentage);
+      
+      // Il prezzo di vendita dopo lo sconto
+      const discountedRetailPrice = rate.basePrice - discountAmount;
+      
+      // Calcolo il fuel surcharge sul prezzo di vendita scontato
+      const fuelSurchargeAmount = discountedRetailPrice * (rate.fuelSurcharge / 100);
+      
+      elements.push(
+        <div key="fuel" className="text-sm text-muted-foreground">
+          Fuel Surcharge: {rate.fuelSurcharge}% 
+          ({formatCurrency(fuelSurchargeAmount)})
+        </div>
+      );
+    }
+    
+    // Aggiungi il testo del supplemento pedaggio se presente
+    if (rate.tollFee && rate.tollFee > 0) {
+      elements.push(
+        <div key="toll" className="text-sm text-muted-foreground">
+          Supplemento pedaggio: {formatCurrency(rate.tollFee)}
+        </div>
+      );
+    }
+    
+    // Se non ci sono elementi, restituisci null
+    if (elements.length === 0) {
       return null;
     }
     
-    // Calcolo lo sconto applicato al margine
-    const discountPercentage = rate.userDiscount || 0;
-    const discountAmount = calculateDiscountAmount(rate.actualMargin, discountPercentage);
-    
-    // Il prezzo di vendita dopo lo sconto
-    const discountedRetailPrice = rate.basePrice - discountAmount;
-    
-    // Calcolo il fuel surcharge sul prezzo di vendita scontato
-    const fuelSurchargeAmount = discountedRetailPrice * (rate.fuelSurcharge / 100);
-    
-    return (
-      <div className="text-sm text-muted-foreground">
-        Fuel Surcharge: {rate.fuelSurcharge}% 
-        ({formatCurrency(fuelSurchargeAmount)})
-      </div>
-    );
+    // Altrimenti, restituisci gli elementi
+    return <>{elements}</>;
   };
 
   // Funzione per cambiare l'ordinamento
