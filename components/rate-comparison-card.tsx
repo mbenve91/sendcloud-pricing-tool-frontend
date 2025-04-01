@@ -311,12 +311,15 @@ export default function RateComparisonCard() {
   // const [requestToken, setRequestToken] = useState<string>(Date.now().toString());
   const latestRequestRef = useRef<string>(Date.now().toString());
 
+  // Referenza per AbortController
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Flag per rilevare il montaggio iniziale
+  const isInitialMountRef = useRef(true);
+
   const router = useRouter()
   const { toast } = useToast()
   const { addToCart, cartItems, isInCart } = useCart()
-
-  // Referenza per AbortController
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Modifichiamo la funzione loadServiceWeightRanges
   const loadServiceWeightRanges = useCallback(async (serviceId: string) => {
@@ -701,7 +704,7 @@ export default function RateComparisonCard() {
     [loadRatesImpl]
   );
 
-  // Load initial data
+  // Effetto per caricare i dati iniziali - MODIFICATO
   useEffect(() => {
     // Carica i filtri salvati se presenti
     try {
@@ -717,9 +720,20 @@ export default function RateComparisonCard() {
       console.error('Errore nel caricamento dei filtri salvati:', error);
     }
     
-    // Carica le tariffe
-    loadRates();
-  }, [loadRates])
+    // Carica le tariffe solo al primo montaggio
+    if (isInitialMountRef.current) {
+      loadRates();
+      isInitialMountRef.current = false;
+    }
+  }, []); // Dipendenze vuote per eseguire solo al montaggio iniziale
+
+  // Nuovo effetto per aggiornare i dati quando cambiano i filtri
+  useEffect(() => {
+    // Salta il primo render (caricamento iniziale)
+    if (!isInitialMountRef.current) {
+      loadRates();
+    }
+  }, [activeTab, filters, loadRates]);
 
   // Aggiorna la funzione di gestione dei cambiamenti nei filtri
   const handleFilterChange = (name: string, value: any) => {
