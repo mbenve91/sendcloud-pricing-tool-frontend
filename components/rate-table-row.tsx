@@ -95,8 +95,8 @@ const RateTableRow = React.memo(({
   const isSelected = selectedRows[rate.id] || false;
   
   // Ottieni la percentuale del fuel surcharge dal carrier
-  const fuelSurchargePercentage = rate.carrierFuelSurcharge !== undefined 
-    ? rate.carrierFuelSurcharge 
+  const fuelSurchargePercentage = rate.fuelSurcharge !== undefined 
+    ? rate.fuelSurcharge 
     : 8; // default 8% se non specificato
     
   // Ottieni il supplemento pedaggio
