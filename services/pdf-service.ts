@@ -179,12 +179,6 @@ const getTranslation = (key: string, language: string): string => {
       'german': 'Alle Preise verstehen sich zuzüglich MwSt',
       'spanish': 'Todos los precios no incluyen IVA'
     },
-    'price_note': {
-      'english': 'Total price does not include the fuel surcharge',
-      'italian': 'Il prezzo totale non include il sovrapprezzo carburante',
-      'german': 'Der Gesamtpreis enthält nicht den Kraftstoffzuschlag',
-      'spanish': 'El precio total no incluye el recargo por combustible'
-    },
     'continued': {
       'english': 'continued',
       'italian': 'continuato',
@@ -672,15 +666,8 @@ const generateSimplePDF = async (
     if (totalSpaceNeeded <= pageHeight - 20) { // 20mm di margine di sicurezza
       // Non c'è bisogno di aggiungere una nuova pagina
       
-      // Nota sul prezzo totale - la mettiamo subito dopo la tabella
-      currentY += 5; // Ridotto lo spazio
-      doc.setFontSize(8); // Ridotto il font
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text(`* ${getTranslation('price_note', language)}`, margin, currentY);
-      
       // Box per il messaggio di ringraziamento - lo mettiamo subito dopo
-      currentY += 8; // Ridotto lo spazio
+      currentY += 5; // Ridotto lo spazio
       doc.setFillColor(240, 248, 255);
       doc.setDrawColor(0, 123, 255);
       doc.setLineWidth(0.5);
@@ -746,15 +733,8 @@ const generateSimplePDF = async (
       doc.setFont('helvetica', 'bold');
       doc.text(getTranslation('quote_title', language) + ` (${getTranslation('continued', language)})`, 14, 45);
       
-      // Nota sul prezzo totale
-      currentY = 60; // Iniziamo più in alto nella seconda pagina
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text(`* ${getTranslation('price_note', language)}`, margin, currentY);
-      
       // Box per il messaggio di ringraziamento
-      currentY += 15;
+      currentY = 60; // Iniziamo più in alto nella seconda pagina
       doc.setFillColor(240, 248, 255);
       doc.setDrawColor(0, 123, 255);
       doc.setLineWidth(0.5);
