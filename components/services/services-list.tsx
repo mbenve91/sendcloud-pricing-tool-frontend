@@ -56,10 +56,12 @@ export function ServicesList() {
   const [marketFilter, setMarketFilter] = useState("all")
   const [selectedServices, setSelectedServices] = useState<Record<string, boolean>>({})
   const [bulkUpdateNameDialogOpen, setBulkUpdateNameDialogOpen] = useState(false)
+  const [bulkUpdateFullNameDialogOpen, setBulkUpdateFullNameDialogOpen] = useState(false)
   const [bulkUpdateDestinationDialogOpen, setBulkUpdateDestinationDialogOpen] = useState(false)
   const [bulkToggleStatusDialogOpen, setBulkToggleStatusDialogOpen] = useState(false)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [newNamePrefix, setNewNamePrefix] = useState("")
+  const [newFullName, setNewFullName] = useState("")
   const [newDestinationCountries, setNewDestinationCountries] = useState("")
   
   // Stati per dati dal backend
@@ -179,6 +181,49 @@ export function ServicesList() {
       setSelectedServices({})
       setBulkUpdateNameDialogOpen(false)
       setNewNamePrefix("")
+    } catch (err) {
+      console.error('Errore nell\'aggiornamento dei nomi:', err)
+      toast.error('Errore nell\'aggiornamento dei nomi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkUpdateFullName = async () => {
+    try {
+      setLoading(true)
+      const selectedIds = Object.keys(selectedServices).filter(id => selectedServices[id])
+      
+      if (!newFullName.trim()) {
+        toast.error('Inserisci un nome valido')
+        return
+      }
+      
+      // Eseguire gli aggiornamenti in parallelo
+      const updatePromises = selectedIds.map(id => 
+        api.updateService(id, { name: newFullName })
+      )
+      
+      await Promise.all(updatePromises)
+      
+      // Aggiorna i dati localmente
+      setServices(prevServices => 
+        prevServices.map(service => {
+          if (!selectedServices[service._id]) return service
+          
+          return {
+            ...service,
+            name: newFullName
+          }
+        })
+      )
+      
+      toast.success(`Nome aggiornato per ${selectedCount} servizi`)
+      
+      // Resetta la selezione e chiudi il dialogo
+      setSelectedServices({})
+      setBulkUpdateFullNameDialogOpen(false)
+      setNewFullName("")
     } catch (err) {
       console.error('Errore nell\'aggiornamento dei nomi:', err)
       toast.error('Errore nell\'aggiornamento dei nomi')
@@ -405,6 +450,9 @@ export function ServicesList() {
           <Button variant="outline" size="sm" onClick={() => setBulkUpdateNameDialogOpen(true)}>
             Aggiorna Prefisso Nome
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setBulkUpdateFullNameDialogOpen(true)}>
+            Aggiorna Nome Completo
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setBulkUpdateDestinationDialogOpen(true)}>
             Aggiorna Destinazioni
           </Button>
@@ -570,6 +618,38 @@ export function ServicesList() {
               Annulla
             </Button>
             <Button onClick={handleBulkUpdateName} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Aggiorna
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo per l'aggiornamento del nome completo in blocco */}
+      <Dialog open={bulkUpdateFullNameDialogOpen} onOpenChange={setBulkUpdateFullNameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aggiorna Nome Completo</DialogTitle>
+            <DialogDescription>
+              Imposta un nome completo per tutti i {selectedCount} servizi selezionati.
+              Questo sostituirà completamente il nome attuale dei servizi.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="full-name">Nome Completo</Label>
+              <Input
+                id="full-name"
+                value={newFullName}
+                onChange={(e) => setNewFullName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkUpdateFullNameDialogOpen(false)}>
+              Annulla
+            </Button>
+            <Button onClick={handleBulkUpdateFullName} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Aggiorna
             </Button>
