@@ -49,6 +49,9 @@ import { toast } from "sonner"
 import * as api from "@/services/api"
 import { Service, Carrier } from "@/services/api"
 
+// Aggiungo un tipo per i valori enum di serviceType
+type ServiceType = 'normal' | 'return' | 'pudo' | 'locker' | 'other';
+
 export function ServicesList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -58,11 +61,13 @@ export function ServicesList() {
   const [bulkUpdateNameDialogOpen, setBulkUpdateNameDialogOpen] = useState(false)
   const [bulkUpdateFullNameDialogOpen, setBulkUpdateFullNameDialogOpen] = useState(false)
   const [bulkUpdateDestinationDialogOpen, setBulkUpdateDestinationDialogOpen] = useState(false)
+  const [bulkUpdateServiceTypeDialogOpen, setBulkUpdateServiceTypeDialogOpen] = useState(false)
   const [bulkToggleStatusDialogOpen, setBulkToggleStatusDialogOpen] = useState(false)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [newNamePrefix, setNewNamePrefix] = useState("")
   const [newFullName, setNewFullName] = useState("")
   const [newDestinationCountries, setNewDestinationCountries] = useState("")
+  const [newServiceType, setNewServiceType] = useState<ServiceType>("normal")
   
   // Stati per dati dal backend
   const [services, setServices] = useState<Service[]>([])
@@ -227,6 +232,43 @@ export function ServicesList() {
     } catch (err) {
       console.error('Errore nell\'aggiornamento dei nomi:', err)
       toast.error('Errore nell\'aggiornamento dei nomi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkUpdateServiceType = async () => {
+    try {
+      setLoading(true)
+      const selectedIds = Object.keys(selectedServices).filter(id => selectedServices[id])
+      
+      // Eseguire gli aggiornamenti in parallelo
+      const updatePromises = selectedIds.map(id => 
+        api.updateService(id, { serviceType: newServiceType })
+      )
+      
+      await Promise.all(updatePromises)
+      
+      // Aggiorna i dati localmente
+      setServices(prevServices => 
+        prevServices.map(service => {
+          if (!selectedServices[service._id]) return service
+          
+          return {
+            ...service,
+            serviceType: newServiceType as any // cast temporaneo per risolvere l'errore di tipo
+          }
+        })
+      )
+      
+      toast.success(`Tipo di servizio aggiornato per ${selectedCount} servizi`)
+      
+      // Resetta la selezione e chiudi il dialogo
+      setSelectedServices({})
+      setBulkUpdateServiceTypeDialogOpen(false)
+    } catch (err) {
+      console.error('Errore nell\'aggiornamento del tipo di servizio:', err)
+      toast.error('Errore nell\'aggiornamento del tipo di servizio')
     } finally {
       setLoading(false)
     }
@@ -453,6 +495,9 @@ export function ServicesList() {
           <Button variant="outline" size="sm" onClick={() => setBulkUpdateFullNameDialogOpen(true)}>
             Aggiorna Nome Completo
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setBulkUpdateServiceTypeDialogOpen(true)}>
+            Aggiorna Tipo Servizio
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setBulkUpdateDestinationDialogOpen(true)}>
             Aggiorna Destinazioni
           </Button>
@@ -650,6 +695,47 @@ export function ServicesList() {
               Annulla
             </Button>
             <Button onClick={handleBulkUpdateFullName} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Aggiorna
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo per l'aggiornamento del tipo di servizio in blocco */}
+      <Dialog open={bulkUpdateServiceTypeDialogOpen} onOpenChange={setBulkUpdateServiceTypeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aggiorna Tipo di Servizio</DialogTitle>
+            <DialogDescription>
+              Seleziona il tipo di servizio per tutti i {selectedCount} servizi selezionati.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="service-type">Tipo di Servizio</Label>
+              <Select 
+                value={newServiceType} 
+                onValueChange={(value: ServiceType) => setNewServiceType(value)}
+              >
+                <SelectTrigger id="service-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normale</SelectItem>
+                  <SelectItem value="return">Reso</SelectItem>
+                  <SelectItem value="pudo">PUDO</SelectItem>
+                  <SelectItem value="locker">Locker</SelectItem>
+                  <SelectItem value="other">Altro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkUpdateServiceTypeDialogOpen(false)}>
+              Annulla
+            </Button>
+            <Button onClick={handleBulkUpdateServiceType} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Aggiorna
             </Button>
