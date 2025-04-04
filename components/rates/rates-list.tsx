@@ -74,23 +74,26 @@ export function RatesList() {
     const loadData = async () => {
       try {
         setLoading(true)
+        setError(null)
         
         // Carica tutti i carriers
         const carriersData = await api.getCarriers()
+        if (!carriersData) throw new Error('Errore nel caricamento dei corrieri')
         setCarriers(carriersData)
         
         // Carica tutti i servizi
         const servicesData = await api.getServices()
+        if (!servicesData) throw new Error('Errore nel caricamento dei servizi')
         setServices(servicesData)
         
         // Carica tutti i rates
         const ratesData = await api.getRates()
+        if (!ratesData) throw new Error('Errore nel caricamento delle tariffe')
         setRates(ratesData)
         
-        setError(null)
       } catch (err) {
         console.error('Errore nel caricamento dei dati:', err)
-        setError('Impossibile caricare i dati. Si prega di riprovare.')
+        setError(err instanceof Error ? err.message : 'Impossibile caricare i dati. Si prega di riprovare.')
         toast.error('Errore nel caricamento delle tariffe')
       } finally {
         setLoading(false)
@@ -337,7 +340,7 @@ export function RatesList() {
   }
   
   // Mostra un messaggio di caricamento
-  if (loading && rates.length === 0) {
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -347,7 +350,7 @@ export function RatesList() {
   }
   
   // Mostra un messaggio di errore
-  if (error && rates.length === 0) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-destructive">
         <p>{error}</p>

@@ -5,14 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import * as api from "@/services/api"
 
+interface Service {
+  _id: string
+  name: string
+}
+
 export default function NewRatePage() {
   const [loading, setLoading] = useState(false)
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [formData, setFormData] = useState({
     service: "",
     weightMin: "",
@@ -21,6 +28,22 @@ export default function NewRatePage() {
     retailPrice: "",
     isActive: true
   })
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const servicesData = await api.getServices()
+        setServices(servicesData)
+      } catch (error) {
+        console.error("Errore nel caricamento dei servizi:", error)
+        toast.error("Errore nel caricamento dei servizi")
+      } finally {
+        setIsLoadingServices(false)
+      }
+    }
+
+    loadServices()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +69,15 @@ export default function NewRatePage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isLoadingServices) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Caricamento servizi...</span>
+      </div>
+    )
   }
 
   return (
@@ -77,7 +109,11 @@ export default function NewRatePage() {
                     <SelectValue placeholder="Seleziona un servizio" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Qui dovresti popolare con i servizi disponibili */}
+                    {services.map((service) => (
+                      <SelectItem key={service._id} value={service._id}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -136,7 +172,14 @@ export default function NewRatePage() {
                 <Link href="/admin/rates">Annulla</Link>
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Creazione in corso..." : "Crea Tariffa"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creazione in corso...
+                  </>
+                ) : (
+                  "Crea Tariffa"
+                )}
               </Button>
             </div>
           </form>
