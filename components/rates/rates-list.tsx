@@ -71,37 +71,61 @@ export function RatesList() {
   
   // Carica i dati quando il componente viene montato
   useEffect(() => {
+    let isMounted = true;
+    
     const loadData = async () => {
       try {
-        setLoading(true)
-        setError(null)
+        console.log('Inizio caricamento dati...');
+        setLoading(true);
+        setError(null);
         
         // Carica tutti i carriers
-        const carriersData = await api.getCarriers()
-        if (!carriersData) throw new Error('Errore nel caricamento dei corrieri')
-        setCarriers(carriersData)
+        console.log('Caricamento carriers...');
+        const carriersData = await api.getCarriers();
+        console.log('Carriers caricati:', carriersData);
+        if (!carriersData || !Array.isArray(carriersData)) {
+          throw new Error('Dati carriers non validi');
+        }
+        if (isMounted) setCarriers(carriersData);
         
         // Carica tutti i servizi
-        const servicesData = await api.getServices()
-        if (!servicesData) throw new Error('Errore nel caricamento dei servizi')
-        setServices(servicesData)
+        console.log('Caricamento servizi...');
+        const servicesData = await api.getServices();
+        console.log('Servizi caricati:', servicesData);
+        if (!servicesData || !Array.isArray(servicesData)) {
+          throw new Error('Dati servizi non validi');
+        }
+        if (isMounted) setServices(servicesData);
         
         // Carica tutti i rates
-        const ratesData = await api.getRates()
-        if (!ratesData) throw new Error('Errore nel caricamento delle tariffe')
-        setRates(ratesData)
+        console.log('Caricamento tariffe...');
+        const ratesData = await api.getRates();
+        console.log('Tariffe caricate:', ratesData);
+        if (!ratesData || !Array.isArray(ratesData)) {
+          throw new Error('Dati tariffe non validi');
+        }
+        if (isMounted) setRates(ratesData);
         
+        console.log('Caricamento completato con successo');
       } catch (err) {
-        console.error('Errore nel caricamento dei dati:', err)
-        setError(err instanceof Error ? err.message : 'Impossibile caricare i dati. Si prega di riprovare.')
-        toast.error('Errore nel caricamento delle tariffe')
+        console.error('Errore nel caricamento dei dati:', err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Impossibile caricare i dati. Si prega di riprovare.');
+          toast.error('Errore nel caricamento delle tariffe');
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    }
+    };
     
-    loadData()
-  }, [])
+    loadData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Funzione per ottenere i dettagli di un servizio
   const getServiceDetails = (serviceId: string) => {
@@ -359,6 +383,15 @@ export function RatesList() {
         </Button>
       </div>
     )
+  }
+
+  // Se non ci sono dati da mostrare
+  if (!rates.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">Nessuna tariffa disponibile</p>
+      </div>
+    );
   }
 
   return (
