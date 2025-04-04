@@ -61,6 +61,8 @@ export function RatesList() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [priceChangePercentage, setPriceChangePercentage] = useState(0)
   const [priceChangeType, setPriceChangeType] = useState<"increase" | "decrease">("increase")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(50)
   
   // Stati per dati dal backend
   const [rates, setRates] = useState<Rate[]>([])
@@ -101,10 +103,21 @@ export function RatesList() {
         console.log('Caricamento tariffe...');
         const ratesData = await api.getRates();
         console.log('Tariffe caricate:', ratesData);
-        if (!ratesData || !Array.isArray(ratesData)) {
-          throw new Error('Dati tariffe non validi');
+        
+        if (!ratesData) {
+          throw new Error('Nessuna risposta dal server per le tariffe');
         }
-        if (isMounted) setRates(ratesData);
+        
+        if (!Array.isArray(ratesData)) {
+          console.error('Formato dati tariffe non valido:', ratesData);
+          throw new Error('Formato dati tariffe non valido');
+        }
+        
+        if (isMounted) {
+          console.log('Impostazione tariffe nel state...');
+          setRates(ratesData);
+          console.log('Tariffe impostate con successo');
+        }
         
         console.log('Caricamento completato con successo');
       } catch (err) {
@@ -115,6 +128,7 @@ export function RatesList() {
         }
       } finally {
         if (isMounted) {
+          console.log('Impostazione loading a false');
           setLoading(false);
         }
       }
@@ -123,6 +137,7 @@ export function RatesList() {
     loadData();
     
     return () => {
+      console.log('Cleanup: isMounted = false');
       isMounted = false;
     };
   }, []);
@@ -178,6 +193,18 @@ export function RatesList() {
 
     return matchesSearch && matchesCarrier && matchesService && matchesWeight;
   })
+
+  // Calcola gli indici per la paginazione
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentRates = filteredRates.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(filteredRates.length / itemsPerPage)
+
+  // Funzione per cambiare pagina
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo(0, 0)
+  }
 
   const selectedCount = Object.values(selectedRates).filter(Boolean).length
 
@@ -370,9 +397,9 @@ export function RatesList() {
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Caricamento tariffe...</p>
       </div>
-    )
+    );
   }
-  
+
   // Mostra un messaggio di errore
   if (error) {
     return (
@@ -382,11 +409,11 @@ export function RatesList() {
           Riprova
         </Button>
       </div>
-    )
+    );
   }
 
   // Se non ci sono dati da mostrare
-  if (!rates.length) {
+  if (!rates || !rates.length) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-muted-foreground">Nessuna tariffa disponibile</p>
@@ -488,14 +515,14 @@ export function RatesList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRates.length === 0 ? (
+            {currentRates.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="h-24 text-center">
                   Nessun risultato trovato.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRates.map((rate) => {
+              currentRates.map((rate) => {
                 if (!rate || !rate._id) return null;
                 
                 const serviceId = typeof rate.service === 'object' ? rate.service._id : rate.service;
@@ -591,6 +618,56 @@ export function RatesList() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Paginazione */}
+      {filteredRates.length > 0 && (
+        <div className="flex justify-center mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNumber;
+                if (totalPages <= 5) {
+                  pageNumber = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNumber = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNumber = totalPages - 4 + i;
+                } else {
+                  pageNumber = currentPage - 2 + i;
+                }
+                
+                return (
+                  <PaginationItem key={pageNumber}>
+                    <PaginationLink
+                      onClick={() => handlePageChange(pageNumber)}
+                      isActive={currentPage === pageNumber}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
+              
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          <div className="ml-4 text-sm text-muted-foreground">
+            Pagina {currentPage} di {totalPages} ({filteredRates.length} risultati)
+          </div>
+        </div>
+      )}
 
       {/* Dialogo per l'aggiornamento dei prezzi in blocco */}
       <Dialog open={bulkUpdatePriceDialogOpen} onOpenChange={setBulkUpdatePriceDialogOpen}>
