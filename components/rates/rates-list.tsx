@@ -50,6 +50,46 @@ import { toast } from "sonner"
 import * as api from "@/services/api"
 import { Rate, Service, Carrier } from "@/services/api"
 
+interface EditableCellProps {
+  value: number;
+  onChange: (value: number) => void;
+  onBlur: () => void;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  formatValue: (value: number) => string;
+}
+
+const EditableCell: React.FC<EditableCellProps> = ({
+  value,
+  onChange,
+  onBlur,
+  isEditing,
+  onStartEdit,
+  formatValue
+}) => {
+  if (isEditing) {
+    return (
+      <Input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onBlur={onBlur}
+        autoFocus
+        className="w-24"
+      />
+    );
+  }
+  return (
+    <div 
+      onClick={onStartEdit}
+      className="cursor-pointer hover:bg-muted/50 p-2 rounded"
+    >
+      {formatValue(value)}
+    </div>
+  );
+};
+
 export function RatesList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -70,6 +110,12 @@ export function RatesList() {
   const [carriers, setCarriers] = useState<Carrier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  const [editingCell, setEditingCell] = useState<{
+    rateId: string;
+    field: 'purchasePrice' | 'retailPrice';
+  } | null>(null);
+  const [editingValue, setEditingValue] = useState<number | null>(null);
   
   // Carica i dati quando il componente viene montato
   useEffect(() => {
@@ -390,6 +436,47 @@ export function RatesList() {
     }
   }
   
+  // Funzione per gestire l'inizio dell'editing
+  const handleStartEdit = (rate: Rate, field: 'purchasePrice' | 'retailPrice') => {
+    setEditingCell({ rateId: rate._id, field });
+    setEditingValue(rate[field]);
+  };
+
+  // Funzione per gestire il salvataggio delle modifiche
+  const handleSaveEdit = async (rate: Rate) => {
+    if (!editingCell || editingValue === null) return;
+
+    try {
+      setLoading(true);
+      
+      // Invia solo il valore modificato al database
+      const updatedValues: Partial<Rate> = {
+        [editingCell.field]: editingValue
+      };
+
+      // Salva nel database e ottieni la risposta aggiornata
+      const updatedRate = await api.updateRate(rate._id, updatedValues);
+
+      // Aggiorna i dati localmente con i valori calcolati dal database
+      setRates(prevRates =>
+        prevRates.map(r =>
+          r._id === rate._id
+            ? updatedRate
+            : r
+        )
+      );
+
+      toast.success('Prezzo aggiornato con successo');
+    } catch (err) {
+      console.error('Errore nell\'aggiornamento del prezzo:', err);
+      toast.error('Errore nell\'aggiornamento del prezzo');
+    } finally {
+      setLoading(false);
+      setEditingCell(null);
+      setEditingValue(null);
+    }
+  };
+
   // Mostra un messaggio di caricamento
   if (loading) {
     return (
@@ -562,8 +649,26 @@ export function RatesList() {
                     <TableCell>
                       {rate.weightMin} - {rate.weightMax} kg
                     </TableCell>
-                    <TableCell>{formatCurrency(rate.purchasePrice || 0)}</TableCell>
-                    <TableCell>{formatCurrency(rate.retailPrice || 0)}</TableCell>
+                    <TableCell>
+                      <EditableCell
+                        value={rate.purchasePrice}
+                        onChange={setEditingValue}
+                        onBlur={() => handleSaveEdit(rate)}
+                        isEditing={editingCell?.rateId === rate._id && editingCell?.field === 'purchasePrice'}
+                        onStartEdit={() => handleStartEdit(rate, 'purchasePrice')}
+                        formatValue={formatCurrency}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <EditableCell
+                        value={rate.retailPrice}
+                        onChange={setEditingValue}
+                        onBlur={() => handleSaveEdit(rate)}
+                        isEditing={editingCell?.rateId === rate._id && editingCell?.field === 'retailPrice'}
+                        onStartEdit={() => handleStartEdit(rate, 'retailPrice')}
+                        formatValue={formatCurrency}
+                      />
+                    </TableCell>
                     <TableCell>{formatCurrency(rate.margin || 0)}</TableCell>
                     <TableCell>{(rate.marginPercentage || 0).toFixed(2)}%</TableCell>
                     <TableCell>
