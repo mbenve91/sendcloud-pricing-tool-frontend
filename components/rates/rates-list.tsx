@@ -72,9 +72,20 @@ const EditableCell: React.FC<EditableCellProps> = ({
       <Input
         type="number"
         step="0.01"
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        min="0"
+        value={value.toString()}
+        onChange={(e) => {
+          const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value);
+          if (!isNaN(newValue)) {
+            onChange(newValue);
+          }
+        }}
         onBlur={onBlur}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onBlur();
+          }
+        }}
         autoFocus
         className="w-24"
       />
