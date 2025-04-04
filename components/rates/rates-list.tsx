@@ -73,7 +73,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
         type="number"
         step="0.01"
         min="0"
-        value={value.toString()}
+        defaultValue={value}
         onChange={(e) => {
           const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value);
           if (!isNaN(newValue)) {
