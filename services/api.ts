@@ -388,12 +388,21 @@ export async function getRate(id: string) {
 /**
  * Crea una nuova tariffa
  */
-export async function createRate(rate: Omit<Rate, '_id'>) {
+export async function createRate(rateData: any) {
   try {
-    const data = await fetchWithErrorHandling(`${API_URL}/rates`, {
+    const response = await fetch(`${API_URL}/rates`, {
       method: 'POST',
-      body: JSON.stringify(rate)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(rateData),
     });
+
+    if (!response.ok) {
+      throw new Error('Errore nella creazione della tariffa');
+    }
+
+    const data = await response.json();
     return data.data;
   } catch (error) {
     console.error('Errore nella creazione della tariffa:', error);

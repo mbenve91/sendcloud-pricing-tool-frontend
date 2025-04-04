@@ -120,21 +120,26 @@ export function RatesList() {
   }
 
   const filteredRates = rates.filter((rate) => {
+    // Verifica che rate e service esistano
+    if (!rate || !rate.service) return false;
+    
     // Ottenere i dettagli del servizio per il rate corrente
-    const serviceId = typeof rate.service === 'object' ? rate.service._id : rate.service
-    const serviceDetails = getServiceDetails(serviceId)
+    const serviceId = typeof rate.service === 'object' ? rate.service._id : rate.service;
+    if (!serviceId) return false;
+    
+    const serviceDetails = getServiceDetails(serviceId);
     
     // Applica filtro ricerca
     const matchesSearch =
       serviceDetails.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       serviceDetails.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      serviceDetails.carrier.name.toLowerCase().includes(searchTerm.toLowerCase())
+      serviceDetails.carrier.name.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Applica filtro carrier
-    const matchesCarrier = carrierFilter === "all" || serviceDetails.carrier.id === carrierFilter
+    const matchesCarrier = carrierFilter === "all" || serviceDetails.carrier.id === carrierFilter;
 
     // Applica filtro service
-    const matchesService = serviceFilter === "all" || serviceDetails.id === serviceFilter
+    const matchesService = serviceFilter === "all" || serviceDetails.id === serviceFilter;
 
     // Applica filtro peso
     const matchesWeight =
@@ -142,9 +147,9 @@ export function RatesList() {
       (weightFilter === "0-1" && rate.weightMin >= 0 && rate.weightMax <= 1) ||
       (weightFilter === "1-3" && rate.weightMin >= 1 && rate.weightMax <= 3) ||
       (weightFilter === "3-5" && rate.weightMin >= 3 && rate.weightMax <= 5) ||
-      (weightFilter === "5-10" && rate.weightMin >= 5 && rate.weightMax <= 10)
+      (weightFilter === "5-10" && rate.weightMin >= 5 && rate.weightMax <= 10);
 
-    return matchesSearch && matchesCarrier && matchesService && matchesWeight
+    return matchesSearch && matchesCarrier && matchesService && matchesWeight;
   })
 
   const selectedCount = Object.values(selectedRates).filter(Boolean).length
@@ -153,7 +158,9 @@ export function RatesList() {
     const newSelected: Record<string, boolean> = {}
     if (checked) {
       filteredRates.forEach((rate) => {
-        newSelected[rate._id] = true
+        if (rate && rate._id) {
+          newSelected[rate._id] = true
+        }
       })
     }
     setSelectedRates(newSelected)
@@ -453,8 +460,12 @@ export function RatesList() {
               </TableRow>
             ) : (
               filteredRates.map((rate) => {
-                const serviceId = typeof rate.service === 'object' ? rate.service._id : rate.service
-                const serviceDetails = getServiceDetails(serviceId)
+                if (!rate || !rate._id) return null;
+                
+                const serviceId = typeof rate.service === 'object' ? rate.service._id : rate.service;
+                if (!serviceId) return null;
+                
+                const serviceDetails = getServiceDetails(serviceId);
                 
                 return (
                   <TableRow key={rate._id}>
