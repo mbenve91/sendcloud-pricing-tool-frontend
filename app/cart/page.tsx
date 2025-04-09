@@ -68,6 +68,7 @@ export default function CartPage() {
   const [validUntil, setValidUntil] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   
   // Aggiungiamo lo stato per le colonne selezionate
   const [selectedColumns, setSelectedColumns] = useState({
@@ -120,11 +121,14 @@ export default function CartPage() {
   const handleGenerateQuote = () => {
     setIsGenerating(true);
     
+    // Filtriamo solo gli elementi selezionati
+    const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id));
+    
     // Utilizziamo una funzione asincrona interna
     const generatePDF = async () => {
       try {
         // Genera il PDF (ora è asincrona)
-        await downloadQuotePDF(cartItems as Rate[], {
+        await downloadQuotePDF(selectedCartItems as Rate[], {
           language,
           accountExecutive,
           customerName,
@@ -155,6 +159,26 @@ export default function CartPage() {
     
     // Esegui la funzione asincrona
     generatePDF();
+  };
+
+  // Funzione per gestire la selezione/deselezione di un elemento
+  const handleItemSelection = (itemId: string) => {
+    const newSelectedItems = new Set(selectedItems);
+    if (newSelectedItems.has(itemId)) {
+      newSelectedItems.delete(itemId);
+    } else {
+      newSelectedItems.add(itemId);
+    }
+    setSelectedItems(newSelectedItems);
+  };
+
+  // Funzione per selezionare/deselezionare tutti gli elementi
+  const toggleSelectAll = () => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cartItems.map(item => item.id)));
+    }
   };
 
   // Funzione per gestire il cambio di stato di una colonna
@@ -237,6 +261,14 @@ export default function CartPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.size === cartItems.length}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4"
+                    />
+                  </TableHead>
                   <TableHead>Carrier</TableHead>
                   <TableHead>Service</TableHead>
                   <TableHead>Weight Range</TableHead>
@@ -252,6 +284,14 @@ export default function CartPage() {
               <TableBody>
                 {cartItems.map((item) => (
                   <TableRow key={item.id} className={item.isWeightRange ? "bg-muted/20" : ""}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.id)}
+                        onChange={() => handleItemSelection(item.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">
                         {item.isWeightRange && <span className="text-muted-foreground ml-4">└ </span>}
@@ -316,9 +356,12 @@ export default function CartPage() {
               <Button variant="destructive" onClick={clearCart}>
                 Clear Cart
               </Button>
-              <Button onClick={() => setQuoteDialogOpen(true)}>
+              <Button 
+                onClick={() => setQuoteDialogOpen(true)} 
+                disabled={selectedItems.size === 0}
+              >
                 <FileText className="mr-2 h-4 w-4" />
-                Generate Quote
+                Generate Quote ({selectedItems.size} selected)
               </Button>
             </div>
           </CardContent>
