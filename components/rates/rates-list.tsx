@@ -101,6 +101,74 @@ const EditableCell: React.FC<EditableCellProps> = ({
   );
 };
 
+interface EditableWeightRangeProps {
+  min: number;
+  max: number;
+  onChange: (min: number, max: number) => void;
+  onBlur: () => void;
+  isEditing: boolean;
+  onStartEdit: () => void;
+}
+
+const EditableWeightRange: React.FC<EditableWeightRangeProps> = ({
+  min,
+  max,
+  onChange,
+  onBlur,
+  isEditing,
+  onStartEdit
+}) => {
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          step="0.1"
+          min="0"
+          defaultValue={min}
+          onChange={(e) => {
+            const newMin = e.target.value === '' ? 0 : parseFloat(e.target.value);
+            if (!isNaN(newMin)) {
+              onChange(newMin, max);
+            }
+          }}
+          className="w-20"
+        />
+        <span>-</span>
+        <Input
+          type="number"
+          step="0.1"
+          min="0"
+          defaultValue={max}
+          onChange={(e) => {
+            const newMax = e.target.value === '' ? 0 : parseFloat(e.target.value);
+            if (!isNaN(newMax)) {
+              onChange(min, newMax);
+            }
+          }}
+          className="w-20"
+        />
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={onBlur}
+          className="h-8 w-8 p-0"
+        >
+          ✓
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div 
+      onClick={onStartEdit}
+      className="cursor-pointer hover:bg-muted/50 p-2 rounded"
+    >
+      {min} - {max} kg
+    </div>
+  );
+};
+
 export function RatesList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -122,11 +190,13 @@ export function RatesList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  const [editingCell, setEditingCell] = useState<{
+  interface EditingCell {
     rateId: string;
-    field: 'purchasePrice' | 'retailPrice';
-  } | null>(null);
-  const [editingValue, setEditingValue] = useState<number | null>(null);
+    field: 'purchasePrice' | 'retailPrice' | 'weightRange';
+  }
+
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [editingValue, setEditingValue] = useState<number | { min: number; max: number } | null>(null);
   
   // Carica i dati quando il componente viene montato
   useEffect(() => {
@@ -448,7 +518,7 @@ export function RatesList() {
   }
   
   // Funzione per gestire l'inizio dell'editing
-  const handleStartEdit = (rate: Rate, field: 'purchasePrice' | 'retailPrice') => {
+  const handleStartEdit = (rate: Rate, field: 'purchasePrice' | 'retailPrice' | 'weightRange') => {
     setEditingCell({ rateId: rate._id, field });
     setEditingValue(rate[field]);
   };
@@ -460,15 +530,21 @@ export function RatesList() {
     try {
       setLoading(true);
       
-      // Invia solo il valore modificato al database
-      const updatedValues: Partial<Rate> = {
-        [editingCell.field]: editingValue
-      };
+      let updatedValues: Partial<Rate> = {};
+      
+      if (editingCell.field === 'weightRange' && typeof editingValue === 'object') {
+        updatedValues = {
+          weightMin: editingValue.min,
+          weightMax: editingValue.max
+        };
+      } else if (typeof editingValue === 'number') {
+        updatedValues = {
+          [editingCell.field]: editingValue
+        };
+      }
 
-      // Salva nel database e ottieni la risposta aggiornata
       const updatedRate = await api.updateRate(rate._id, updatedValues);
-
-      // Aggiorna i dati localmente con i valori calcolati dal database
+      
       setRates(prevRates =>
         prevRates.map(r =>
           r._id === rate._id
@@ -477,10 +553,10 @@ export function RatesList() {
         )
       );
 
-      toast.success('Prezzo aggiornato con successo');
+      toast.success('Dati aggiornati con successo');
     } catch (err) {
-      console.error('Errore nell\'aggiornamento del prezzo:', err);
-      toast.error('Errore nell\'aggiornamento del prezzo');
+      console.error('Errore nell\'aggiornamento:', err);
+      toast.error('Errore nell\'aggiornamento dei dati');
     } finally {
       setLoading(false);
       setEditingCell(null);
@@ -658,7 +734,20 @@ export function RatesList() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {rate.weightMin} - {rate.weightMax} kg
+                      <EditableWeightRange
+                        min={rate.weightMin}
+                        max={rate.weightMax}
+                        onChange={(newMin, newMax) => {
+                          if (newMin >= newMax) {
+                            toast.error('Il peso minimo deve essere inferiore al peso massimo');
+                            return;
+                          }
+                          setEditingValue({ min: newMin, max: newMax });
+                        }}
+                        onBlur={() => handleSaveEdit(rate)}
+                        isEditing={editingCell?.rateId === rate._id && editingCell?.field === 'weightRange'}
+                        onStartEdit={() => handleStartEdit(rate, 'weightRange')}
+                      />
                     </TableCell>
                     <TableCell>
                       <EditableCell
