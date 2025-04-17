@@ -14,12 +14,15 @@ import * as api from "@/services/api"
 interface Service {
   _id: string
   name: string
+  destinationType?: 'national' | 'international' | 'both'
+  destinationCountry?: string[]
 }
 
 export default function NewRatePage() {
   const [loading, setLoading] = useState(false)
   const [services, setServices] = useState<Service[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(true)
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [formData, setFormData] = useState({
     service: "",
     weightMin: "",
@@ -103,7 +106,11 @@ export default function NewRatePage() {
                 <Label htmlFor="service">Servizio</Label>
                 <Select
                   value={formData.service}
-                  onValueChange={(value) => setFormData({ ...formData, service: value })}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, service: value });
+                    const service = services.find(s => s._id === value);
+                    setSelectedService(service || null);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleziona un servizio" />
@@ -116,6 +123,19 @@ export default function NewRatePage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedService && selectedService.destinationType === 'international' && (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <p>Servizio internazionale</p>
+                    {selectedService.destinationCountry && selectedService.destinationCountry.length > 0 ? (
+                      <div className="mt-1">
+                        <span>Paesi di destinazione: </span>
+                        <span className="font-medium">{selectedService.destinationCountry.join(', ')}</span>
+                      </div>
+                    ) : (
+                      <p className="mt-1">Nessun paese di destinazione specificato</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

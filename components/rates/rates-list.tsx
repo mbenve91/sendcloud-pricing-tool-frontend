@@ -173,6 +173,7 @@ export function RatesList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [carrierFilter, setCarrierFilter] = useState("all")
   const [serviceFilter, setServiceFilter] = useState("all")
+  const [destinationCountryFilter, setDestinationCountryFilter] = useState("all")
   const [weightFilter, setWeightFilter] = useState("all")
   const [selectedRates, setSelectedRates] = useState<Record<string, boolean>>({})
   const [bulkUpdatePriceDialogOpen, setBulkUpdatePriceDialogOpen] = useState(false)
@@ -189,6 +190,9 @@ export function RatesList() {
   const [carriers, setCarriers] = useState<Carrier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Uso un Set per tenere traccia dei paesi unici trovati nei servizi
+  const [uniqueDestinationCountries, setUniqueDestinationCountries] = useState<string[]>([])
   
   interface EditingCell {
     rateId: string;
@@ -225,6 +229,17 @@ export function RatesList() {
           throw new Error('Dati servizi non validi');
         }
         if (isMounted) setServices(servicesData);
+        
+        // Estrai paesi di destinazione unici dai servizi
+        const countries = new Set<string>();
+        servicesData.forEach(service => {
+          if (service.destinationCountry && Array.isArray(service.destinationCountry)) {
+            service.destinationCountry.forEach(country => {
+              if (country) countries.add(country);
+            });
+          }
+        });
+        if (isMounted) setUniqueDestinationCountries(Array.from(countries).sort());
         
         // Carica tutti i rates
         console.log('Caricamento tariffe...');
@@ -272,7 +287,7 @@ export function RatesList() {
   // Funzione per ottenere i dettagli di un servizio
   const getServiceDetails = (serviceId: string) => {
     const service = services.find(s => s._id === serviceId)
-    if (!service) return { id: serviceId, name: 'Sconosciuto', code: 'N/A', carrier: { id: 'unknown', name: 'Sconosciuto' } }
+    if (!service) return { id: serviceId, name: 'Sconosciuto', code: 'N/A', carrier: { id: 'unknown', name: 'Sconosciuto' }, destinationCountry: [] }
     
     const carrierId = typeof service.carrier === 'object' ? service.carrier._id : service.carrier
     const carrier = carriers.find(c => c._id === carrierId)
@@ -284,7 +299,9 @@ export function RatesList() {
       carrier: {
         id: carrierId,
         name: carrier?.name || 'Sconosciuto'
-      }
+      },
+      destinationCountry: service.destinationCountry || [],
+      destinationType: service.destinationType || 'national'
     }
   }
 
@@ -309,6 +326,12 @@ export function RatesList() {
 
     // Applica filtro service
     const matchesService = serviceFilter === "all" || serviceDetails.id === serviceFilter;
+    
+    // Applica filtro paese di destinazione
+    const matchesDestinationCountry = 
+      destinationCountryFilter === "all" || 
+      (serviceDetails.destinationCountry && 
+       serviceDetails.destinationCountry.includes(destinationCountryFilter));
 
     // Applica filtro peso
     const matchesWeight =
@@ -318,7 +341,7 @@ export function RatesList() {
       (weightFilter === "3-5" && rate.weightMin >= 3 && rate.weightMax <= 5) ||
       (weightFilter === "5-10" && rate.weightMin >= 5 && rate.weightMax <= 10);
 
-    return matchesSearch && matchesCarrier && matchesService && matchesWeight;
+    return matchesSearch && matchesCarrier && matchesService && matchesDestinationCountry && matchesWeight;
   })
 
   // Calcola gli indici per la paginazione
@@ -633,6 +656,20 @@ export function RatesList() {
               ))}
             </SelectContent>
           </Select>
+          
+          <Select value={destinationCountryFilter} onValueChange={setDestinationCountryFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtra per paese di destinazione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutti i Paesi</SelectItem>
+              {uniqueDestinationCountries.map(country => (
+                <SelectItem key={country} value={country}>
+                  {country}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <Select value={weightFilter} onValueChange={setWeightFilter}>
             <SelectTrigger className="w-[180px]">
@@ -679,6 +716,7 @@ export function RatesList() {
               </TableHead>
               <TableHead>Servizio</TableHead>
               <TableHead>Corriere</TableHead>
+              <TableHead>Paese Destinazione</TableHead>
               <TableHead>Range Peso</TableHead>
               <TableHead>Prezzo Acquisto</TableHead>
               <TableHead>Prezzo Vendita</TableHead>
@@ -691,7 +729,7 @@ export function RatesList() {
           <TableBody>
             {currentRates.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={11} className="h-24 text-center">
                   Nessun risultato trovato.
                 </TableCell>
               </TableRow>
@@ -732,6 +770,23 @@ export function RatesList() {
                           </Link>
                         </Button>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {serviceDetails.destinationType === 'international' ? (
+                        serviceDetails.destinationCountry && serviceDetails.destinationCountry.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {serviceDetails.destinationCountry.map((country, idx) => (
+                              <Badge key={idx} variant="outline">
+                                {country}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">N/D</span>
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">Nazionale</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <EditableWeightRange
