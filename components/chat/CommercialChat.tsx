@@ -139,17 +139,27 @@ const CommercialChat: FC<CommercialChatProps> = ({ className }) => {
       
       if (data.success) {
         const offer = data.data.offer;
-        setCurrentOffer({
-          id: offer._id,
-          suggestedServices: offer.offer.suggestedServices.map((service: any) => ({
-            carrier: service.carrier.name,
-            service: service.service.name,
+        
+        // Estrai i servizi suggeriti
+        const suggestedServices = offer.offer.suggestedServices.map((service: any) => {
+          // Gestisci sia il caso in cui service.service è un oggetto che una stringa
+          const serviceInfo = typeof service.service === 'object' ? service.service : { name: service.service };
+          const carrierInfo = typeof service.carrier === 'object' ? service.carrier : { name: service.carrier };
+          
+          return {
+            carrier: carrierInfo.name,
+            service: serviceInfo.name,
             originalPrice: service.originalPrice,
             discountPercentage: service.discountPercentage,
             discountedPrice: service.discountedPrice,
-            deliveryTimeMin: service.service.deliveryTimeMin,
-            deliveryTimeMax: service.service.deliveryTimeMax
-          })),
+            deliveryTimeMin: serviceInfo.deliveryTimeMin || 1,
+            deliveryTimeMax: serviceInfo.deliveryTimeMax || 3
+          };
+        });
+        
+        setCurrentOffer({
+          id: offer._id,
+          suggestedServices,
           totalSavings: offer.offer.totalSavings,
           minimumVolume: offer.offer.minimumVolume
         });
