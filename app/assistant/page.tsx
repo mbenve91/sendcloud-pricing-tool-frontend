@@ -108,17 +108,18 @@ export default function AssistantPage() {
     setIsLoading(true);
     
     try {
-      // In un'implementazione reale, qui chiameremmo l'API dell'assistente
-      // Commentato per utilizzare il mock
+      // Prepara il body della richiesta
+      const requestBody = {
+        message: inputMessage,
+        conversationId: selectedConversation === 'new' ? null : selectedConversation
+      };
+
+      console.log('Sending request with body:', requestBody);
       
-      // Decommenta questa sezione e commenta la parte di mock per utilizzare l'API reale
       const response = await fetch('/api/assistant/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: inputMessage,
-          conversationId: selectedConversation === 'new' ? null : selectedConversation
-        }),
+        body: JSON.stringify(requestBody),
       });
       
       if (!response.ok) {
@@ -143,7 +144,7 @@ export default function AssistantPage() {
         setMessages(prev => [...prev, aiMessage]);
         
         // Se è una nuova conversazione, aggiorna l'ID
-        if (selectedConversation === 'new') {
+        if (!selectedConversation || selectedConversation === 'new') {
           setSelectedConversation(data.data.conversationId);
           
           // Aggiungi la nuova conversazione alla lista
