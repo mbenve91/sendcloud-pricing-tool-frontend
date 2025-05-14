@@ -13,6 +13,11 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp?: Date;
+  metadata?: {
+    forceProgressed: boolean;
+    missingData: string[];
+    stage: string;
+  };
 }
 
 interface Conversation {
@@ -74,17 +79,9 @@ export default function AssistantPage() {
   }, [selectedConversation]);
 
   const handleStartNewConversation = () => {
-    // In un'app reale, qui creeremmo una nuova conversazione nel database
-    const newConversationId = (conversations.length + 1).toString();
-    const newConversation: Conversation = {
-      id: newConversationId,
-      title: 'Nuova conversazione',
-      updatedAt: new Date().toISOString(),
-      preview: 'Nuova conversazione iniziata...'
-    };
-    
-    setConversations([newConversation, ...conversations]);
-    setSelectedConversation(newConversationId);
+    // Segnala all'API che si tratta di una nuova conversazione
+    // L'ID reale sarà generato dal backend
+    setSelectedConversation('new');
     setMessages([
       {
         id: Date.now().toString(),
@@ -93,6 +90,7 @@ export default function AssistantPage() {
         timestamp: new Date()
       }
     ]);
+    setInputMessage('');
   };
 
   const handleSendMessage = async () => {
@@ -110,28 +108,10 @@ export default function AssistantPage() {
     setIsLoading(true);
     
     try {
-      // Simula una risposta API (in un'app reale, qui chiameremmo l'API dell'assistente)
-      setTimeout(() => {
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: "Grazie per le informazioni. Sto elaborando un'offerta per il tuo cliente che spedisce 200 pacchi al mese in Italia e 20 negli Stati Uniti. Posso chiederti quale sia il peso medio dei pacchi per calcolare la tariffa più adatta?",
-          isUser: false,
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, aiMessage]);
-        setIsLoading(false);
-        
-        // Aggiorna anche la preview nella lista conversazioni
-        setConversations(prev => prev.map(conv => 
-          conv.id === selectedConversation 
-            ? {...conv, preview: inputMessage, title: inputMessage.substring(0, 30) + '...'}
-            : conv
-        ));
-      }, 1500);
+      // In un'implementazione reale, qui chiameremmo l'API dell'assistente
+      // Commentato per utilizzare il mock
       
-      // Implementazione reale commentata
-      /*
+      // Decommenta questa sezione e commenta la parte di mock per utilizzare l'API reale
       const response = await fetch('/api/assistant/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,6 +121,10 @@ export default function AssistantPage() {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error(`Errore API: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.success) {
@@ -148,7 +132,12 @@ export default function AssistantPage() {
           id: (Date.now() + 1).toString(),
           text: data.data.response,
           isUser: false,
-          timestamp: new Date()
+          timestamp: new Date(),
+          metadata: {
+            forceProgressed: data.data.forceProgressed,
+            missingData: data.data.missingData,
+            stage: data.data.stage
+          }
         };
         
         setMessages(prev => [...prev, aiMessage]);
@@ -185,6 +174,27 @@ export default function AssistantPage() {
         
         setMessages(prev => [...prev, errorMessage]);
       }
+      
+      // Rimuovi il mock quando abiliti l'API reale
+      /*
+      setTimeout(() => {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: "Grazie per le informazioni. Sto elaborando un'offerta per il tuo cliente che spedisce 200 pacchi al mese in Italia e 20 negli Stati Uniti. Posso chiederti quale sia il peso medio dei pacchi per calcolare la tariffa più adatta?",
+          isUser: false,
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, aiMessage]);
+        setIsLoading(false);
+        
+        // Aggiorna anche la preview nella lista conversazioni
+        setConversations(prev => prev.map(conv => 
+          conv.id === selectedConversation 
+            ? {...conv, preview: inputMessage, title: inputMessage.substring(0, 30) + '...'}
+            : conv
+        ));
+      }, 1500);
       */
     } catch (error) {
       console.error('Error sending message:', error);
@@ -316,11 +326,34 @@ export default function AssistantPage() {
         {/* Area messaggi */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map(msg => (
-            <ChatMessage
-              key={msg.id}
-              message={msg.text}
-              isUser={msg.isUser}
-            />
+            <div key={msg.id} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
+              <div className={`rounded-lg p-3 max-w-[80%] ${
+                msg.isUser 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-muted'
+              }`}>
+                {/* Se il messaggio ha il flag forceProgressed e non è dell'utente, mostriamo un badge */}
+                {!msg.isUser && msg.metadata?.forceProgressed && (
+                  <div className="mb-2">
+                    <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full mr-1">
+                      Offerta Indicativa
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Basata su dati parziali
+                    </span>
+                  </div>
+                )}
+                
+                <p className="whitespace-pre-wrap text-sm">{msg.text}</p>
+                
+                {/* Se il messaggio non è dell'utente e ha dati mancanti, mostriamo un suggerimento */}
+                {!msg.isUser && msg.metadata?.missingData && msg.metadata.missingData.length > 0 && msg.metadata.stage === 'offer_generation' && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    <p className="italic">Fornisci maggiori dettagli per ottenere un'offerta più accurata.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ))}
           {isLoading && <TypingIndicator />}
         </div>
